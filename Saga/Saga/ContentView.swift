@@ -15,6 +15,12 @@ struct ContentView: View {
         sortDescriptors: [NSSortDescriptor(keyPath: \Book.title, ascending: true)],
         animation: .default)
     private var books: FetchedResults<Book>
+    
+    private func syncFromContentful() {
+        PersistenceController.shared.syncWithContentful { result in
+            // Optionally show user feedback here
+        }
+    }
 
     var body: some View {
         NavigationView {
@@ -37,6 +43,11 @@ struct ContentView: View {
                 ToolbarItem {
                     Button(action: addBook) {
                         Label("Add Item", systemImage: "plus")
+                    }
+                }
+                ToolbarItem {
+                    Button(action: syncFromContentful) {
+                        Label("Sync", systemImage: "arrow.clockwise")
                     }
                 }
             }
@@ -72,8 +83,4 @@ struct ContentView: View {
             }
         }
     }
-}
-
-#Preview {
-    ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }

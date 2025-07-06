@@ -52,8 +52,4 @@ class Book: NSManagedObject, EntryPersistable, Identifiable {
             "reviewDescription": "reviewDescription"
         ]
     }
-    
-    @nonobjc public class func fetchRequest() -> NSFetchRequest<Book> {
-        return NSFetchRequest<Book>(entityName: "Book")
-    }
 }

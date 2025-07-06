@@ -12,11 +12,25 @@
 
 /* Begin PBXFileReference section */
 		7589F7FF2E1B2299005C31D9 /* Saga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Saga.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7589F8282E1B411A005C31D9 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7589F8252E1B3F90005C31D9 /* Exceptions for "Saga" folder in "Saga" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7589F7FE2E1B2299005C31D9 /* Saga */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7589F8012E1B2299005C31D9 /* Saga */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7589F8252E1B3F90005C31D9 /* Exceptions for "Saga" folder in "Saga" target */,
+			);
 			path = Saga;
 			sourceTree = "<group>";
 		};
@@ -37,6 +51,7 @@
 		7589F7F62E1B2299005C31D9 = {
 			isa = PBXGroup;
 			children = (
+				7589F8282E1B411A005C31D9 /* Config.xcconfig */,
 				7589F8012E1B2299005C31D9 /* Saga */,
 				7589F8002E1B2299005C31D9 /* Products */,
 			);
@@ -252,6 +267,7 @@
 		};
 		7589F8112E1B229B005C31D9 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7589F8282E1B411A005C31D9 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -262,6 +278,8 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Saga/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -291,6 +309,7 @@
 		};
 		7589F8122E1B229B005C31D9 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7589F8282E1B411A005C31D9 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -301,6 +320,8 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Saga/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
