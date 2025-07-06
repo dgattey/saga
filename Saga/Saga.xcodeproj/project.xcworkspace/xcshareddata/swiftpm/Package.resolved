@@ -1,0 +1,24 @@
+{
+  "originHash" : "fd62d10229c0b485d76305b04330cdfc0ccf7f98e230e553925348ec4803f170",
+  "pins" : [
+    {
+      "identity" : "contentful-persistence.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/contentful/contentful-persistence.swift",
+      "state" : {
+        "revision" : "20bc48ec0e0f959d69239e09a2a61f68b8841e4d",
+        "version" : "0.18.1"
+      }
+    },
+    {
+      "identity" : "contentful.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/contentful/contentful.swift",
+      "state" : {
+        "revision" : "a8124b0c0f151d6aff40fbb7663632dbc0b279e4",
+        "version" : "5.5.13"
+      }
+    }
+  ],
+  "version" : 3
+}

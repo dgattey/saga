@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 7589F8172E1B29E5005C31D9 /* ContentfulPersistence */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		7589F7FF2E1B2299005C31D9 /* Saga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Saga.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = Saga;
 			packageProductDependencies = (
+				7589F8172E1B29E5005C31D9 /* ContentfulPersistence */,
 			);
 			productName = Saga;
 			productReference = 7589F7FF2E1B2299005C31D9 /* Saga.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = 7589F7F62E1B2299005C31D9;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7589F8002E1B2299005C31D9 /* Products */;
 			projectDirPath = "";
@@ -341,6 +350,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/contentful/contentful-persistence.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.18.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7589F8172E1B29E5005C31D9 /* ContentfulPersistence */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */;
+			productName = ContentfulPersistence;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7589F7F72E1B2299005C31D9 /* Project object */;
 }
