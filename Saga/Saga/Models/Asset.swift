@@ -24,4 +24,9 @@ class Asset: NSManagedObject, AssetPersistable, Identifiable {
     @NSManaged var localeCode: String?
     @NSManaged var updatedAt: Date?
     @NSManaged var createdAt: Date?
+    
+    var assetURL: URL? {
+        guard let urlString = urlString else { return nil }
+        return URL(string: urlString)
+    }
 }
