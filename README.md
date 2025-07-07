@@ -20,3 +20,6 @@ To set up:
 CONTENTFUL_SPACE_ID = your_space_id
 CONTENTFUL_ACCESS_TOKEN = your_access_token
 ```
+
+## Adding new models
+Don't forget to add to `PersistenceModel` after adding a core data model + the model file (and ensure there aren't auto-gen files from the core model).

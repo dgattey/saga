@@ -9,6 +9,7 @@ import CoreData
 import Contentful
 import ContentfulPersistence
 
+/// Handles syncing with Contentful – register new entry types in `PersistenceModel.swift` and ensure your `Config.xcconfig` is set up properly via directions in readme
 struct PersistenceController {
     static let shared = PersistenceController()
 
@@ -28,23 +29,16 @@ struct PersistenceController {
         container.viewContext.automaticallyMergesChangesFromParent = true
 
         // --- Contentful setup ---
-        let spaceId = Bundle.main.object(forInfoDictionaryKey: "ContentfulSpaceId") as? String ?? ""
-        let accessToken = Bundle.main.object(forInfoDictionaryKey: "ContentfulAccessToken") as? String ?? ""
         let client = Client(
-            spaceId: spaceId,
+            spaceId: BundleKey.spaceId.bundleValue,
             environmentId: "master",
-            accessToken: accessToken
-        )
-        let persistenceModel = PersistenceModel(
-            spaceType: SyncSpace.self,
-            assetType: Asset.self,
-            entryTypes: [Book.self]
+            accessToken: BundleKey.accessToken.bundleValue
         )
         syncManager = SynchronizationManager(
             client: client,
             localizationScheme: .default,
             persistenceStore: CoreDataStore(context: container.viewContext),
-            persistenceModel: persistenceModel
+            persistenceModel: PersistenceModel.shared
         )
     }
 
