@@ -12,11 +12,14 @@ struct SagaApp: App {
     let persistenceController = PersistenceController.shared
     
     init() {
+        // Register our transformers
+        RichTextDocumentTransformer.register()
+        
         // Sync with Contentful at launch
         persistenceController.syncWithContentful { result in
             switch result {
             case .success:
-                print("Synced with Contentful on startup!")
+                print("[Saga] Startup sync successful!")
             case .failure(let error):
                 print("Error syncing with Contentful: \(error)")
             }

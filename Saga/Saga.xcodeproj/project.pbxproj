@@ -8,11 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 7589F8172E1B29E5005C31D9 /* ContentfulPersistence */; };
+		7589F82D2E1B4203005C31D9 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 7589F82C2E1B4203005C31D9 /* README.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		7589F7FF2E1B2299005C31D9 /* Saga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Saga.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7589F8282E1B411A005C31D9 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		7589F82C2E1B4203005C31D9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -51,6 +53,7 @@
 		7589F7F62E1B2299005C31D9 = {
 			isa = PBXGroup;
 			children = (
+				7589F82C2E1B4203005C31D9 /* README.md */,
 				7589F8282E1B411A005C31D9 /* Config.xcconfig */,
 				7589F8012E1B2299005C31D9 /* Saga */,
 				7589F8002E1B2299005C31D9 /* Products */,
@@ -133,6 +136,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7589F82D2E1B4203005C31D9 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -21,13 +21,14 @@ class Book: NSManagedObject, EntryPersistable, Identifiable {
     @NSManaged var createdAt: Date?
 
     @NSManaged var title: String?
-//    @NSManaged var isbn: NSNumber?           // 13-digit ISBN13
-//    @NSManaged var author: String?
-//    @NSManaged var coverImageId: String?     // Asset ID for cover image
-//    @NSManaged var readDateStarted: Date?
-//    @NSManaged var readDateFinished: Date?
-//    @NSManaged var rating: NSNumber?
-//    @NSManaged var reviewDescription: String? // Rich text (serialized as needed)
+    @NSManaged var isbn: NSNumber?           // 13-digit ISBN13
+    @NSManaged var author: String?
+    @NSManaged var coverImage: Asset?     // Asset ID for cover image
+    @NSManaged var readDateStarted: Date?
+    @NSManaged var readDateFinished: Date?
+    @NSManaged var rating: NSNumber?
+    
+    @NSManaged var reviewDescription: RichTextDocument?
     
     /*
      For local testing, we need a title alone initializer
@@ -45,7 +46,7 @@ class Book: NSManagedObject, EntryPersistable, Identifiable {
             "title": "title",
             "isbn": "isbn",
             "author": "author",
-            "coverImage": "coverImageId",
+            "coverImage": "coverImage",
             "readDateStarted": "readDateStarted",
             "readDateFinished": "readDateFinished",
             "rating": "rating",
