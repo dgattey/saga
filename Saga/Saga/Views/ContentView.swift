@@ -12,13 +12,20 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Book.title, ascending: true)],
+        sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateFinished, ascending: false)],
         animation: .default)
     private var books: FetchedResults<Book>
     
     private func syncFromContentful() {
-        PersistenceController.shared.syncWithContentful { result in
-            // Optionally show user feedback here
+        withAnimation {
+            PersistenceController.shared.syncWithContentful { result in
+                switch result {
+                case .success:
+                    print("Reset of persistence successful")
+                case .failure(let error):
+                    print("Error resetting persistence: \(error)")
+                }
+            }
         }
     }
 

@@ -14,7 +14,8 @@ struct PersistenceController {
     static let shared = PersistenceController()
 
     let container: NSPersistentContainer
-    var syncManager: SynchronizationManager?
+    private var syncManager: SynchronizationManager?
+    private var client: Client
 
     init(inMemory: Bool = false) {
         container = NSPersistentContainer(name: "Saga")
@@ -29,7 +30,7 @@ struct PersistenceController {
         container.viewContext.automaticallyMergesChangesFromParent = true
 
         // --- Contentful setup ---
-        let client = Client(
+        client = Client(
             spaceId: BundleKey.spaceId.bundleValue,
             environmentId: "master",
             accessToken: BundleKey.accessToken.bundleValue
@@ -50,6 +51,30 @@ struct PersistenceController {
                 completion(.success(()))
             case .failure(let error):
                 print("Contentful sync failed: \(error)")
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    /// Resets all local data and resyncs from server, if needed
+    func resetAndSyncWithContentful(completion: @escaping (Result<Void, Error>) -> Void) {
+        let context = container.viewContext
+        context.perform {
+            do {
+                guard let entities = context.persistentStoreCoordinator?.managedObjectModel.entities else {
+                    completion(.failure(NSError(domain: "No entities", code: 1)))
+                    return
+                }
+                print(entities)
+                for entity in entities {
+                    guard let name = entity.name else { continue }
+                    let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: name)
+                    let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+                    try context.execute(deleteRequest)
+                }
+                try context.save()
+                syncWithContentful(completion: completion)
+            } catch {
                 completion(.failure(error))
             }
         }
