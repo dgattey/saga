@@ -33,7 +33,9 @@ struct ContentView: View {
         NavigationView {
             List {
                 ForEach(books) { book in
-                    BookView(book: book)
+                    HoverHighlight {
+                        BookView(book: book)
+                    }
                 }
                 .onDelete(perform: deleteBooks)
             }
