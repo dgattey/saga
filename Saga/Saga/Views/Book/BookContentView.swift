@@ -14,7 +14,7 @@ struct BookContentView: View {
         book.title ?? "Untitled book"
     }
     var author: String {
-        book.author ?? "Unknown Author"
+        book.author ?? "Unknown author"
     }
     
     var body: some View {

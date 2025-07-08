@@ -15,12 +15,14 @@ struct HoverHighlight<Content: View>: View {
     var body: some View {
         content()
             .listRowBackground(Color.clear)
+            .frame(maxWidth: .infinity, alignment: .leading)
+#if os(macOS)
             .listStyle(.plain)
             .listRowInsets(EdgeInsets(top: 0, leading: -6, bottom: 0, trailing: -6))
             .padding(4)
-            .frame(maxWidth: .infinity, alignment: .leading)
             .background(isHovered ? Color.accentColor.opacity(0.15) : Color.clear)
             .cornerRadius(6)
             .modifier(HoverModifier(isHovered: $isHovered))
+#endif
     }
 }

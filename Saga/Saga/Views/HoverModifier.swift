@@ -16,7 +16,9 @@ struct HoverModifier: ViewModifier {
         content
             .pointerStyle(isHovered ? .link : .default)
             .onHover { hovering in
-                isHovered = hovering
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isHovered = hovering
+                }
             }
         #elseif os(iOS)
         if #available(iOS 13.4, *) {
