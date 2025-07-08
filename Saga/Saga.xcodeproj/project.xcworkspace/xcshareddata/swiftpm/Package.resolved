@@ -1,5 +1,5 @@
 {
-  "originHash" : "1ba70e42fd354726e266793f2af5d35b3786e26d7bb867bd057286cd4832029f",
+  "originHash" : "19750d44a51c20fa0743ad78d8f78e83071af900a1e3a3bf7f48b238d4b61692",
   "pins" : [
     {
       "identity" : "contentful-persistence.swift",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "a8124b0c0f151d6aff40fbb7663632dbc0b279e4",
         "version" : "5.5.13"
+      }
+    },
+    {
+      "identity" : "ifrit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ukushu/Ifrit",
+      "state" : {
+        "revision" : "9b9556e14cee24ad16b19d0eb099283cf79a7d94",
+        "version" : "3.0.0"
       }
     },
     {

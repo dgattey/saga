@@ -10,68 +10,34 @@ import CoreData
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateFinished, ascending: false)],
-        animation: .default)
-    private var books: FetchedResults<Book>
     
-    private func syncFromContentful() {
-        withAnimation {
-            PersistenceController.shared.syncWithContentful { result in
-                switch result {
-                case .success:
-                    print("Reset of persistence successful")
-                case .failure(let error):
-                    print("Error resetting persistence: \(error)")
-                }
-            }
-        }
-    }
+    @StateObject private var viewModel = BooksViewModel()
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
+        animation: .default) private var books: FetchedResults<Book>
 
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(books) { book in
-                    HoverHighlight {
-                        BookView(book: book)
+        ScrollViewReader { proxy in
+            NavigationView {
+                BooksListView(books: $viewModel.filteredBooks, onDelete: deleteBooks)
+                .searchable(text: $viewModel.searchText)
+                .onAppear { viewModel.performSearch(with: books) }
+                .onChange(of: Array(books)) {
+                    viewModel.performSearch(with: books)
+                }
+                .onChange(of: viewModel.searchText) {
+                    viewModel.performSearch(with: books)
+                }
+                .onChange(of: viewModel.filteredBooks) {
+                    if let firstBook = viewModel.filteredBooks.first {
+                        proxy.scrollTo(firstBook.id, anchor: .top)
                     }
                 }
-                .onDelete(perform: deleteBooks)
+                .toolbar {
+                    ContentViewToolbar(add: addBook, sync: syncFromContentful)
+                }
+                EmptyContentView()
             }
-            .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addBook) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-                ToolbarItem {
-                    Button(action: syncFromContentful) {
-                        Label("Sync", systemImage: "arrow.clockwise")
-                    }
-                }
-            }
-            emptyState
-        }
-    }
-    
-    private var emptyState: some View {
-        VStack(alignment: .center, spacing: 16) {
-            Image(systemName: "list.bullet.circle.fill")
-                .resizable()
-                .frame(width: 64, height: 64)
-                .font(.largeTitle)
-                .foregroundStyle(Color.accentColor)
-                .symbolRenderingMode(.hierarchical)
-                .transition(.symbolEffect(.appear.byLayer))
-            
-            Text("Select an item")
-                .font(.title2)
         }
     }
 
@@ -96,6 +62,19 @@ struct ContentView: View {
             } catch {
                 let nsError = error as NSError
                 fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            }
+        }
+    }
+    
+    private func syncFromContentful() {
+        withAnimation {
+            PersistenceController.shared.syncWithContentful { result in
+                switch result {
+                case .success:
+                    print("Reset of persistence successful")
+                case .failure(let error):
+                    print("Error resetting persistence: \(error)")
+                }
             }
         }
     }

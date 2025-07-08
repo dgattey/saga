@@ -7,10 +7,26 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7558CB4C2E1CEF2F00D92477 /* Ifrit in Frameworks */ = {isa = PBXBuildFile; productRef = 7558CB4B2E1CEF2F00D92477 /* Ifrit */; };
+		7558CB4D2E1CEF2F00D92477 /* Ifrit in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 7558CB4B2E1CEF2F00D92477 /* Ifrit */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 7589F8172E1B29E5005C31D9 /* ContentfulPersistence */; };
 		7589F82D2E1B4203005C31D9 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 7589F82C2E1B4203005C31D9 /* README.md */; };
 		7589F8442E1B5AC7005C31D9 /* CachedAsyncImage in Frameworks */ = {isa = PBXBuildFile; productRef = 7589F8432E1B5AC7005C31D9 /* CachedAsyncImage */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7558CB4E2E1CEF2F00D92477 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				7558CB4D2E1CEF2F00D92477 /* Ifrit in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		7589F7FF2E1B2299005C31D9 /* Saga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Saga.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -44,6 +60,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7558CB4C2E1CEF2F00D92477 /* Ifrit in Frameworks */,
 				7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */,
 				7589F8442E1B5AC7005C31D9 /* CachedAsyncImage in Frameworks */,
 			);
@@ -52,12 +69,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		7558CB4A2E1CEF2F00D92477 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		7589F7F62E1B2299005C31D9 = {
 			isa = PBXGroup;
 			children = (
 				7589F82C2E1B4203005C31D9 /* README.md */,
 				7589F8282E1B411A005C31D9 /* Config.xcconfig */,
 				7589F8012E1B2299005C31D9 /* Saga */,
+				7558CB4A2E1CEF2F00D92477 /* Frameworks */,
 				7589F8002E1B2299005C31D9 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -80,6 +105,7 @@
 				7589F7FB2E1B2299005C31D9 /* Sources */,
 				7589F7FC2E1B2299005C31D9 /* Frameworks */,
 				7589F7FD2E1B2299005C31D9 /* Resources */,
+				7558CB4E2E1CEF2F00D92477 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -92,6 +118,7 @@
 			packageProductDependencies = (
 				7589F8172E1B29E5005C31D9 /* ContentfulPersistence */,
 				7589F8432E1B5AC7005C31D9 /* CachedAsyncImage */,
+				7558CB4B2E1CEF2F00D92477 /* Ifrit */,
 			);
 			productName = Saga;
 			productReference = 7589F7FF2E1B2299005C31D9 /* Saga.app */;
@@ -124,6 +151,7 @@
 			packageReferences = (
 				7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */,
 				7589F8422E1B5AC7005C31D9 /* XCRemoteSwiftPackageReference "swiftui-cached-async-image" */,
+				7558CB442E1CE7E300D92477 /* XCRemoteSwiftPackageReference "Ifrit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7589F8002E1B2299005C31D9 /* Products */;
@@ -381,6 +409,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		7558CB442E1CE7E300D92477 /* XCRemoteSwiftPackageReference "Ifrit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ukushu/Ifrit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
 		7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/contentful/contentful-persistence.swift";
@@ -400,6 +436,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		7558CB4B2E1CEF2F00D92477 /* Ifrit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7558CB442E1CE7E300D92477 /* XCRemoteSwiftPackageReference "Ifrit" */;
+			productName = Ifrit;
+		};
 		7589F8172E1B29E5005C31D9 /* ContentfulPersistence */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */;
