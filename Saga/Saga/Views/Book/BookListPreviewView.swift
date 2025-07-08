@@ -13,8 +13,8 @@ struct BookListPreviewView: View {
     
     var body: some View {
         HStack(spacing: 8) {
-            AssetImageView(asset: book.coverImage)
-                .frame(width: 48, height: 64, alignment: .center)
+            BookCoverImageView(book: book)
+                .frame(height: 64, alignment: .center)
             VStack(alignment: .leading, spacing: 4) {
                 Text(book.title ?? book.id)
                     .font(.headline)
@@ -22,6 +22,7 @@ struct BookListPreviewView: View {
                     Text(author)
                         .font(.subheadline)
                 }
+                BookStatusView(book: book)
             }
         }
         .padding(.vertical, 4)

@@ -18,9 +18,9 @@ struct BookContentView: View {
     }
     
     var body: some View {
-        VStack {
-            AssetImageView(asset: book.coverImage)
-                .frame(width: 256, height: 256, alignment: .center)
+        VStack(spacing: 16) {
+            BookCoverImageView(book: book)
+                .frame(height: 256, alignment: .center)
             titleView
             authorView
         }
