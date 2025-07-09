@@ -26,7 +26,7 @@ struct ContentViewToolbar: ToolbarContent {
             Button(action: {
                 Task {
                     do {
-                        try await PersistenceController.shared.resetAndSyncWithApi()
+                        try await PersistenceController.shared.syncWithApi()
                     } catch {
                         print("Error resetting persistence: \(error)")
                     }
