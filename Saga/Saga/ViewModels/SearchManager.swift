@@ -12,7 +12,7 @@ struct SearchManager {
     
     static let shared = SearchManager()
     
-    private let fuse = Fuse(threshold: 0.4, tokenize: true)
+    private let fuse = Fuse(distance: 20, threshold: 0.3, tokenize: true)
     
     private init() {}
     
