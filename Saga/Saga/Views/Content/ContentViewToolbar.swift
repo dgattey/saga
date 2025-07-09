@@ -10,7 +10,6 @@ import SwiftUI
 /// The toolbar for the content view
 struct ContentViewToolbar: ToolbarContent {
     let add: () -> Void
-    let sync: () -> Void
 
     var body: some ToolbarContent {
 #if os(iOS)
@@ -24,7 +23,15 @@ struct ContentViewToolbar: ToolbarContent {
             }
         }
         ToolbarItem {
-            Button(action: sync) {
+            Button(action: {
+                Task {
+                    do {
+                        try await PersistenceController.shared.resetAndSyncWithApi()
+                    } catch {
+                        print("Error resetting persistence: \(error)")
+                    }
+                }
+            }) {
                 Label("Sync", systemImage: "arrow.clockwise")
             }
         }

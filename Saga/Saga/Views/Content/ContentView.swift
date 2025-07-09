@@ -34,7 +34,7 @@ struct ContentView: View {
                     }
                 }
                 .toolbar {
-                    ContentViewToolbar(add: addBook, sync: syncFromContentful)
+                    ContentViewToolbar(add: addBook)
                 }
                 EmptyContentView()
             }
@@ -62,19 +62,6 @@ struct ContentView: View {
             } catch {
                 let nsError = error as NSError
                 fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
-    }
-    
-    private func syncFromContentful() {
-        withAnimation {
-            PersistenceController.shared.syncWithContentful { result in
-                switch result {
-                case .success:
-                    print("Reset of persistence successful")
-                case .failure(let error):
-                    print("Error resetting persistence: \(error)")
-                }
             }
         }
     }
