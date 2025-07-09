@@ -13,15 +13,15 @@ import ContentfulPersistence
 struct PersistenceController {
     static let shared = PersistenceController()
 
-    let container: NSPersistentContainer
-    private var syncManager: SynchronizationManager?
+    private let container: NSPersistentContainer
+    private var syncManager: SynchronizationManager
     private var client: Client
+    var viewContext: NSManagedObjectContext {
+        return container.viewContext
+    }
 
-    init(inMemory: Bool = false) {
+    init() {
         container = NSPersistentContainer(name: "Saga")
-        if inMemory {
-            container.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
-        }
         container.loadPersistentStores { (storeDescription, error) in
             if let error = error as NSError? {
                 fatalError("Unresolved error \(error), \(error.userInfo)")
@@ -43,40 +43,38 @@ struct PersistenceController {
         )
     }
 
-    func syncWithContentful(completion: @escaping (Result<Void, Error>) -> Void) {
-        syncManager?.sync { result in
-            switch result {
-            case .success:
-                print("Contentful sync successful")
-                completion(.success(()))
-            case .failure(let error):
-                print("Contentful sync failed: \(error)")
-                completion(.failure(error))
+    /// Actually executes a sync with the Contentful API
+    func syncWithApi() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            syncManager.sync { result in
+                switch result {
+                case .success:
+                    print("Contentful sync successful")
+                    continuation.resume()
+                case .failure(let error):
+                    print("Contentful sync failed: \(error)")
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }
     
     /// Resets all local data and resyncs from server, if needed
-    func resetAndSyncWithContentful(completion: @escaping (Result<Void, Error>) -> Void) {
-        let context = container.viewContext
-        context.perform {
-            do {
-                guard let entities = context.persistentStoreCoordinator?.managedObjectModel.entities else {
-                    completion(.failure(NSError(domain: "No entities", code: 1)))
-                    return
-                }
-                print(entities)
-                for entity in entities {
-                    guard let name = entity.name else { continue }
-                    let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: name)
-                    let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-                    try context.execute(deleteRequest)
-                }
-                try context.save()
-                syncWithContentful(completion: completion)
-            } catch {
-                completion(.failure(error))
-            }
+    func resetAndSyncWithApi() async throws {
+        let viewContext = container.viewContext
+        let entityNames = container.managedObjectModel.entities.compactMap { $0.name }
+        print("Found \(entityNames.count) entities: \(entityNames.joined(separator: ", ")) ")
+        print("Erasing all entities...")
+        
+        for entityName in entityNames {
+            let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+            let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+            deleteRequest.resultType = .resultTypeObjectIDs
+            let result = try viewContext.execute(deleteRequest) as? NSBatchDeleteResult
+            let changes: [AnyHashable: Any] = [NSDeletedObjectsKey: result?.result as? [NSManagedObjectID] ?? []]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [viewContext])
         }
+        try? viewContext.save()
+        try await syncWithApi()
     }
 }

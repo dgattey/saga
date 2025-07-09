@@ -16,12 +16,11 @@ struct SagaApp: App {
         RichTextDocumentTransformer.register()
         
         // Sync with Contentful at launch
-        persistenceController.syncWithContentful { result in
-            switch result {
-            case .success:
-                print("[Saga] Startup sync successful!")
-            case .failure(let error):
-                print("Error syncing with Contentful: \(error)")
+        Task {
+            do {
+                try await PersistenceController.shared.syncWithApi()
+            } catch {
+                print("Error doing initial sync: \(error)")
             }
         }
     }
@@ -29,7 +28,10 @@ struct SagaApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .environment(\.managedObjectContext, persistenceController.viewContext)
+        }
+        Settings {
+            SettingsView()
         }
     }
 }
