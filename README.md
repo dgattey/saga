@@ -23,3 +23,20 @@ CONTENTFUL_ACCESS_TOKEN = your_access_token
 
 ## Adding new models
 Don't forget to add to `PersistenceModel` after adding a core data model + the model file (and ensure there aren't auto-gen files from the core model).
+
+## TODO
+- [x] Connection to Contentful + sync persistence
+- [x] Local persistence with Core Data
+- [] full data reset via settings
+- [] reading more information about books like rich text
+- [] move search into sidebar
+- [] allow creating data
+- [] supporting video games, movies, tv shows
+- [] supporting a "what do I watch/play/read" feature
+
+### Later
+- [] supporting restaurants, trips, live shows
+- [] logging how I've spent my time per month (reorg of data)
+- [] arbitrary lists
+- [] shareable lists (create a deep link to my website?)
+
