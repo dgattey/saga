@@ -19,7 +19,9 @@ struct ContentView: View {
     var body: some View {
         ScrollViewReader { proxy in
             NavigationView {
-                BooksListView(books: $viewModel.filteredBooks, onDelete: deleteBooks)
+                BooksListView(books: $viewModel.filteredBooks,
+                              onDelete: deleteBooks,
+                              onFileDrop: handleCsvFileDrop)
                 .searchable(text: $viewModel.searchText)
                 .onAppear { viewModel.performSearch(with: books) }
                 .onChange(of: Array(books)) {
@@ -34,22 +36,24 @@ struct ContentView: View {
                     }
                 }
                 .toolbar {
-                    ContentViewToolbar(add: addBook)
+                    ContentViewToolbar()
                 }
                 EmptyContentView()
             }
         }
     }
-
-    private func addBook() {
-        withAnimation {
-            _ = Book(context: viewContext, title: "Book \(UUID().uuidString)")
-            do {
-                try viewContext.save()
-            } catch {
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+    
+    /// Discard all but the csv files, and parse them
+    private func handleCsvFileDrop(_ fileUrls: [URL]) async {
+        do {
+            for fileUrl in fileUrls {
+                if !fileUrl.pathExtension.lowercased().contains("csv") {
+                    continue
+                }
+                try await BookCSVParser.parseCSV(into: viewContext, from: fileUrl)
             }
+        } catch {
+            print("CSV file parse failed with error: \(error)")
         }
     }
 

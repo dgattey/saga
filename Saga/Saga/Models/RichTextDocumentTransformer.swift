@@ -8,9 +8,6 @@
 import Foundation
 import Contentful
 
-import Foundation
-import Contentful
-
 @objc(RichTextDocumentTransformer)
 final class RichTextDocumentTransformer: ValueTransformer {
     override class func transformedValueClass() -> AnyClass { NSData.self }
@@ -32,4 +29,12 @@ final class RichTextDocumentTransformer: ValueTransformer {
 
 extension NSValueTransformerName {
     static let richTextDocumentTransformer = NSValueTransformerName("RichTextDocumentTransformer")
+}
+
+extension RichTextDocument {
+    convenience init(fromPlainText text: String) {
+        let textNode = Text(value: text, marks: [])
+        let paragraphNode = Paragraph(nodeType: .paragraph, content: [textNode])
+        self.init(content: [paragraphNode])
+    }
 }

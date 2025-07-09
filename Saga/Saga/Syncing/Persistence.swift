@@ -13,12 +13,9 @@ import ContentfulPersistence
 struct PersistenceController {
     static let shared = PersistenceController()
 
-    private let container: NSPersistentContainer
+    let container: NSPersistentContainer
     private var syncManager: SynchronizationManager
     private var client: Client
-    var viewContext: NSManagedObjectContext {
-        return container.viewContext
-    }
 
     init() {
         container = NSPersistentContainer(name: "Saga")
@@ -38,7 +35,7 @@ struct PersistenceController {
         syncManager = SynchronizationManager(
             client: client,
             localizationScheme: .default,
-            persistenceStore: CoreDataStore(context: container.viewContext),
+            persistenceStore: CoreDataStore(context: container.newBackgroundContext()),
             persistenceModel: PersistenceModel.shared
         )
     }
@@ -61,20 +58,20 @@ struct PersistenceController {
     
     /// Resets all local data and resyncs from server, if needed
     func resetAndSyncWithApi() async throws {
-        let viewContext = container.viewContext
         let entityNames = container.managedObjectModel.entities.compactMap { $0.name }
         print("Found \(entityNames.count) entities: \(entityNames.joined(separator: ", ")) ")
-        print("Erasing all entities...")
         
         for entityName in entityNames {
             let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
             deleteRequest.resultType = .resultTypeObjectIDs
-            let result = try viewContext.execute(deleteRequest) as? NSBatchDeleteResult
-            let changes: [AnyHashable: Any] = [NSDeletedObjectsKey: result?.result as? [NSManagedObjectID] ?? []]
-            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [viewContext])
+            try await container.performBackgroundTask { context in
+                let result = try context.execute(deleteRequest) as? NSBatchDeleteResult
+                let changes: [AnyHashable: Any] = [NSDeletedObjectsKey: result?.result as? [NSManagedObjectID] ?? []]
+                NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [container.viewContext])
+            }
         }
-        try? viewContext.save()
+        print("Erased all entities")
         try await syncWithApi()
     }
 }

@@ -10,13 +10,16 @@ import SwiftUI
 struct BooksListView: View {
     @Binding var books: [Book]
     let onDelete: (IndexSet) -> Void
+    let onFileDrop: ([URL]) async -> Void
 
     var body: some View {
-        List {
-            ForEach(books, id: \.id) { book in
-                BookView(book: book)
+        FileDropZoneContainer(onDrop: onFileDrop) {
+            List {
+                ForEach(books, id: \.id) { book in
+                    BookView(book: book)
+                }
+                .onDelete(perform: onDelete)
             }
-            .onDelete(perform: onDelete)
         }
         .navigationTitle("All books")
     }

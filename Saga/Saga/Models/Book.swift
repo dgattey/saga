@@ -29,15 +29,32 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     @NSManaged var rating: NSNumber?
     @NSManaged var reviewDescription: RichTextDocument?
     
-    /*
-     For local testing, we need a title alone initializer
-     */
-    convenience init(context: NSManagedObjectContext, title: String) {
+    /// For local creation of book objects
+    convenience init(
+        context: NSManagedObjectContext,
+        title: String?,
+        author: String?,
+        isbn: String?,
+        readDateStarted: Date?,
+        readDateFinished: Date?,
+        rating: Int?,
+        reviewDescription: RichTextDocument?
+    ) {
         self.init(context: context)
         self.id = UUID().uuidString
         self.createdAt = Date()
         self.updatedAt = self.createdAt
         self.title = title
+        self.author = author
+        if let isbnStr = isbn, let isbnNum = Int64(isbnStr) {
+            self.isbn = NSNumber(value: isbnNum)
+        }
+        self.readDateStarted = readDateStarted
+        self.readDateFinished = readDateFinished
+        if let rating = rating {
+            self.rating = NSNumber(value: rating)
+        }
+        self.reviewDescription = reviewDescription
     }
 
     static func fieldMapping() -> [Contentful.FieldName: String] {

@@ -15,7 +15,7 @@ class BooksViewModel: ObservableObject {
 
     func performSearch(with books: FetchedResults<Book>) {
         searchTask?.cancel()
-        searchTask = Task {
+        searchTask = Task(priority: .background) {
             let results = await SearchManager.shared.search(for: searchText, in: books)
             if !Task.isCancelled {
                 await MainActor.run { self.filteredBooks = results }
