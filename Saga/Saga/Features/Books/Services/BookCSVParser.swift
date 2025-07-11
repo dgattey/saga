@@ -98,29 +98,35 @@ struct BookCSVParser {
                 return RichTextDocument(fromPlainText: review)
             }()
             
-            var coverImageUrl: String?
+            let coverImageUrl: String?
             if let isbn = isbn, !isbn.isEmpty {
                 coverImageUrl = try await BookcoverAPIImageURLProvider.url(forISBN: isbn)
+            } else {
+                coverImageUrl = nil
             }
-            let coverImage: Asset? = {
-                guard let coverImageUrl = coverImageUrl else {
-                    return nil
-                }
-                return Asset(context: context, urlString: coverImageUrl)
-            }()
             
+            await MainActor.run {
+                let coverImage: Asset? = {
+                    guard let coverImageUrl = coverImageUrl else {
+                        return nil
+                    }
+                    return Asset(context: context, urlString: coverImageUrl)
+                }()
+                
+                
+                _ = Book(
+                    context: context,
+                    title: title,
+                    author: author,
+                    coverImage: coverImage,
+                    isbn: isbn,
+                    readDateStarted: readDateStarted,
+                    readDateFinished: readDateFinished,
+                    rating: rating,
+                    reviewDescription: reviewDescription
+                )
+            }
             
-            _ = Book(
-                context: context,
-                title: title,
-                author: author,
-                coverImage: coverImage,
-                isbn: isbn,
-                readDateStarted: readDateStarted,
-                readDateFinished: readDateFinished,
-                rating: rating,
-                reviewDescription: reviewDescription
-            )
         }
     }
 }

@@ -34,7 +34,9 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
     - [x] CSV file parsing
     - [x] fetching cover images
     - [] uploading both cover images and local books to server
+    - [] better merge new data (ISBN) with dupes
 - [] reading more information about books like rich text
+- [] figure out why new edits to Contentful don't sync until next app launch
 - [] move search into sidebar
 - [] highlight the search results in the UI as you type
 - [] allow creating arbitrary data
