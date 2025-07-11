@@ -39,7 +39,8 @@
 		7589F8252E1B3F90005C31D9 /* Exceptions for "Saga" folder in "Saga" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info.plist,
+				Config/Config.xcconfig,
+				Config/Info.plist,
 			);
 			target = 7589F7FE2E1B2299005C31D9 /* Saga */;
 		};
@@ -82,7 +83,6 @@
 			isa = PBXGroup;
 			children = (
 				7589F82C2E1B4203005C31D9 /* README.md */,
-				7589F8282E1B411A005C31D9 /* Config.xcconfig */,
 				7589F8012E1B2299005C31D9 /* Saga */,
 				7558CB4A2E1CEF2F00D92477 /* Frameworks */,
 				7589F8002E1B2299005C31D9 /* Products */,
@@ -311,14 +311,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Saga/Saga.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Saga/Config/Saga.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KCH4HBZ68M;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Saga/Info.plist;
+				INFOPLIST_FILE = Saga/Config/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -353,14 +353,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = Saga/Saga.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Saga/Config/Saga.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = KCH4HBZ68M;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Saga/Info.plist;
+				INFOPLIST_FILE = Saga/Config/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;

@@ -36,6 +36,7 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
     - [] uploading both cover images and local books to server
 - [] reading more information about books like rich text
 - [] move search into sidebar
+- [] highlight the search results in the UI as you type
 - [] allow creating arbitrary data
 - [] supporting video games, movies, tv shows
 - [] supporting a "what do I watch/play/read" feature
