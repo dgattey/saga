@@ -25,12 +25,18 @@ CONTENTFUL_ACCESS_TOKEN = your_access_token
 Don't forget to add to `PersistenceModel` after adding a core data model + the model file (and ensure there aren't auto-gen files from the core model).
 
 ## TODO
-- [x] Connection to Contentful + sync persistence
-- [x] Local persistence with Core Data
-- [] full data reset via settings
+- [x] connection to Contentful + sync persistence
+- [x] local persistence with Core Data
+- [x] full data reset via settings
+- [x] cache cover images
+- [] allow GoodReads CSV upload
+    - [x] dropzone
+    - [x] CSV file parsing
+    - [x] fetching cover images
+    - [] uploading both cover images and local books to server
 - [] reading more information about books like rich text
 - [] move search into sidebar
-- [] allow creating data
+- [] allow creating arbitrary data
 - [] supporting video games, movies, tv shows
 - [] supporting a "what do I watch/play/read" feature
 
