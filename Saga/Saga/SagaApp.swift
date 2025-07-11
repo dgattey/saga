@@ -15,7 +15,7 @@ struct SagaApp: App {
         // Register our transformers
         RichTextDocumentTransformer.register()
         
-        // Sync with Contentful at launch
+        // Sync with API at launch
         Task {
             do {
                 try await PersistenceController.shared.syncWithApi()

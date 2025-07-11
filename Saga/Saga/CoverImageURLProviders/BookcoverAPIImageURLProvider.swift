@@ -1,5 +1,5 @@
 //
-//  CoverImageFetcher.swift
+//  BookcoverAPIImageURLProvider.swift
 //  Saga
 //
 //  Created by Dylan Gattey on 7/10/25.
@@ -14,14 +14,19 @@ private struct Constants {
     static let maxConcurrentRequests: Int = 15
 }
 
-struct CoverImageFetcher {
+/// Provides methods for getting an image cover URL for an ISBN from the Bookcover API.
+/// The API fetches from Goodreads to find the underlying image URL.
+struct BookcoverAPIImageURLProvider: CoverImageURLProvider {
     
     /// Uses the bookcover API to fetch a specific ISBN's cover image URL (in response)
     private struct CoverImageResponse: Decodable {
         let url: String
     }
+    
+    private init() {}
 
-    static func fetchCoverImageUrl(forISBN isbn: String) async throws -> String? {
+    /// Fetches from network one cover image URL
+    static func url(forISBN isbn: String) async throws -> String? {
         guard let url = URL(string: "\(Constants.apiBaseURL)/\(isbn)") else {
             return nil
         }
@@ -37,7 +42,7 @@ struct CoverImageFetcher {
     }
 
     /// Fetches a group of cover images using a maximum amount of concurrent requests for safety
-    static func fetchCoverImageUrls(forISBNs isbns: [String]) async -> [String: String?] {
+    static func urls(forISBNs isbns: [String]) async -> [String: String?] {
         var results = [String: String?]()
         var index = 0
         while index < isbns.count {
@@ -45,7 +50,7 @@ struct CoverImageFetcher {
             await withTaskGroup(of: (String, String?).self) { group in
                 for isbn in batch {
                     group.addTask {
-                        let url = try? await fetchCoverImageUrl(forISBN: isbn)
+                        let url = try? await url(forISBN: isbn)
                         return (isbn, url)
                     }
                 }

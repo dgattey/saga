@@ -34,6 +34,8 @@ struct BookCSVParser {
         return formatter
     }()
     
+    private init() {}
+    
     /// Runs CSV parse from a file URL with a context, then delegates to main to save it
     static func parseCSV(into context: NSManagedObjectContext, from csvFileURL: URL) async throws -> Void {
         let csv = try NamedCSV(url: csvFileURL)
@@ -98,7 +100,7 @@ struct BookCSVParser {
             
             var coverImageUrl: String?
             if let isbn = isbn, !isbn.isEmpty {
-                coverImageUrl = try await CoverImageFetcher.fetchCoverImageUrl(forISBN: isbn)
+                coverImageUrl = try await BookcoverAPIImageURLProvider.url(forISBN: isbn)
             }
             let coverImage: Asset? = {
                 guard let coverImageUrl = coverImageUrl else {
