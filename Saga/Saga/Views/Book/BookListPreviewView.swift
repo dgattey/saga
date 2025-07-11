@@ -15,6 +15,7 @@ struct BookListPreviewView: View {
         HStack(spacing: 8) {
             BookCoverImageView(book: book)
                 .frame(height: 64, alignment: .center)
+                .controlSize(.small)
             VStack(alignment: .leading, spacing: 4) {
                 Text(book.title ?? book.id)
                     .font(.headline)

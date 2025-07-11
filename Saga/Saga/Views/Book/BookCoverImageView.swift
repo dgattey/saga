@@ -11,7 +11,7 @@ private let coverAspectRatio: CGFloat = 1/1.5
 
 /// Creates a stylized version of the cover image, async loaded
 struct BookCoverImageView: View {
-    var book: Book
+    let book: Book
     
     var body: some View {
         AssetImageView(asset: book.coverImage)

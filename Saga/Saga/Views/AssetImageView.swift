@@ -9,16 +9,27 @@
 import SwiftUI
 import CachedAsyncImage
 
+/// Shows an asset image with caching for the image data
 struct AssetImageView: View {
+    
+    /// Shared image cache, larger than default
+    private static let assetCache: URLCache = URLCache(
+        memoryCapacity: 100 * 1024 * 1024,  // 1000 MB in memory
+        diskCapacity: 1024 * 1024 * 1024 * 5    // 5 GB on disk
+    )
+    
     let asset: Asset?
 
     var body: some View {
         if let asset = asset,
            let url = asset.assetURL {
-            CachedAsyncImage(url: url) { phase in
+            CachedAsyncImage(url: url, urlCache: Self.assetCache) { phase in
                 switch phase {
                 case .empty:
-                    ProgressView()
+                    ZStack {
+                        Rectangle().fill(.gray.opacity(0.5))
+                        ProgressView()
+                    }
                 case .success(let image):
                     image
                         .resizable()
