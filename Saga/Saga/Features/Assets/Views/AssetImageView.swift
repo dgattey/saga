@@ -14,7 +14,7 @@ struct AssetImageView: View {
     
     /// Shared image cache, larger than default
     private static let assetCache: URLCache = URLCache(
-        memoryCapacity: 100 * 1024 * 1024,  // 1000 MB in memory
+        memoryCapacity: 100 * 1024 * 1024 * 2,  // 2 GB in memory
         diskCapacity: 1024 * 1024 * 1024 * 5    // 5 GB on disk
     )
     

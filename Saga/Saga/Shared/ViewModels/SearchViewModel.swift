@@ -1,5 +1,5 @@
 //
-//  SearchManager.swift
+//  SearchViewModel.swift
 //  Saga
 //
 //  Created by Dylan Gattey on 7/7/25.
@@ -8,13 +8,9 @@
 import Ifrit
 import SwiftUI
 
-struct SearchManager {
-    
-    static let shared = SearchManager()
-    
+struct SearchViewModel {
+    /// The shared fuse configured object for searching for this model
     private let fuse = Fuse(distance: 20, threshold: 0.3, tokenize: true)
-    
-    private init() {}
     
     /// Fuzzy searches for a given search term using an array of fetched results
     func search<Model: SearchableModel>(for searchText: String,

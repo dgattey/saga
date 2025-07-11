@@ -38,6 +38,15 @@ struct PersistenceController {
             persistenceStore: CoreDataStore(context: container.newBackgroundContext()),
             persistenceModel: PersistenceModel.shared
         )
+        
+        // --- Creation kicks off an initial sync ---
+        Task { [self] in
+            do {
+                try await syncWithApi()
+            } catch {
+                print("Error doing initial sync: \(error)")
+            }
+        }
     }
 
     /// Actually executes a sync with the Contentful API
