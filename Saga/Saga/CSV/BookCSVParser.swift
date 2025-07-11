@@ -80,7 +80,17 @@ struct BookCSVParser {
             let rating = row.value(for: .rating).flatMap(Int.init)
             let review = row.value(for: .review)
             let readDateStarted = row.value(for: .dateAdded).flatMap { dateFormatter.date(from: $0) }
-            let readDateFinished = row.value(for: .dateRead).flatMap { dateFormatter.date(from: $0) }
+            
+            // Some books don't have a finished date, just update them to 3 days after added date for simplicity
+            let readDateFinished: Date? = {
+                if let finished = row.value(for: .dateRead).flatMap({ dateFormatter.date(from: $0) }) {
+                    return finished
+                } else if let started = readDateStarted {
+                    return Calendar.current.date(byAdding: .day, value: 3, to: started)
+                } else {
+                    return nil
+                }
+            }()
             let reviewDescription: RichTextDocument? = {
                 guard let review, !review.isEmpty else { return nil }
                 return RichTextDocument(fromPlainText: review)

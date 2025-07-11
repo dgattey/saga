@@ -23,7 +23,7 @@ struct BookStatusView: View {
         } else if book.readDateStarted != nil {
             Text("Reading").font(.caption)
         } else if book.createdAt != nil {
-            Text("On the shelf").font(.caption)
+            Text("Up next").font(.caption)
         }
     }
 }
