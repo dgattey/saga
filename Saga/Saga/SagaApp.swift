@@ -9,7 +9,7 @@ import SwiftUI
 
 @main
 struct SagaApp: App {
-    static let persistenceController = PersistenceController.shared
+    @StateObject private var viewModel = SyncViewModel()
     
     init() {
         // Register our transformers
@@ -19,10 +19,16 @@ struct SagaApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(\.managedObjectContext, Self.persistenceController.container.viewContext)
+                .environment(\.managedObjectContext, viewModel.viewContext)
         }
+        .commands {
+            MenuBarCommands()
+        }
+        .environmentObject(viewModel)
+        
         Settings {
             SettingsView()
         }
+        .environmentObject(viewModel)
     }
 }

@@ -9,6 +9,7 @@ import SwiftUI
 
 /// The toolbar for the content view
 struct ContentViewToolbar: ToolbarContent {
+    @EnvironmentObject var viewModel: SyncViewModel
 
     var body: some ToolbarContent {
 #if os(iOS)
@@ -19,15 +20,12 @@ struct ContentViewToolbar: ToolbarContent {
         ToolbarItem {
             Button(action: {
                 Task {
-                    do {
-                        try await PersistenceController.shared.syncWithApi()
-                    } catch {
-                        print("Error syncing: \(error)")
-                    }
+                    await viewModel.sync()
                 }
             }) {
                 Label("Sync", systemImage: "arrow.clockwise")
             }
+            .disabled(viewModel.isSyncing)
         }
     }
 }

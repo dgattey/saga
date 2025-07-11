@@ -8,8 +8,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @State private var resetLocalDataTask: Task<Void, Never>? = nil
-    @State private var isResettingLocalData = false
+    @EnvironmentObject var viewModel: SyncViewModel
     
     var appIcon: PlatformImage? {
         let iconName = Bundle.main.iconFileName
@@ -35,21 +34,12 @@ struct SettingsView: View {
     
     var resetLocalDataButton: some View {
         Button(action: {
-            isResettingLocalData = true
-            resetLocalDataTask?.cancel()
-            resetLocalDataTask = Task {
-                do {
-                    try await PersistenceController.shared.resetAndSyncWithApi()
-                    if !Task.isCancelled {
-                        await MainActor.run { isResettingLocalData = false }
-                    }
-                } catch {
-                    print("Error resetting local data: \(error)")
-                }
+            Task {
+                await viewModel.resetAndSync()
             }
         }) {
             HStack(spacing: 8) {
-                if isResettingLocalData {
+                if viewModel.isSyncing {
                     ProgressView()
                         .progressViewStyle(.automatic)
                         .controlSize(.small)
@@ -59,7 +49,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .disabled(isResettingLocalData)
+        .disabled(viewModel.isSyncing)
     }
     
     var appInformation: some View {
