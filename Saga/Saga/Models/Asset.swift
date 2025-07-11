@@ -12,6 +12,11 @@ import ContentfulPersistence
 final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
     static let contentTypeId = "asset"
     
+    @NSManaged var id: String
+    @NSManaged var localeCode: String?
+    @NSManaged var updatedAt: Date?
+    @NSManaged var createdAt: Date?
+    
     @NSManaged var title: String?
     @NSManaged var assetDescription: String?
     @NSManaged var urlString: String?
@@ -20,10 +25,18 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
     @NSManaged var size: NSNumber?
     @NSManaged var width: NSNumber?
     @NSManaged var height: NSNumber?
-    @NSManaged var id: String
-    @NSManaged var localeCode: String?
-    @NSManaged var updatedAt: Date?
-    @NSManaged var createdAt: Date?
+    
+    /// For local object construction
+    convenience init(
+        context: NSManagedObjectContext,
+        urlString: String
+    ) {
+        self.init(context: context)
+        self.id = UUID().uuidString
+        self.createdAt = Date()
+        self.updatedAt = self.createdAt
+        self.urlString = urlString
+    }
     
     var assetURL: URL? {
         guard let urlString = urlString else { return nil }

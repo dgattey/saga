@@ -34,6 +34,7 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
         context: NSManagedObjectContext,
         title: String?,
         author: String?,
+        coverImage: Asset?,
         isbn: String?,
         readDateStarted: Date?,
         readDateFinished: Date?,
@@ -46,6 +47,7 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
         self.updatedAt = self.createdAt
         self.title = title
         self.author = author
+        self.coverImage = coverImage
         if let isbnStr = isbn, let isbnNum = Int64(isbnStr) {
             self.isbn = NSNumber(value: isbnNum)
         }
