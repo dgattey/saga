@@ -31,7 +31,6 @@
 
 /* Begin PBXFileReference section */
 		7589F7FF2E1B2299005C31D9 /* Saga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Saga.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		7589F8282E1B411A005C31D9 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		7589F82C2E1B4203005C31D9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -307,7 +306,8 @@
 		};
 		7589F8112E1B229B005C31D9 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7589F8282E1B411A005C31D9 /* Config.xcconfig */;
+			baseConfigurationReferenceAnchor = 7589F8012E1B2299005C31D9 /* Saga */;
+			baseConfigurationReferenceRelativePath = Config/Config.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -349,7 +349,8 @@
 		};
 		7589F8122E1B229B005C31D9 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7589F8282E1B411A005C31D9 /* Config.xcconfig */;
+			baseConfigurationReferenceAnchor = 7589F8012E1B2299005C31D9 /* Saga */;
+			baseConfigurationReferenceRelativePath = Config/Config.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
