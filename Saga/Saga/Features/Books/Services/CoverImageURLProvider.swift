@@ -9,5 +9,5 @@
 protocol CoverImageURLProvider {
     
     /// Grabs a cover image URL by some means for a given ISBN. May return nil
-    static func url(forISBN isbn: String) async throws -> String?
+    static func coverImageURL(forISBN isbn: String) async throws -> String?
 }

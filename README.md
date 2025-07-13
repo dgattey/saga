@@ -33,8 +33,11 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
     - [x] dropzone
     - [x] CSV file parsing
     - [x] fetching cover images
-    - [] uploading both cover images and local books to server
-    - [] better merge new data (ISBN) with dupes
+    - [x] better merge new data (ISBN) with dupes
+    - [] figure out why The Color Purple, Transcendant Kingdom, Remembrance of Earth's Past, Chamber of Secrets, Deathly Hallows, Order of Phoenix, da vinci code, amulet of samarkand all didn't parse cover images right
+    - [] figure out why the sort order is wrong after an import - probably child context & not reordering right
+    - [] clear the main view when resetting local data
+- [] upload to Contentful for CSV import
 - [] reading more information about books like rich text
 - [] figure out why new edits to Contentful don't sync until next app launch
 - [] move search into sidebar

@@ -29,16 +29,61 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     @NSManaged var rating: NSNumber?
     @NSManaged var reviewDescription: RichTextDocument?
     
+    /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.
+    static func add(to context: NSManagedObjectContext,
+                    title: String,
+                    author: String,
+                    isbn: NSNumber?,
+                    readDateStarted: Date?,
+                    readDateFinished: Date?,
+                    rating: NSNumber?,
+                    reviewDescription: RichTextDocument?) async throws {
+        // If we had an existing book, just update it in place, including a new Asset if needed
+        if let existingBook = try findDuplicate(in: context, title: title, author: author) {
+            let newCoverImage: Asset?
+            if existingBook.coverImage == nil {
+                newCoverImage = try await getOrAddCoverImage(to: context, forISBN: isbn, andTitle: title)
+            } else {
+                newCoverImage = existingBook.coverImage
+            }
+            await MainActor.run {
+                print("Found duplicate \"\(title)\"")
+                existingBook.title = title
+                existingBook.isbn ??= isbn
+                existingBook.coverImage = newCoverImage
+                existingBook.readDateFinished ??= readDateFinished
+                existingBook.readDateStarted ??= readDateStarted
+                existingBook.rating ??= rating
+                existingBook.reviewDescription ??= reviewDescription
+            }
+            return
+        }
+        
+        // Otherwise, create a new book
+        let coverImage = try await getOrAddCoverImage(to: context, forISBN: isbn, andTitle: title)
+        await MainActor.run {
+            _ = Book(context: context,
+                     title: title,
+                     author: author,
+                     coverImage: coverImage,
+                     isbn: isbn,
+                     readDateStarted: readDateStarted,
+                     readDateFinished: readDateFinished,
+                     rating: rating,
+                     reviewDescription: reviewDescription)
+        }
+    }
+    
     /// For local creation of book objects
-    convenience init(
+    private convenience init(
         context: NSManagedObjectContext,
         title: String?,
         author: String?,
         coverImage: Asset?,
-        isbn: String?,
+        isbn: NSNumber?,
         readDateStarted: Date?,
         readDateFinished: Date?,
-        rating: Int?,
+        rating: NSNumber?,
         reviewDescription: RichTextDocument?
     ) {
         self.init(context: context)
@@ -48,15 +93,52 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
         self.title = title
         self.author = author
         self.coverImage = coverImage
-        if let isbnStr = isbn, let isbnNum = Int64(isbnStr) {
-            self.isbn = NSNumber(value: isbnNum)
-        }
+        self.isbn = isbn
         self.readDateStarted = readDateStarted
         self.readDateFinished = readDateFinished
-        if let rating = rating {
-            self.rating = NSNumber(value: rating)
-        }
+        self.rating = rating
         self.reviewDescription = reviewDescription
+    }
+    
+    /// Finds a duplicate book if it exists so we can update it in place. Duplicate = same author and one of the two titles is contained within
+    /// the other. Compares in a case insensitive, localized way.
+    private static func findDuplicate(in context: NSManagedObjectContext,
+                                      title: String,
+                                      author: String) throws -> Book? {
+        // Fetch books by author first for efficiency
+        let fetchRequest = NSFetchRequest<Book>(entityName: "Book")
+        fetchRequest.predicate = NSPredicate(format: "author ==[c] %@", author)
+        let existingBooks = try context.fetch(fetchRequest)
+
+        // Filter for the same titles between the two
+        return existingBooks.first(where: { existingBook in
+            guard let existingTitle = existingBook.title else {
+                return false
+            }
+            return title.localizedCaseInsensitiveContains(existingTitle)
+            || existingTitle.localizedCaseInsensitiveContains(title)
+        })
+    }
+    
+    /// Gets a cover image URL + adds or fetches the existing Asset for it. Call this only when you're sure that you want to create a
+    /// new Asset for this ISBN because it doesn't already exist.
+    private static func getOrAddCoverImage(to context: NSManagedObjectContext,
+                                           forISBN isbn: NSNumber?,
+                                           andTitle title: String) async throws -> Asset? {
+        let task = Task(priority: .background) {
+            let coverImageUrl: String? = try await {
+                guard let isbn = isbn?.stringValue else {
+                    return nil
+                }
+                let url = try await OpenLibraryAPIService.coverImageURL(forISBN: isbn)
+                guard let url = url, !url.isEmpty else {
+                    return try await BookcoverAPIService.coverImageURL(forISBN: isbn)
+                }
+                return url
+            }()
+            return try await Asset.add(to: context, withURL: coverImageUrl)
+        }
+        return try await task.value
     }
 
     static func fieldMapping() -> [Contentful.FieldName: String] {
