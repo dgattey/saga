@@ -27,8 +27,7 @@ struct BookContentView: View {
             Text(book.coverImage?.assetURL?.absoluteString ?? "No image URL")
             Text(book.readDateStarted?.formatted(date: .complete, time: .omitted) ?? "Not started")
             Text(book.readDateFinished?.formatted(date: .complete, time: .omitted) ?? "Not finished")
-            Text(book.rating?.stringValue ?? "No rating")
-            Text(book.reviewDescription?.description ?? "No review")
+            reviewView
         }
         .textSelection(.enabled)
         .navigationTitle(title)
@@ -43,5 +42,15 @@ struct BookContentView: View {
     
     var authorView: some View {
         Text(author).font(.subheadline)
+    }
+    
+    var reviewView: some View {
+        guard let attributedString = book.reviewDescription?.attributedString else {
+            return AnyView(EmptyView())
+        }
+        return AnyView(
+            AttributedTextViewer(attributedString: attributedString)
+                .padding()
+        )
     }
 }
