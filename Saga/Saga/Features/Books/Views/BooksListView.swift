@@ -13,9 +13,15 @@ struct BooksListView: View {
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
         animation: .default) private var books: FetchedResults<Book>
+    @State private var completedCSVImportSteps = 0
+    @State private var totalCSVImportSteps = 0
 
     var body: some View {
-        FileDropZoneContainer(onDrop: handleCsvFileDrop) {
+        FileDropZoneContainer(
+            onDrop: handleCsvFileDrop,
+            completedSteps: $completedCSVImportSteps,
+            totalSteps: $totalCSVImportSteps
+        ) {
             List {
                 Section {
                     ForEach(viewModel.filteredBooks, id: \.id) { book in
@@ -45,7 +51,13 @@ struct BooksListView: View {
                 if !fileUrl.pathExtension.lowercased().contains("csv") {
                     continue
                 }
-                try await GoodreadsCSVParser.parse(into: viewContext, from: fileUrl)
+                try await GoodreadsCSVParser
+                    .parse(
+                        into: viewContext,
+                        from: fileUrl,
+                        completedSteps: $completedCSVImportSteps,
+                        totalSteps: $totalCSVImportSteps
+                    )
             }
         } catch {
             print("CSV file parse failed with error: \(error)")

@@ -9,13 +9,22 @@ import SwiftUI
 
 struct FileDropZoneContainer<Content: View>: View {
     private let onDrop: ([URL]) async -> Void
+    private var completedSteps: Binding<Int>
+    private var totalSteps: Binding<Int>
     @State private var isDropTargeted = false
     @State private var isProcessingFiles = false
     let content: Content
 
-    init(onDrop: (@escaping ([URL]) async -> Void), @ViewBuilder content: () -> Content) {
+    init(
+        onDrop: (@escaping ([URL]) async -> Void),
+        completedSteps: Binding<Int>,
+        totalSteps: Binding<Int>,
+        @ViewBuilder content: () -> Content
+    ) {
         self.content = content()
         self.onDrop = onDrop
+        self.completedSteps = completedSteps
+        self.totalSteps = totalSteps
     }
 
     var body: some View {
@@ -31,19 +40,28 @@ struct FileDropZoneContainer<Content: View>: View {
                 DropZone {
                     Image(systemName: "tray.and.arrow.down.fill")
                         .font(.system(size: 48))
-                        .foregroundColor(.white.opacity(0.65))
                     Text("Drop file to upload")
-                        .foregroundColor(.white.opacity(0.65))
-                        .fontWeight(.bold)
                 }
             }
             
-            // Show a spinner if processing
-            if isProcessingFiles {
+            // Determinate bar if we know progress
+            else if isProcessingFiles && totalSteps.wrappedValue > 0 {
+                DropZone {
+                    Text(
+                        "Processing \(completedSteps.wrappedValue)/\(totalSteps.wrappedValue)"
+                    )
+                    ProgressView(
+                        value: Float(completedSteps.wrappedValue),
+                        total: Float(totalSteps.wrappedValue)
+                    )
+                }
+                
+            }
+            
+            // Otherwise just a spinner
+            else if isProcessingFiles {
                 DropZone {
                     ProgressView()
-                        .controlSize(.regular)
-                        .foregroundColor(.white.opacity(0.65))
                 }
             }
         }
@@ -58,6 +76,8 @@ struct FileDropZoneContainer<Content: View>: View {
                 }
                 await onDrop(fileUrls)
                 await MainActor.run {
+                    completedSteps.wrappedValue = 0
+                    totalSteps.wrappedValue = 0
                     isProcessingFiles = false
                 }
             }
@@ -103,6 +123,10 @@ private struct DropZone<Content: View>: View {
             content
         }
         .padding()
+        .frame(maxWidth: 200)
+        .controlSize(.regular)
+        .foregroundColor(.white.opacity(0.65))
+        .fontWeight(.bold)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.accentColor.opacity(0.4))

@@ -9,6 +9,7 @@ import Foundation
 import CoreData
 import Contentful
 import SwiftCSV
+import SwiftUI
 
 private enum BookCSVField: String {
     case title = "Title"
@@ -37,15 +38,25 @@ struct GoodreadsCSVParser {
         return formatter
     }()
     
+    /// How many rows we parse at once (including making network calls)
+    private static let maxConcurrentParses = 10
+    
     /// The only types of Goodread shelves we should parse in
     private static let applicableShelves = ["currently-reading", "read"]
     
     private init() {}
     
     /// Runs CSV parse from a file URL with a context, then delegates to main to save it
-    static func parse(into context: NSManagedObjectContext, from csvFileURL: URL) async throws -> Void {
+    static func parse(into context: NSManagedObjectContext,
+                      from csvFileURL: URL,
+                      completedSteps: Binding<Int>,
+                      totalSteps: Binding<Int>) async throws -> Void {
         let csv = try NamedCSV(url: csvFileURL)
-        try await parseRows(into: context, from: csv.rows)
+        try await parseRows(
+            into: context,
+            from: csv.rows,
+            completedSteps: completedSteps,
+            totalSteps: totalSteps)
         try await MainActor.run {
             try context.save()
         }
@@ -63,9 +74,13 @@ struct GoodreadsCSVParser {
     }
     
     /// Parses rows into an array of books and adds them to context, but doesn't save it
-    private static func parseRows(into parentContext: NSManagedObjectContext, from rows: [[String: String]]) async throws {
+    private static func parseRows(into parentContext: NSManagedObjectContext,
+                                  from rows: [[String: String]],
+                                  completedSteps: Binding<Int>,
+                                  totalSteps: Binding<Int>) async throws {
         let filteredRows = filteredRows(rows)
-        let maxConcurrentParses = 10
+        totalSteps.wrappedValue = filteredRows.count
+        completedSteps.wrappedValue = 0
 
         try await withThrowingTaskGroup(of: Void.self) { group in
             var iterator = filteredRows.makeIterator()
@@ -85,6 +100,7 @@ struct GoodreadsCSVParser {
                                 try childContext.save()
                             }
                         }
+                        completedSteps.wrappedValue += 1
                     }
                 }
             }
