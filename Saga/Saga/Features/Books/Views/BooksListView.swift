@@ -9,18 +9,20 @@ import SwiftUI
 
 struct BooksListView: View {
     @Environment(\.managedObjectContext) private var viewContext
-    @Binding var books: [Book]
+    @EnvironmentObject private var viewModel: BooksViewModel
     let onDelete: (IndexSet) -> Void
 
     var body: some View {
         FileDropZoneContainer(onDrop: handleCsvFileDrop) {
             List {
-                ForEach(books, id: \.id) { book in
+                ForEach(viewModel.filteredBooks, id: \.id) { book in
                     BookView(book: book)
                 }
                 .onDelete(perform: onDelete)
             }
             .frame(minWidth: 200, idealWidth: 300)
+            .searchable(text: $viewModel.searchText,
+                        placement: .sidebar)
         }
         .navigationTitle("All books")
     }

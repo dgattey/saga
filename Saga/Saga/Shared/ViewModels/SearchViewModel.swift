@@ -10,7 +10,7 @@ import SwiftUI
 
 struct SearchViewModel {
     /// The shared fuse configured object for searching for this model
-    private let fuse = Fuse(distance: 20, threshold: 0.3, tokenize: true)
+    private let fuse = Fuse(distance: 5000, threshold: 0.3, tokenize: true)
     
     /// Fuzzy searches for a given search term using an array of fetched results
     func search<Model: SearchableModel>(for searchText: String,
@@ -19,7 +19,10 @@ struct SearchViewModel {
         guard !searchText.isEmpty else {
             return array
         }
-        let results = await fuse.search(searchText, in: array.map{ $0.toDTO() }, by: \.properties)
+        let results = await fuse.search(
+            searchText,
+            in: array.map{ $0.toDTO() },
+            by: \.fuzzySearchableProperties)
         return results.map { array[$0.index] }
     }
 }

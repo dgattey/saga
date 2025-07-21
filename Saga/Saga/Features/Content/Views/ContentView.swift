@@ -19,9 +19,7 @@ struct ContentView: View {
     var body: some View {
         ScrollViewReader { proxy in
             NavigationView {
-                BooksListView(books: $viewModel.filteredBooks,
-                              onDelete: deleteBooks)
-                .searchable(text: $viewModel.searchText)
+                BooksListView(onDelete: deleteBooks)
                 .onAppear { viewModel.performSearch(with: books) }
                 .onChange(of: Array(books)) {
                     viewModel.performSearch(with: books)

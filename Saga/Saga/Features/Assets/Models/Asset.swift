@@ -71,7 +71,8 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
         AssetDTO(
             id: self.id,
             title: self.title,
-            fileName: self.fileName
+            fileName: self.fileName,
+            urlString: self.urlString
         )
     }
 }
@@ -80,23 +81,17 @@ final class AssetDTO: SearchableDTO {
     let id: String
     let title: String?
     let fileName: String?
+    let urlString: String?
     
-    init(id: String, title: String?, fileName: String?) {
+    init(id: String, title: String?, fileName: String?, urlString: String?) {
         self.id = id
         self.title = title
         self.fileName = fileName
+        self.urlString = urlString
     }
 
-    static var searchableKeyPaths: [PartialKeyPath<AssetDTO>] = [
+    static var fuzzySearchKeyPaths: [PartialKeyPath<AssetDTO>] = [
         \AssetDTO.title,
         \AssetDTO.fileName
     ]
-
-    func stringValue(for keyPath: PartialKeyPath<AssetDTO>) -> String {
-        switch keyPath {
-        case \AssetDTO.title: return title ?? ""
-        case \AssetDTO.fileName: return fileName ?? ""
-        default: return ""
-        }
-    }
 }

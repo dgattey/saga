@@ -164,12 +164,12 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
             readDateStarted: self.readDateStarted?.description(with: .current),
             readDateFinished: self.readDateFinished?.description(with: .current),
             rating: self.rating?.stringValue,
-            reviewDescription: self.reviewDescription?.description
+            reviewDescription: self.reviewDescription?.attributedString?.string
         )
     }
 }
 
-final class BookDTO: SearchableDTO {
+final class BookDTO: SearchableDTO, CustomStringConvertible {
     let id: String
     let title: String?
     let isbn: String?
@@ -201,30 +201,23 @@ final class BookDTO: SearchableDTO {
         self.rating = rating
         self.reviewDescription = reviewDescription
     }
+    
+    var description: String {
+        return self.title ?? "Untitled BookDTO"
+    }
+    
+    static var nestedSearchableDTOKeyPaths: [PartialKeyPath<BookDTO>] = [
+        \BookDTO.coverImage,
+    ]
 
-    static var searchableKeyPaths: [PartialKeyPath<BookDTO>] = [
+    static var fuzzySearchKeyPaths: [PartialKeyPath<BookDTO>] = [
         \BookDTO.title,
         \BookDTO.isbn,
         \BookDTO.author,
-        \BookDTO.coverImage,
         \BookDTO.readDateStarted,
         \BookDTO.readDateFinished,
         \BookDTO.rating,
         \BookDTO.reviewDescription
     ]
-
-    func stringValue(for keyPath: PartialKeyPath<BookDTO>) -> String {
-        switch keyPath {
-        case \BookDTO.title: return title ?? ""
-        case \BookDTO.isbn: return isbn ?? ""
-        case \BookDTO.author: return author ?? ""
-        case \BookDTO.coverImage: return coverImage?.searchableStrings().joined(separator: " ") ?? ""
-        case \BookDTO.readDateStarted: return readDateStarted ?? ""
-        case \BookDTO.readDateFinished: return readDateFinished ?? ""
-        case \BookDTO.rating: return rating ?? ""
-        case \BookDTO.reviewDescription: return reviewDescription ?? ""
-        default: return ""
-        }
-    }
 }
 
