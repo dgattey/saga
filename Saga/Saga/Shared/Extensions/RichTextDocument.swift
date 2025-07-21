@@ -47,7 +47,6 @@ final class RichTextToAttributedStringTransformer {
             if node.nodeType == .paragraph {
                 // Don't add if it's the last node, or if the next isn't a paragraph
                 if index < nodes.count - 1, nodes[index+1].nodeType == .paragraph {
-                    print("Debug: adding space between paragraphs")
                     result.append(NSAttributedString(string: "\n\n"))
                 }
             }
