@@ -19,6 +19,7 @@ struct BookView: View {
             }
         } label: {
             BookListPreviewView(book: book)
+                .padding(.vertical, 4)
         }
     }
 }

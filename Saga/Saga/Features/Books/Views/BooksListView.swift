@@ -17,10 +17,12 @@ struct BooksListView: View {
     var body: some View {
         FileDropZoneContainer(onDrop: handleCsvFileDrop) {
             List {
-                ForEach(viewModel.filteredBooks, id: \.id) { book in
-                    BookView(book: book)
+                Section {
+                    ForEach(viewModel.filteredBooks, id: \.id) { book in
+                        BookView(book: book)
+                    }
+                    .onDelete(perform: deleteBooks)
                 }
-                .onDelete(perform: deleteBooks)
             }
             .frame(minWidth: 200, idealWidth: 300)
             .onAppear { viewModel.performSearch(with: books) }

@@ -26,6 +26,5 @@ struct BookListPreviewView: View {
                 BookStatusView(book: book)
             }
         }
-        .padding(.vertical, 4)
     }
 }
