@@ -30,5 +30,16 @@ struct MenuBarCommands: Commands {
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .disabled(viewModel.isSyncing)
         }
+        CommandGroup(after: .pasteboard) {
+            Divider()
+            
+            Button("Find") {
+                if let toolbar = NSApp.keyWindow?.toolbar,
+                   let search = toolbar.items.first(where: { $0.itemIdentifier.rawValue == "com.apple.SwiftUI.search" }) as? NSSearchToolbarItem {
+                    search.beginSearchInteraction()
+                }
+            }
+            .keyboardShortcut("f", modifiers: .command)
+        }
     }
 }
