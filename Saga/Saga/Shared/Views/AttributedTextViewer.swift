@@ -9,15 +9,36 @@ import SwiftUI
 
 struct AttributedTextViewer: View {
     let attributedString: NSAttributedString
-    
-    @State private var height: CGFloat = 1
+    @State private var calculatedHeight: CGFloat = 20 // safe initial guess
     
     var body: some View {
         PlatformAttributedText(
             attributedString: attributedString,
-            calculatedHeight: $height
+            calculatedHeight: $calculatedHeight
         )
-        .frame(height: height)
+        .frame(height: calculatedHeight) // Only constrain height!
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear {
+                        updateHeight(for: geo.size.width)
+                    }
+                    .onChange(of: geo.size.width) { _, newWidth in
+                        updateHeight(for: newWidth)
+                    }
+                    .onChange(of: attributedString) {
+                        updateHeight(for: geo.size.width)
+                    }
+            }
+        )
+    }
+    
+    private func updateHeight(for width: CGFloat) {
+        guard width > 0 else { return }
+        let newHeight = measuredHeight(for: attributedString, width: width)
+        if abs(newHeight - calculatedHeight) > 1 {
+            calculatedHeight = newHeight
+        }
     }
 }
 
@@ -36,25 +57,19 @@ struct PlatformAttributedText: UIViewRepresentable {
         textView.backgroundColor = .clear
         textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
-        textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // Allows flexible height, but it's controlled by SwiftUI's frame.
         return textView
     }
     
     func updateUIView(_ uiView: UITextView, context: Context) {
         uiView.attributedText = attributedString
-        // We need to trigger a layout to get the correct width
-        DispatchQueue.main.async {
-            let fittingSize = CGSize(width: uiView.bounds.width > 0 ? uiView.bounds.width : UIScreen.main.bounds.width - 40, height: .greatestFiniteMagnitude)
-            let size = uiView.sizeThatFits(fittingSize)
-            if abs(calculatedHeight - size.height) > 1 {
-                calculatedHeight = size.height
-            }
-        }
+        // Set width, height doesn't matter (handled by SwiftUI frame)
+        let width = uiView.bounds.width > 0 ? uiView.bounds.width : UIScreen.main.bounds.width
+        uiView.textContainer.size = CGSize(width: width, height: .greatestFiniteMagnitude)
     }
 }
-#endif
 
-#if os(macOS)
+#elseif os(macOS)
 import AppKit
 
 struct PlatformAttributedText: NSViewRepresentable {
@@ -76,19 +91,26 @@ struct PlatformAttributedText: NSViewRepresentable {
     
     func updateNSView(_ nsView: NSTextView, context: Context) {
         nsView.textStorage?.setAttributedString(attributedString)
-        DispatchQueue.main.async {
-            guard let layoutManager = nsView.layoutManager, let container = nsView.textContainer else { return }
-            // Ensure we are measuring for the current width!
-            let width = nsView.bounds.width > 0 ? nsView.bounds.width : 300
-            container.containerSize = NSSize(width: width, height: .greatestFiniteMagnitude)
-            layoutManager.ensureLayout(for: container)
-            let glyphRange = layoutManager.glyphRange(for: container)
-            let rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: container)
-            let newHeight = rect.height + 2 * nsView.textContainerInset.height
-            if abs(calculatedHeight - newHeight) > 1 {
-                calculatedHeight = newHeight
-            }
-        }
+        let width = nsView.bounds.width > 0 ? nsView.bounds.width : 300
+        nsView.textContainer?.size = CGSize(width: width, height: .greatestFiniteMagnitude)
     }
 }
 #endif
+
+// MARK: - Sizing function
+
+func measuredHeight(for attributedString: NSAttributedString, width: CGFloat) -> CGFloat {
+    let textStorage = NSTextStorage(attributedString: attributedString)
+    let textContainer = NSTextContainer(size: CGSize(width: width, height: .greatestFiniteMagnitude))
+    textContainer.lineFragmentPadding = 0
+    textContainer.lineBreakMode = .byWordWrapping
+    textContainer.maximumNumberOfLines = 0
+    
+    let layoutManager = NSLayoutManager()
+    layoutManager.addTextContainer(textContainer)
+    textStorage.addLayoutManager(layoutManager)
+    
+    layoutManager.ensureLayout(for: textContainer)
+    let usedRect = layoutManager.usedRect(for: textContainer)
+    return ceil(usedRect.height)
+}

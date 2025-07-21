@@ -38,6 +38,7 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
     - [] figure out why the sort order is wrong after an import - probably child context & not reordering right
     - [] clear the main view when resetting local data
 - [] upload to Contentful for CSV import
+- [x] render rich text as attributed string
 - [] reading more information about books like rich text
 - [] figure out why new edits to Contentful don't sync until next app launch
 - [] move search into sidebar
