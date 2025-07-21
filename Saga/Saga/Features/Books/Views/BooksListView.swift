@@ -20,6 +20,7 @@ struct BooksListView: View {
                 }
                 .onDelete(perform: onDelete)
             }
+            .frame(minWidth: 200, idealWidth: 300)
         }
         .navigationTitle("All books")
     }

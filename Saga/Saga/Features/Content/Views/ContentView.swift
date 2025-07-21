@@ -10,8 +10,8 @@ import CoreData
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
+    @EnvironmentObject private var viewModel: BooksViewModel
     
-    @StateObject private var viewModel = BooksViewModel()
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
         animation: .default) private var books: FetchedResults<Book>
@@ -40,6 +40,7 @@ struct ContentView: View {
                 EmptyContentView()
             }
         }
+        .frame(minWidth: 600, minHeight: 300)
     }
 
     private func deleteBooks(offsets: IndexSet) {

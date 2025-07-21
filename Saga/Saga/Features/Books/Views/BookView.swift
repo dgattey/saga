@@ -13,7 +13,10 @@ struct BookView: View {
     
     var body: some View {
         NavigationLink {
-            BookContentView(book: book)
+            ScrollView([.vertical]) {
+                BookContentView(book: book)
+                    .padding(16)
+            }
         } label: {
             BookListPreviewView(book: book)
         }

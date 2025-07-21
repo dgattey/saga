@@ -10,6 +10,7 @@ import SwiftUI
 @main
 struct SagaApp: App {
     @StateObject private var viewModel = SyncViewModel()
+    @StateObject private var contentViewModel = BooksViewModel()
     
     init() {
         // Register our transformers
@@ -25,6 +26,8 @@ struct SagaApp: App {
             MenuBarCommands()
         }
         .environmentObject(viewModel)
+        .environmentObject(contentViewModel)
+        .defaultSize(width: 1000, height: 600)
         
         Settings {
             SettingsView()
