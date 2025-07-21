@@ -10,7 +10,9 @@ import SwiftUI
 struct BooksListView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject private var viewModel: BooksViewModel
-    let onDelete: (IndexSet) -> Void
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
+        animation: .default) private var books: FetchedResults<Book>
 
     var body: some View {
         FileDropZoneContainer(onDrop: handleCsvFileDrop) {
@@ -18,10 +20,17 @@ struct BooksListView: View {
                 ForEach(viewModel.filteredBooks, id: \.id) { book in
                     BookView(book: book)
                 }
-                .onDelete(perform: onDelete)
+                .onDelete(perform: deleteBooks)
             }
             .frame(minWidth: 200, idealWidth: 300)
-            .searchable(text: $viewModel.searchText,
+            .onAppear { viewModel.performSearch(with: books) }
+            .onChange(of: Array(books)) {
+                viewModel.performSearch(with: books)
+            }
+            .onChange(of: viewModel.searchModel.searchText) {
+                viewModel.performSearch(with: books)
+            }
+            .searchable(text: $viewModel.searchModel.searchText,
                         placement: .sidebar)
         }
         .navigationTitle("All books")
@@ -38,6 +47,20 @@ struct BooksListView: View {
             }
         } catch {
             print("CSV file parse failed with error: \(error)")
+        }
+    }
+    
+    /// Deletes books from our view context
+    private func deleteBooks(offsets: IndexSet) {
+        withAnimation {
+            offsets.map { books[$0] }.forEach(viewContext.delete)
+            
+            do {
+                try viewContext.save()
+            } catch {
+                let nsError = error as NSError
+                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            }
         }
     }
 }

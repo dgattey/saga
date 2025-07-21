@@ -26,7 +26,8 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
 
 ## TODO
 - [] search improvements
-    - [] move into sidebar
+    - [x] move into sidebar
+    - [x] less boilerplate
     - [] add tags for ratings
     - [] add tags for has review
     - [] add tags for read status
