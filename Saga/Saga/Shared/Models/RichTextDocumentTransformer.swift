@@ -33,8 +33,20 @@ extension NSValueTransformerName {
 
 extension RichTextDocument {
     convenience init(fromPlainText text: String) {
-        let textNode = Text(value: text, marks: [])
-        let paragraphNode = Paragraph(nodeType: .paragraph, content: [textNode])
-        self.init(content: [paragraphNode])
+        let normalized = text
+            .replacingOccurrences(of: "<br>", with: "\n")
+            .replacingOccurrences(of: "<br/>", with: "\n")
+            .replacingOccurrences(of: "\r\n", with: "\n")
+        
+        // Get all non-empty paragraphs out
+        let rawParagraphs = normalized.components(separatedBy: .newlines)
+        let paragraphs = rawParagraphs.filter { !$0.isEmpty }
+        
+        let nodes: [Paragraph] = paragraphs.map { line in
+            let textNode = Text(value: line, marks: [])
+            return Paragraph(nodeType: .paragraph, content: [textNode])
+        }
+        
+        self.init(content: nodes)
     }
 }
