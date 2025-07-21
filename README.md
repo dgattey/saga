@@ -25,31 +25,45 @@ CONTENTFUL_ACCESS_TOKEN = your_access_token
 Don't forget to add to `PersistenceModel` after adding a core data model + the model file (and ensure there aren't auto-gen files from the core model).
 
 ## TODO
-- [x] connection to Contentful + sync persistence
-- [x] local persistence with Core Data
-- [x] full data reset via settings
-- [x] cache cover images
-- [] allow GoodReads CSV upload
-    - [x] dropzone
-    - [x] CSV file parsing
-    - [x] fetching cover images
-    - [x] better merge new data (ISBN) with dupes
-    - [] figure out why The Color Purple, Transcendant Kingdom, Remembrance of Earth's Past, Chamber of Secrets, Deathly Hallows, Order of Phoenix, da vinci code, amulet of samarkand all didn't parse cover images right
-    - [] figure out why the sort order is wrong after an import - probably child context & not reordering right
-    - [] clear the main view when resetting local data
-- [] upload to Contentful for CSV import
-- [x] render rich text as attributed string
-- [] reading more information about books like rich text
-- [] figure out why new edits to Contentful don't sync until next app launch
-- [] move search into sidebar
-- [] highlight the search results in the UI as you type
-- [] allow creating arbitrary data
-- [] supporting video games, movies, tv shows
-- [] supporting a "what do I watch/play/read" feature
+- [] search improvements
+    - [] move into sidebar
+    - [] add tags for ratings
+    - [] add tags for has review
+    - [] add tags for read status
+    - [] highlight title/author hits as you type
+- [] book layout + edit view
+    - [] rating
+    - [] editable review
+    - [] editable dates
+    - [] save changes locally
+- [] figure out why The Color Purple, Transcendant Kingdom, Remembrance of Earth's Past, Chamber of Secrets, Deathly Hallows, Order of Phoenix, da vinci code, amulet of samarkand all didn't parse cover images right
+- [] save local data to server
+    - [] upload + create new cover images
+    - [] upload + create new books
+    - [] update existing books
+- [] polish
+    - [] trigger new sync call when window gets focus (or some other trigger to regularly get new data)
+    - [] fix sort order after import (might be fixed by in-mempry sorting?)
+    - [] fix content pane not getting cleared when resetting local data
+- [] create new book screen
 
 ### Later
+- [] supporting video games, movies, tv shows
+- [] supporting a "what do I watch/play/read" feature
 - [] supporting restaurants, trips, live shows
 - [] logging how I've spent my time per month (reorg of data)
 - [] arbitrary lists
 - [] shareable lists (create a deep link to my website?)
 
+### Done
+- [x] connection to Contentful + sync persistence
+- [x] local persistence with Core Data
+- [x] full data reset via settings
+- [x] cache cover images
+- [x] render rich text as attributed string
+- [x] parse GoodReads CSV upload locally
+    - [x] dropzone
+    - [x] CSV file parsing
+    - [x] fetching cover images
+    - [x] better merge new data (ISBN) with dupes
+    - [x] fetch isbn where missing
