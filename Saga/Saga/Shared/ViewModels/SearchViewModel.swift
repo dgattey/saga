@@ -16,7 +16,7 @@ class SearchViewModel: ObservableObject {
     private let fuse = Fuse(distance: 5000, threshold: 0.3, tokenize: true)
     
     /// Fuzzy searches for a given search term using an array of fetched results, using a Task
-    func search<Model: SearchableModel>(in allResults: FetchedResults<Model>, completion: @escaping ([Model]) -> Void) {
+    func search<Model: SearchableModel>(in allResults: [Model], completion: @escaping ([Model]) -> Void) {
         searchTask?.cancel()
         searchTask = Task(priority: .background) {
             let filteredResults = await runFuzzySearch(in: allResults)
@@ -27,15 +27,14 @@ class SearchViewModel: ObservableObject {
     }
     
     /// Actually runs the results using current text/etc
-    private func runFuzzySearch<Model: SearchableModel>(in allResults: FetchedResults<Model>) async -> [Model] {
-        let array = Array(allResults)
+    private func runFuzzySearch<Model: SearchableModel>(in allResults: [Model]) async -> [Model] {
         guard !searchText.isEmpty else {
-            return array
+            return allResults
         }
         let results = await fuse.search(
             searchText,
-            in: array.map{ $0.toDTO() },
+            in: allResults.map{ $0.toDTO() },
             by: \.fuzzySearchableProperties)
-        return results.map { array[$0.index] }
+        return results.map { allResults[$0.index] }
     }
 }
