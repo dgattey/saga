@@ -30,7 +30,9 @@ struct BooksListView: View {
                     .onDelete(perform: deleteBooks)
                 }
             }
+#if os(macOS)
             .frame(minWidth: 200, idealWidth: 300)
+#endif
             .onAppear { viewModel.performSearch(with: books) }
             .onChange(of: Array(books)) {
                 viewModel.performSearch(with: books)

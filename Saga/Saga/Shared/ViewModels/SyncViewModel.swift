@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CoreData
 
 /// Handles syncing data across the full app, delegating to service functions as needed
 class SyncViewModel: ObservableObject {

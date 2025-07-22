@@ -18,6 +18,8 @@ struct ContentView: View {
             }
             EmptyContentView()
         }
+#if os(macOS)
         .frame(minWidth: 600, minHeight: 300)
+#endif
     }
 }

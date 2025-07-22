@@ -11,10 +11,12 @@ import Contentful
 import AppKit
 typealias PlatformFont = NSFont
 typealias PlatformColor = NSColor
+let labelColor: PlatformColor = .labelColor
 #else
 import UIKit
 typealias PlatformFont = UIFont
 typealias PlatformColor = UIColor
+let labelColor: PlatformColor = .label
 #endif
 
 extension RichTextDocument {
@@ -22,7 +24,7 @@ extension RichTextDocument {
     var attributedString: NSAttributedString? {
         let transformer = RichTextToAttributedStringTransformer(
             baseFont: PlatformFont.systemFont(ofSize: 14),
-            baseColor: PlatformColor.labelColor
+            baseColor: labelColor
         )
         return transformer.attributedString(from: self)
     }
