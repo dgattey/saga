@@ -33,13 +33,14 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     static func add(to context: NSManagedObjectContext,
                     title: String,
                     author: String,
-                    isbn: NSNumber?,
+                    getISBN: () async throws -> NSNumber?,
                     readDateStarted: Date?,
                     readDateFinished: Date?,
                     rating: NSNumber?,
                     reviewDescription: RichTextDocument?) async throws {
         // If we had an existing book, just update it in place, including a new Asset if needed
         if let existingBook = try findDuplicate(in: context, title: title, author: author) {
+            let isbn = (existingBook.isbn != nil) ? existingBook.isbn : try await getISBN()
             let newCoverImage: Asset?
             if existingBook.coverImage == nil {
                 newCoverImage = try await getOrAddCoverImage(to: context, forISBN: isbn, andTitle: title)
@@ -60,6 +61,7 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
         }
         
         // Otherwise, create a new book
+        let isbn = try await getISBN()
         let coverImage = try await getOrAddCoverImage(to: context, forISBN: isbn, andTitle: title)
         await MainActor.run {
             _ = Book(context: context,

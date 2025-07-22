@@ -127,16 +127,16 @@ struct GoodreadsCSVParser {
             return
         }
         
-        let isbnStringValue: String?
-        if let csvIsbnValue = row.value(for: .isbn)?
-            .replacingOccurrences(of: "=\"", with: "")
-            .replacingOccurrences(of: "\"", with: ""),
-           !csvIsbnValue.isEmpty {
-            isbnStringValue = csvIsbnValue
-        } else {
-            isbnStringValue = try await OpenLibraryAPIService.isbnFor(title: title, author: author)
-        }
-        let isbn: NSNumber? = {
+        func getISBN() async throws -> NSNumber? {
+            let isbnStringValue: String?
+            if let csvIsbnValue = row.value(for: .isbn)?
+                .replacingOccurrences(of: "=\"", with: "")
+                .replacingOccurrences(of: "\"", with: ""),
+               !csvIsbnValue.isEmpty {
+                isbnStringValue = csvIsbnValue
+            } else {
+                isbnStringValue = try await OpenLibraryAPIService.isbnFor(title: title, author: author)
+            }
             guard let isbnStringValue = isbnStringValue,
                   !isbnStringValue.isEmpty,
                   let intValue = Int64(isbnStringValue),
@@ -144,7 +144,8 @@ struct GoodreadsCSVParser {
                 return nil
             }
             return NSNumber(value: intValue)
-        }()
+        }
+        
         let rating = row.value(for: .rating).flatMap { val -> NSNumber? in
             guard !val.isEmpty,
                   let intValue = Int(val),
@@ -171,7 +172,7 @@ struct GoodreadsCSVParser {
             to: context,
             title: title,
             author: author,
-            isbn: isbn,
+            getISBN: getISBN,
             readDateStarted: readDateStarted,
             readDateFinished: readDateFinished,
             rating: rating,
