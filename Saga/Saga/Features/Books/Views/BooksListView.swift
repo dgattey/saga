@@ -24,8 +24,8 @@ struct BooksListView: View {
         ) {
             List {
                 Section {
-                    ForEach(viewModel.filteredBooks, id: \.id) { book in
-                        BookView(book: book)
+                    ForEach(viewModel.filteredBooks, id: \.model.id) { result in
+                        BookView(result: result)
                     }
                     .onDelete(perform: deleteBooks)
                 }

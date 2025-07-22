@@ -9,7 +9,10 @@ import SwiftUI
 
 /// Renders the list preview version of a book
 struct BookListPreviewView: View {
-    var book: Book
+    var result: SearchHighlightResult<Book>
+    private var book: Book {
+        result.model
+    }
     
     var body: some View {
         HStack(spacing: 8) {
@@ -17,10 +20,10 @@ struct BookListPreviewView: View {
                 .frame(height: 64, alignment: .center)
                 .controlSize(.small)
             VStack(alignment: .leading, spacing: 4) {
-                Text(book.title ?? book.id)
+                Text(result.highlighted(for: \.title) ?? AttributedString(book.title ?? book.id))
                     .font(.headline)
                 if let author = book.author {
-                    Text(author)
+                    Text(result.highlighted(for: \.author) ?? AttributedString(author))
                         .font(.subheadline)
                 }
                 BookStatusView(book: book)

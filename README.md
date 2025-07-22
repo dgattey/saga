@@ -28,10 +28,12 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
 - [] search improvements
     - [x] move into sidebar
     - [x] less boilerplate
+    - [x] highlight title/author hits as you type
+    - [] cmd-k
     - [] add tags for ratings
     - [] add tags for has review
     - [] add tags for read status
-    - [] highlight title/author hits as you type
+- [] move to Contentful-side search
 - [] book layout + edit view
     - [] rating
     - [] editable review
