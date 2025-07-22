@@ -24,6 +24,7 @@ struct SagaApp: App {
         }
         .commands {
             MenuBarCommands()
+            SidebarCommands()
         }
         .environmentObject(viewModel)
         .environmentObject(contentViewModel)

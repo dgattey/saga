@@ -12,20 +12,18 @@ struct ContentViewToolbar: ToolbarContent {
     @EnvironmentObject var viewModel: SyncViewModel
 
     var body: some ToolbarContent {
-#if os(iOS)
-        ToolbarItem(placement: .navigationBarTrailing) {
-            EditButton()
+#if os(macOS)
+        ToolbarItem(placement: .primaryAction) {
+            Button(action: toggleSidebar) {
+                Image(systemName: "sidebar.leading")
+            }
         }
 #endif
-        ToolbarItem {
-            Button(action: {
-                Task {
-                    await viewModel.sync()
-                }
-            }) {
-                Label("Sync", systemImage: "arrow.clockwise")
-            }
-            .disabled(viewModel.isSyncing)
-        }
+    }
+    
+    private func toggleSidebar() {
+#if os(macOS)
+        NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
+#endif
     }
 }
