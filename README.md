@@ -25,15 +25,6 @@ CONTENTFUL_ACCESS_TOKEN = your_access_token
 Don't forget to add to `PersistenceModel` after adding a core data model + the model file (and ensure there aren't auto-gen files from the core model).
 
 ## TODO
-- [] search improvements
-    - [x] move into sidebar
-    - [x] less boilerplate
-    - [x] highlight title/author hits as you type
-    - [] cmd-k
-    - [] add tags for ratings
-    - [] add tags for has review
-    - [] add tags for read status
-- [] move to Contentful-side search
 - [] book layout + edit view
     - [] rating
     - [] editable review
@@ -57,6 +48,14 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
 - [] logging how I've spent my time per month (reorg of data)
 - [] arbitrary lists
 - [] shareable lists (create a deep link to my website?)
+- [] search improvements
+    - [] cmd-k
+    - [] add tags for ratings
+    - [] add tags for has review
+    - [] add tags for read status
+    - [] move to Contentful-side search?
+    - [] explore better solutions for search tokens/scope than built in
+    - [] highlight title/author hits as you type
 
 ### Done
 - [x] connection to Contentful + sync persistence
@@ -65,7 +64,7 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
 - [x] cache cover images
 - [x] render rich text as attributed string
 - [x] parse GoodReads CSV upload locally
-    - [x] dropzone
+    - [x] dropzone with determinate progress
     - [x] CSV file parsing
     - [x] fetching cover images
     - [x] better merge new data (ISBN) with dupes

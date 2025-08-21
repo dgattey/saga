@@ -36,10 +36,15 @@ struct FileDropZoneContainer<Content: View>: View {
             }
 
             // Shows a drop zone if targeted
-            if isDropTargeted {
+            if isDropTargeted && !isProcessingFiles {
                 DropZone {
-                    Image(systemName: "tray.and.arrow.down.fill")
+                    Image(systemName: "document.badge.arrow.up")
                         .font(.system(size: 48))
+                        .foregroundStyle(.accent)
+                        .symbolEffect(
+                            .bounce.down.byLayer,
+                            options: .repeat(.periodic(delay: 0.5))
+                        )
                     Text("Drop file to upload")
                 }
             }
@@ -54,6 +59,7 @@ struct FileDropZoneContainer<Content: View>: View {
                         value: Float(completedSteps.wrappedValue),
                         total: Float(totalSteps.wrappedValue)
                     )
+                    .foregroundStyle(.accent)
                 }
                 
             }
@@ -62,10 +68,21 @@ struct FileDropZoneContainer<Content: View>: View {
             else if isProcessingFiles {
                 DropZone {
                     ProgressView()
+                        .foregroundStyle(.accent)
                 }
             }
         }
+        .onKeyPress(.escape, action: {
+            if isProcessingFiles {
+                return .ignored
+            }
+            isDropTargeted = false
+            return .handled
+        })
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
+            if isProcessingFiles {
+                return false
+            }
             isProcessingFiles = true
             Task {
                 var fileUrls: [URL] = []
@@ -93,6 +110,7 @@ struct FileDropZoneContainer<Content: View>: View {
                     .opacity(0.9)
                     .ignoresSafeArea()
                     .animation(.snappy, value: isDropTargeted)
+                    .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
 #else
                 Color(UIColor.systemBackground)
                     .ignoresSafeArea()
@@ -125,12 +143,12 @@ private struct DropZone<Content: View>: View {
         .padding()
         .frame(maxWidth: 200)
         .controlSize(.regular)
-        .foregroundColor(.white.opacity(0.65))
+        .foregroundColor(.primary.opacity(0.8))
         .fontWeight(.bold)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.accentColor.opacity(0.4))
-                .shadow(radius: 12)
+                .fill(Color.accentColor.mix(with: .accentForeground, by: 0.9))
+                .defaultShadow()
         )
         .transition(.scale(0.5).combined(with: .opacity))
     }
