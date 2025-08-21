@@ -41,8 +41,10 @@ struct GoodreadsCSVParser {
     /// How many rows we parse at once (including making network calls)
     private static let maxConcurrentParses = 10
     
+    private static let currentlyReadingShelfName = "currently-reading"
+    
     /// The only types of Goodread shelves we should parse in
-    private static let applicableShelves = ["currently-reading", "read"]
+    private static let applicableShelves = [currentlyReadingShelfName, "read"]
     
     private init() {}
     
@@ -154,7 +156,9 @@ struct GoodreadsCSVParser {
         }
         let readDateStarted = row.value(for: .dateAdded).flatMap { dateFormatter.date(from: $0) }
         let readDateFinished: Date? = {
-            if let finished = row.value(for: .dateRead).flatMap({ dateFormatter.date(from: $0) }) {
+            if applicableShelves.contains(currentlyReadingShelfName){
+                return nil
+            } else if let finished = row.value(for: .dateRead).flatMap({ dateFormatter.date(from: $0) }) {
                 return finished
             } else if let started = readDateStarted {
                 return Calendar.current.date(byAdding: .day, value: 3, to: started)
