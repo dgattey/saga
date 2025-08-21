@@ -12,13 +12,6 @@ struct ContentViewToolbar: ToolbarContent {
     @EnvironmentObject var viewModel: SyncViewModel
 
     var body: some ToolbarContent {
-#if os(macOS)
-        ToolbarItem(placement: .primaryAction) {
-            Button(action: toggleSidebar) {
-                Image(systemName: "sidebar.leading")
-            }
-        }
-#endif
         ToolbarItem {
             Button(action: {
                 Task {
@@ -28,7 +21,7 @@ struct ContentViewToolbar: ToolbarContent {
                 Label("Pull changes", systemImage: "arrow.down.circle")
                     .labelStyle(.iconOnly)
             }
-            .disabled(viewModel.isSyncing)
+        .disabled(viewModel.isSyncing)
         }
     }
 }

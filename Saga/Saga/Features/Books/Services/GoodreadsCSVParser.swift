@@ -42,9 +42,10 @@ struct GoodreadsCSVParser {
     private static let maxConcurrentParses = 10
     
     private static let currentlyReadingShelfName = "currently-reading"
+    private static let readShelfName = "read"
     
     /// The only types of Goodread shelves we should parse in
-    private static let applicableShelves = [currentlyReadingShelfName, "read"]
+    private static let applicableShelves = [currentlyReadingShelfName, readShelfName]
     
     private init() {}
     
@@ -125,7 +126,8 @@ struct GoodreadsCSVParser {
     /// Parses an individual row into a book and adds it into context, but doesn't save it
     private static func parseRow(_ row: [String: String], into context: NSManagedObjectContext) async throws {
         guard let title = row.value(for: .title)?.cleanedWhitespace,
-              let author = row.value(for: .author)?.cleanedWhitespace else {
+              let author = row.value(for: .author)?.cleanedWhitespace,
+              let shelves = row.value(for: .exclusiveShelf) else {
             return
         }
         
@@ -156,7 +158,8 @@ struct GoodreadsCSVParser {
         }
         let readDateStarted = row.value(for: .dateAdded).flatMap { dateFormatter.date(from: $0) }
         let readDateFinished: Date? = {
-            if applicableShelves.contains(currentlyReadingShelfName){
+            print(title, applicableShelves)
+            if shelves.contains(currentlyReadingShelfName) {
                 return nil
             } else if let finished = row.value(for: .dateRead).flatMap({ dateFormatter.date(from: $0) }) {
                 return finished
