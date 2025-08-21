@@ -19,11 +19,16 @@ struct ContentViewToolbar: ToolbarContent {
             }
         }
 #endif
-    }
-    
-    private func toggleSidebar() {
-#if os(macOS)
-        NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
-#endif
+        ToolbarItem {
+            Button(action: {
+                Task {
+                    await viewModel.sync()
+                }
+            }) {
+                Label("Pull changes", systemImage: "arrow.down.circle")
+                    .labelStyle(.iconOnly)
+            }
+            .disabled(viewModel.isSyncing)
+        }
     }
 }
