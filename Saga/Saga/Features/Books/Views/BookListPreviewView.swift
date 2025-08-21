@@ -10,6 +10,7 @@ import SwiftUI
 /// Renders the list preview version of a book
 struct BookListPreviewView: View {
     var result: SearchHighlightResult<Book>
+    
     private var book: Book {
         result.model
     }
@@ -26,8 +27,9 @@ struct BookListPreviewView: View {
                     Text(result.highlighted(for: \.author) ?? AttributedString(author))
                         .font(.subheadline)
                 }
-                BookStatusView(book: book)
             }
+            Spacer()
+            BookStatusView(book: book)
         }
     }
 }

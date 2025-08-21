@@ -94,7 +94,7 @@ class SearchViewModel: ObservableObject {
     func makeHighlightedAttributedString(
         from value: String,
         ranges: [ClosedRange<Int>],
-        highlightColor: Color = .accentColor.opacity(0.5)
+        highlightColor: Color = .accent.opacity(0.5)
     ) -> AttributedString {
         // Start with a styled, mutable AttributedString
         var attributed = AttributedString(value)

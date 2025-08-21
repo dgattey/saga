@@ -16,8 +16,6 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
     let outsidePadding: CGFloat
     let gap: CGFloat
     
-    @State private var containerWidth: CGFloat = 0
-    
     init(
         threshold: CGFloat = 576,
         /// The width of the first column, as a ratio. Second column will scale to fill
@@ -38,28 +36,17 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
     }
     
     var body: some View {
-        Group {
-            if containerWidth >= threshold {
-                twoColumnLayout
+        MeasuredContainer { size in
+            if size.width >= threshold {
+                twoColumnLayout(containerWidth: size.width)
             } else {
                 oneColumnLayout
             }
         }
-        .overlay(
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear {
-                        containerWidth = geometry.size.width
-                    }
-                    .onChange(of: geometry.size.width) { _, newWidth in
-                        containerWidth = newWidth
-                    }
-            }
-        )
     }
     
     /// Each column scrolls separately, and the views are stickied to each other horizontally
-    private var twoColumnLayout: some View {
+    private func twoColumnLayout(containerWidth: CGFloat) -> some View {
         HStack(alignment: .top, spacing: gap) {
             ScrollView(.vertical) {
                 columnA

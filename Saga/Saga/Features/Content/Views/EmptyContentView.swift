@@ -15,7 +15,7 @@ struct EmptyContentView: View {
                 .resizable()
                 .frame(width: 64, height: 64)
                 .font(.largeTitle)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Color.accent)
                 .symbolRenderingMode(.hierarchical)
                 .transition(.symbolEffect(.appear.byLayer))
             Text("Select an item")

@@ -43,19 +43,27 @@ struct BookContentView: View {
     
     /// The "sidebar" of the two column view - shows less info and stays sticky in view
     var sidebar: some View {
-        let coverImageURLText = book.coverImage?.assetURL?.absoluteString ?? "No image URL"
-        
-        return BookCoverImageView(book: book)
+        coverImageView
             .frame(
                 minWidth: Constants.minCoverWidth,
                 maxWidth: Constants.maxCoverWidth,
                 alignment: .center
             )
+    }
+    
+    var coverImageView: some View {
+        let coverImageURLText = book.coverImage?.assetURL?.absoluteString ?? "No image URL"
+        return BookCoverImageView(book: book)
             .defaultShadow()
             .randomRotation(from: book.hashValue, minDegrees: -1, maxDegrees: -8)
             .contextMenu {
-                Text(coverImageURLText)
                 CopyButton(labelText: "Copy image URL", value: coverImageURLText)
+                if let isbn = book.isbn?.stringValue {
+                    CopyButton(
+                        labelText: "Copy ISBN",
+                        value: isbn
+                    )
+                }
             }
             .copyable([coverImageURLText])
 #if os(macOS)
@@ -64,23 +72,28 @@ struct BookContentView: View {
             .background {
                 Circle()
                     .foregroundStyle(
-                        Color.accent
-                            .mix(with: .primary, by: 0.5)
-                            .mix(with: .accentForeground, by: 0.6)
+                        Color
+                            .accent
+                            .mix(with: .primary, by: 0.25)
                     )
                     .padding(-12)
                     .defaultShadow()
             }
     }
     
+    /// The top level metadata stack
+    var metadataStack: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            titleView
+            authorView
+        }
+    }
+    
     /// The right hand content view that grows to a max width of the two column view. Has
     /// a lot of data and is scrollable.
     var content: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                titleView
-                authorView
-            }
+            metadataStack
             StarRatingView(rating: book.rating?.intValue ?? 0)
             
             Text(book.isbn?.stringValue ?? "No ISBN")

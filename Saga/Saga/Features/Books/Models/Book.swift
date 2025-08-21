@@ -29,6 +29,10 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     @NSManaged var rating: NSNumber?
     @NSManaged var reviewDescription: RichTextDocument?
     
+    var isCurrentlyReading: Bool {
+        readDateFinished == nil && readDateStarted != nil
+    }
+    
     /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.
     static func add(to context: NSManagedObjectContext,
                     title: String,

@@ -141,14 +141,15 @@ private struct DropZone<Content: View>: View {
         VStack(spacing: 8) {
             content
         }
-        .padding()
+        .padding(32)
         .frame(maxWidth: 200)
         .controlSize(.regular)
         .foregroundColor(.primary.opacity(0.8))
         .fontWeight(.bold)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.accentColor.mix(with: .accentForeground, by: 0.9))
+                .fill(.bar)
+                .stroke(.primary.opacity(0.2), style: StrokeStyle())
                 .defaultShadow()
         )
         .transition(.scale(0.5).combined(with: .opacity))
