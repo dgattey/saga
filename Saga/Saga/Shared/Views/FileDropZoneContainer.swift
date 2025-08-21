@@ -41,9 +41,10 @@ struct FileDropZoneContainer<Content: View>: View {
                     Image(systemName: "document.badge.arrow.up")
                         .font(.system(size: 48))
                         .foregroundStyle(.accent)
+                        .symbolRenderingMode(.hierarchical)
                         .symbolEffect(
                             .bounce.down.byLayer,
-                            options: .repeat(.periodic(delay: 0.5))
+                            options: .repeat(.periodic(delay: 0.75))
                         )
                     Text("Drop file to upload")
                 }
