@@ -18,9 +18,10 @@ struct ContentView: View {
                 EmptyContentView()
             })
         }
-            .toolbar {
-                ContentViewToolbar()
-            }
+        .symbolRenderingMode(.hierarchical)
+        .toolbar {
+            ContentViewToolbar()
+        }
 #if os(macOS)
         .frame(minWidth: 600, minHeight: 300)
 #endif

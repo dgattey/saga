@@ -97,8 +97,9 @@ struct BookContentView: View {
             StarRatingView(rating: book.rating?.intValue ?? 0)
             
             Text(book.isbn?.stringValue ?? "No ISBN")
-            Text(book.readDateStarted?.formatted(date: .complete, time: .omitted) ?? "Not started")
-            Text(book.readDateFinished?.formatted(date: .complete, time: .omitted) ?? "Not finished")
+            
+            BookReadingStatusView(book: book)
+            
             reviewView
         }
         .frame(

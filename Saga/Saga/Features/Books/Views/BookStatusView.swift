@@ -13,10 +13,9 @@ struct BookStatusView: View {
     @State private var shouldBounce = false
     
     var body: some View {
-        if book.isCurrentlyReading {
+        if book.readingStatus == .reading {
             Image(systemName: "book.circle.fill")
                 .font(.title)
-                .symbolRenderingMode(.hierarchical)
                 .symbolEffect(.bounce, options: .nonRepeating, value: shouldBounce)
                 .foregroundStyle(.secondary)
                 .imageScale(.large)

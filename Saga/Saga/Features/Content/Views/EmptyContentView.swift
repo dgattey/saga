@@ -16,7 +16,6 @@ struct EmptyContentView: View {
                 .frame(width: 64, height: 64)
                 .font(.largeTitle)
                 .foregroundStyle(Color.accent)
-                .symbolRenderingMode(.hierarchical)
                 .transition(.symbolEffect(.appear.byLayer))
             Text("Select an item")
                 .font(.title2)

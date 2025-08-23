@@ -11,6 +11,34 @@ import CoreData
 import Contentful
 import ContentfulPersistence
 
+/// A simple enum to wrap dates in an enum for status
+enum ReadingStatus: String, CaseIterable {
+    case notStarted
+    case reading
+    case read
+    
+    mutating func advance() {
+        switch self {
+        case .notStarted:
+            self = .reading
+        case .reading:
+            self = .read
+        case .read:
+            break
+        }
+    }
+    
+    init(readDateStarted: Date?, readDateFinished: Date?) {
+        if readDateFinished != nil {
+            self = .read
+        } else if readDateStarted != nil {
+            self = .reading
+        } else {
+            self = .notStarted
+        }
+    }
+}
+
 @objc(Book)
 final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     static let contentTypeId = "book"
@@ -29,8 +57,8 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     @NSManaged var rating: NSNumber?
     @NSManaged var reviewDescription: RichTextDocument?
     
-    var isCurrentlyReading: Bool {
-        readDateFinished == nil && readDateStarted != nil
+    var readingStatus: ReadingStatus {
+        .init(readDateStarted: readDateStarted, readDateFinished: readDateFinished)
     }
     
     /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.

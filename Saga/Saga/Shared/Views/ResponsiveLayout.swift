@@ -66,9 +66,6 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
             .frame(alignment: .topLeading)
             .scrollClipDisabled()
         }
-        .containerRelativeFrame([.vertical]) { height, _ in
-            height
-        }
     }
     
     private var oneColumnLayout: some View {
