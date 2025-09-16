@@ -32,10 +32,10 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
         guard let urlString = urlString else {
             return nil
         }
-        if let existing = try findDuplicate(in: context, urlString: urlString) {
-            return existing
-        }
-        return await MainActor.run {
+        return try await context.perform {
+            if let existing = try findDuplicate(in: context, urlString: urlString) {
+                return existing
+            }
             return Asset(context: context, urlString: urlString)
         }
     }

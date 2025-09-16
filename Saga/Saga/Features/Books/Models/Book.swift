@@ -70,41 +70,73 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
                     readDateFinished: Date?,
                     rating: NSNumber?,
                     reviewDescription: RichTextDocument?) async throws {
-        // If we had an existing book, just update it in place, including a new Asset if needed
-        if let existingBook = try findDuplicate(in: context, title: title, author: author) {
-            let isbn = (existingBook.isbn != nil) ? existingBook.isbn : try await getISBN()
-            let newCoverImage: Asset?
-            if existingBook.coverImage == nil {
-                newCoverImage = try await getOrAddCoverImage(to: context, forISBN: isbn, andTitle: title)
-            } else {
-                newCoverImage = existingBook.coverImage
-            }
-            await MainActor.run {
-                print("Found duplicate \"\(title)\"")
-                existingBook.title = title
-                existingBook.isbn ??= isbn
-                existingBook.coverImage = newCoverImage
-                existingBook.readDateFinished ??= readDateFinished
-                existingBook.readDateStarted ??= readDateStarted
-                existingBook.rating ??= rating
-                existingBook.reviewDescription ??= reviewDescription
-            }
-            return
-        }
         
-        // Otherwise, create a new book
-        let isbn = try await getISBN()
-        let coverImage = try await getOrAddCoverImage(to: context, forISBN: isbn, andTitle: title)
-        await MainActor.run {
+        // Check for duplicates first
+        let existingBook = try findDuplicate(in: context, title: title, author: author)
+        
+        if let existingBook = existingBook {
+            // Handle existing book update
+            let currentISBN = existingBook.isbn
+            let needsCoverImage = existingBook.coverImage == nil
+            
+            // Get ISBN if we don't have one - evaluate the closure first
+            let isbn: NSNumber?
+            if currentISBN != nil {
+                isbn = currentISBN
+            } else {
+                isbn = try await getISBN()
+            }
+            
+            // Get cover image if we don't have one
+            if needsCoverImage, let isbn = isbn {
+                let coverImageURL = await getCoverImageURL(forISBN: isbn, andTitle: title)
+                if let url = coverImageURL {
+                    let asset = try await Asset.add(to: context, withURL: url)
+                    existingBook.coverImage = asset
+                }
+            }
+            
+            // Update the existing book directly (no closure needed)
+            print("Found duplicate \"\(title)\"")
+            existingBook.title = title
+            existingBook.isbn ??= isbn
+            existingBook.readDateFinished ??= readDateFinished
+            existingBook.readDateStarted ??= readDateStarted
+            existingBook.rating ??= rating
+            existingBook.reviewDescription ??= reviewDescription
+            
+        } else {
+            // Create new book
+            let isbn = try await getISBN()
+            let coverImageURL = await getCoverImageURL(forISBN: isbn, andTitle: title)
+            let coverAsset = try await Asset.add(to: context, withURL: coverImageURL)
+            
+            // Create the book directly (no closure needed)
             _ = Book(context: context,
                      title: title,
                      author: author,
-                     coverImage: coverImage,
+                     coverImage: coverAsset,
                      isbn: isbn,
                      readDateStarted: readDateStarted,
                      readDateFinished: readDateFinished,
                      rating: rating,
                      reviewDescription: reviewDescription)
+        }
+    }
+    
+    /// Helper method to get cover image URL without creating Asset
+    private static func getCoverImageURL(forISBN isbn: NSNumber?, andTitle title: String) async -> String? {
+        guard let isbn = isbn?.stringValue else {
+            return nil
+        }
+        
+        do {
+            if let url = try await OpenLibraryAPIService.coverImageURL(forISBN: isbn), !url.isEmpty {
+                return url
+            }
+            return try await BookcoverAPIService.coverImageURL(forISBN: isbn)
+        } catch {
+            return nil
         }
     }
     
@@ -159,20 +191,18 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     private static func getOrAddCoverImage(to context: NSManagedObjectContext,
                                            forISBN isbn: NSNumber?,
                                            andTitle title: String) async throws -> Asset? {
-        let task = Task(priority: .background) {
-            let coverImageUrl: String? = try await {
-                guard let isbn = isbn?.stringValue else {
-                    return nil
-                }
-                let url = try await OpenLibraryAPIService.coverImageURL(forISBN: isbn)
-                guard let url = url, !url.isEmpty else {
-                    return try await BookcoverAPIService.coverImageURL(forISBN: isbn)
-                }
-                return url
-            }()
-            return try await Asset.add(to: context, withURL: coverImageUrl)
+        let fetchTask: Task<String?, Error> = Task.detached(priority: .background) {
+            guard let isbn = isbn?.stringValue else {
+                return nil
+            }
+            let url = try await OpenLibraryAPIService.coverImageURL(forISBN: isbn)
+            guard let url = url, !url.isEmpty else {
+                return try await BookcoverAPIService.coverImageURL(forISBN: isbn)
+            }
+            return url
         }
-        return try await task.value
+        let coverImageUrl = try await fetchTask.value
+        return try await Asset.add(to: context, withURL: coverImageUrl)
     }
 
     static func fieldMapping() -> [Contentful.FieldName: String] {

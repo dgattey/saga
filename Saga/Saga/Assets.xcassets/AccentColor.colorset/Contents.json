@@ -5,9 +5,9 @@
         "color-space" : "display-p3",
         "components" : {
           "alpha" : "1.000",
-          "blue" : "0.707",
-          "green" : "0.721",
-          "red" : "0.452"
+          "blue" : "0.704",
+          "green" : "0.757",
+          "red" : "0.310"
         }
       },
       "idiom" : "universal"
@@ -20,8 +20,13 @@
         }
       ],
       "color" : {
-        "platform" : "universal",
-        "reference" : "systemMintColor"
+        "color-space" : "display-p3",
+        "components" : {
+          "alpha" : "1.000",
+          "blue" : "0x8D",
+          "green" : "0x97",
+          "red" : "0x3E"
+        }
       },
       "idiom" : "universal"
     }
