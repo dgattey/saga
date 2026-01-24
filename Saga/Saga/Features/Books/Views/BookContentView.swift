@@ -10,6 +10,8 @@ import SwiftUI
 private struct Constants {
     static let columnGap: CGFloat = 48
     static let outsidePadding: CGFloat = 32
+    static let layoutThreshold: CGFloat = 576
+    static let layoutWidthRatio: CGFloat = 0.25
     static let minCoverWidth: CGFloat = 96
     static let maxCoverWidth: CGFloat = 192
     static let maxContentWidth: CGFloat = 544
@@ -19,6 +21,9 @@ private struct Constants {
 struct BookContentView: View {
     
     var book: Book
+    @Environment(\.coverNamespace) private var coverNamespace
+    @Environment(\.coverMatchActive) private var coverMatchActive
+    @State private var containerWidth: CGFloat = 0
     var title: String {
         book.title ?? "Untitled book"
     }
@@ -34,6 +39,11 @@ struct BookContentView: View {
             columnB: { content }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .readSize { size in
+            if size.width != containerWidth {
+                containerWidth = size.width
+            }
+        }
         .textSelection(.enabled)
         .navigationTitle(title)
 #if os(macOS)
@@ -54,9 +64,15 @@ struct BookContentView: View {
     
     var coverImageView: some View {
         let coverImageURLText = book.coverImage?.assetURL?.absoluteString ?? "No image URL"
-        return BookCoverImageView(book: book)
-            .defaultShadow()
-            .randomRotation(from: book.hashValue, minDegrees: -1, maxDegrees: -8)
+        return coverImageBase
+            .opacity(showMatchedOverlay ? 0 : 1)
+            .animation(AppAnimation.coverFade, value: showMatchedOverlay)
+            .overlay {
+                matchedCoverImage
+                    .opacity(showMatchedOverlay ? 1 : 0)
+                    .animation(AppAnimation.coverFade, value: showMatchedOverlay)
+                    .allowsHitTesting(false)
+            }
             .contextMenu {
                 CopyButton(labelText: "Copy image URL", value: coverImageURLText)
                 if let isbn = book.isbn?.stringValue {
@@ -80,6 +96,72 @@ struct BookContentView: View {
                     .padding(-12)
                     .defaultShadow()
             }
+    }
+
+    private var coverImageBase: some View {
+        BookCoverImageView(book: book)
+            .defaultShadow()
+            .rotationEffect(coverRotation)
+            .animation(AppAnimation.coverRotation, value: book.objectID)
+            .id(book.objectID)
+            .transition(.opacity)
+            .animation(AppAnimation.coverFade, value: book.objectID)
+    }
+
+    @ViewBuilder
+    private var matchedCoverImage: some View {
+        if let coverNamespace {
+            let coverImage = BookCoverImageView(book: book)
+                .defaultShadow()
+                .rotationEffect(coverRotation)
+                .animation(AppAnimation.coverRotation, value: book.objectID)
+            coverImage
+                .frame(width: detailCoverSize.width, height: detailCoverSize.height)
+                .matchedGeometryEffect(id: coverID, in: coverNamespace)
+        }
+    }
+
+    private var showMatchedOverlay: Bool {
+        coverMatchActive && coverNamespace != nil
+    }
+
+    private var detailCoverSize: CGSize {
+        let width = detailCoverWidth
+        return CGSize(
+            width: width,
+            height: width / BookCoverImageView.coverAspectRatio
+        )
+    }
+
+    private var detailCoverWidth: CGFloat {
+        guard containerWidth > 0 else {
+            return Constants.maxCoverWidth
+        }
+        if containerWidth >= Constants.layoutThreshold {
+            let columnWidth = containerWidth * Constants.layoutWidthRatio
+            let availableWidth = max(0, columnWidth - Constants.outsidePadding)
+            return clampCoverWidth(availableWidth)
+        }
+        let availableWidth = max(0, containerWidth - (Constants.outsidePadding * 2))
+        return clampCoverWidth(availableWidth)
+    }
+
+    private func clampCoverWidth(_ width: CGFloat) -> CGFloat {
+        min(Constants.maxCoverWidth, max(Constants.minCoverWidth, width))
+    }
+
+    private var coverRotation: Angle {
+        Angle.degrees(
+            AppAnimation.coverRotationDegrees(
+                from: book.hashValue,
+                minDegrees: -1,
+                maxDegrees: -8
+            )
+        )
+    }
+
+    private var coverID: String {
+        book.objectID.uriRepresentation().absoluteString
     }
     
     /// The top level metadata stack

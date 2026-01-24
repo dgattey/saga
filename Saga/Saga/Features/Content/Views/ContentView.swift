@@ -11,31 +11,68 @@ import CoreData
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject private var syncViewModel: SyncViewModel
-    @State private var selectedBookID: NSManagedObjectID?
+    @State private var selection: SidebarSelection? = .home(lastSelectedBookID: nil)
+    @State private var coverMatchActive = false
+    @State private var coverMatchTask: Task<Void, Never>?
+    @State private var lastSelectionWasHome = true
+    @Namespace private var coverNamespace
 
     var body: some View {
         GoodreadsUploadDropzoneContainer {
             NavigationSplitView(sidebar: {
-                BooksListView(selection: $selectedBookID)
+                VStack(alignment: .leading, spacing: 8) {
+                    HomeSidebarRow(selection: $selection)
+                    BooksListView(selection: $selection)
+                }
             }, detail: {
-                if let selectedBookID,
-                   let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book {
-                    BookContentView(book: selectedBook)
-                } else {
-                    EmptyContentView()
+                Group {
+                    switch selection {
+                    case .book(let selectedBookID):
+                        if let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book {
+                            BookContentView(book: selectedBook)
+                        } else {
+                            HomeView(selection: $selection)
+                        }
+                    default:
+                        HomeView(selection: $selection)
+                    }
                 }
             })
         }
+        .environment(\.coverNamespace, coverNamespace)
+        .environment(\.coverMatchActive, coverMatchActive)
         .symbolRenderingMode(.hierarchical)
         .toolbar {
             ContentViewToolbar()
         }
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-        .onChange(of: syncViewModel.resetToken) { _ in
-            selectedBookID = nil
+        .onChange(of: selection) { _, newSelection in
+            let isHome = newSelection?.isHome ?? true
+            if isHome != lastSelectionWasHome {
+                startCoverMatch()
+            } else {
+                coverMatchTask?.cancel()
+                coverMatchActive = false
+            }
+            lastSelectionWasHome = isHome
+        }
+        .onChange(of: syncViewModel.resetToken) {
+            selection = selection?.homeSelectionPreservingLast() ?? .home(lastSelectedBookID: nil)
         }
 #if os(macOS)
         .frame(minWidth: 600, minHeight: 300)
 #endif
+    }
+
+    private func startCoverMatch() {
+        coverMatchTask?.cancel()
+        coverMatchActive = true
+        coverMatchTask = Task { @MainActor in
+            let delay = UInt64(AppAnimation.coverMatchHoldDuration * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: delay)
+            if !Task.isCancelled {
+                coverMatchActive = false
+            }
+        }
     }
 }

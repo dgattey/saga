@@ -23,9 +23,13 @@ struct BookListPreviewView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(result.highlighted(for: \.title) ?? AttributedString(book.title ?? book.id))
                     .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 if let author = book.author {
                     Text(result.highlighted(for: \.author) ?? AttributedString(author))
                         .font(.subheadline)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
             Spacer()

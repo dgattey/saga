@@ -11,21 +11,60 @@ import CoreData
 struct BooksListView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject private var viewModel: BooksViewModel
-    @Binding var selection: NSManagedObjectID?
+    @Environment(\.controlActiveState) private var controlActiveState
+    @Binding var selection: SidebarSelection?
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
         animation: .default) private var books: FetchedResults<Book>
-
+    
     var body: some View {
-        List(selection: $selection) {
-            Section {
-                ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
-                    BookListPreviewView(result: result)
-                        .padding(.vertical, 4)
-                        .tag(result.model.objectID)
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Books")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+                .padding(.leading, SidebarLayout.headerLeadingPadding)
+                .padding(.trailing, SidebarLayout.rowHorizontalPadding)
+            
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    if viewModel.filteredBooks.isEmpty, hasActiveSearch {
+                        Text("No results")
+                            .foregroundStyle(.secondary)
+                            .padding(.vertical, 8)
+                            .padding(.trailing, SidebarLayout.rowHorizontalPadding)
+                            .padding(.leading, SidebarLayout.rowHorizontalPadding + 8)
+                    } else {
+                        ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
+                            Button {
+                                withAnimation(AppAnimation.selectionSpring) {
+                                    selection = .book(result.model.objectID)
+                                }
+                            } label: {
+                                BookListPreviewView(result: result)
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 8)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background {
+                                        if selection == .book(result.model.objectID) {
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(selectionBackgroundColor)
+                                        }
+                                    }
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, SidebarLayout.rowHorizontalPadding)
+                            .contextMenu {
+                                Button("Delete") {
+                                    deleteBook(result.model)
+                                }
+                            }
+                        }
+                    }
                 }
-                .onDelete(perform: deleteBooks)
+                .padding(.vertical, 4)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
 #if os(macOS)
         .frame(minWidth: 200, idealWidth: 300)
@@ -41,18 +80,29 @@ struct BooksListView: View {
                     placement: .sidebar)
         .navigationTitle("All books")
     }
-    
-    /// Deletes books from our view context
-    private func deleteBooks(offsets: IndexSet) {
+
+    private var hasActiveSearch: Bool {
+        !viewModel.searchModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func deleteBook(_ book: Book) {
         withAnimation {
-            offsets.map { books[$0] }.forEach(viewContext.delete)
-            
+            viewContext.delete(book)
             do {
                 try viewContext.save()
             } catch {
                 let nsError = error as NSError
                 fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
             }
+        }
+    }
+
+    private var selectionBackgroundColor: Color {
+        switch controlActiveState {
+        case .inactive:
+            return Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
+        default:
+            return Color(nsColor: .selectedContentBackgroundColor)
         }
     }
 }

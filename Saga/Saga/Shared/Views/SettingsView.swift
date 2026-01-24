@@ -60,6 +60,7 @@ struct SettingsView: View {
                         .controlSize(.small)
                     Text("Resetting...")
                         .foregroundStyle(.secondary)
+                        .padding(.vertical, 4)
                 }
             } else {
                 Button("Reset", role: .destructive) {

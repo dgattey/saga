@@ -9,7 +9,7 @@ import SwiftUI
 
 /// A quick status for if a book's been read/shelved/etc
 struct BookStatusView: View {
-    var book: Book
+    @ObservedObject var book: Book
     @State private var shouldBounce = false
     
     var body: some View {
