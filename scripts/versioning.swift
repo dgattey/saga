@@ -161,8 +161,8 @@ func metadataBlock(fromVersion: String, toVersion: String, fromBuild: String, to
     [
         Constants.metadataStart,
         "---",
-        "<small><code>Version information</code></small>",
-        "<small><code>v\(fromVersion) (\(fromBuild)) -> v\(toVersion) (\(toBuild))</code></small>",
+        "<small>Version information</small>",
+        "<small><code>v\(fromVersion) (\(fromBuild))</code> → <code>v\(toVersion) (\(toBuild))</code></small>",
         Constants.metadataEnd
     ].joined(separator: "\n")
 }
