@@ -21,6 +21,7 @@ struct SagaApp: App {
         WindowGroup {
             ContentView()
                 .environment(\.managedObjectContext, viewModel.viewContext)
+                .windowBackground()
         }
         .commands {
             MenuBarCommands()
@@ -32,6 +33,7 @@ struct SagaApp: App {
         
         Settings {
             SettingsView()
+                .windowBackground()
         }
         .environmentObject(viewModel)
     }

@@ -38,6 +38,7 @@ struct BookContentView: View {
         .navigationTitle(title)
 #if os(macOS)
         .navigationSubtitle(author)
+        .toolbar(removing: .title)
 #endif
     }
     
@@ -109,7 +110,7 @@ struct BookContentView: View {
     }
     
     var titleView: some View {
-        Text(title).font(.largeTitle)
+        Text(title).font(.largeTitleBold)
     }
     
     var authorView: some View {

@@ -22,6 +22,7 @@ struct ContentView: View {
         .toolbar {
             ContentViewToolbar()
         }
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
 #if os(macOS)
         .frame(minWidth: 600, minHeight: 300)
 #endif
