@@ -103,7 +103,6 @@ struct BookContentView: View {
             .defaultShadow()
             .rotationEffect(coverRotation)
             .animation(AppAnimation.coverRotation, value: book.objectID)
-            .id(book.objectID)
             .transition(.opacity)
             .animation(AppAnimation.coverFade, value: book.objectID)
     }
@@ -175,7 +174,7 @@ struct BookContentView: View {
     /// The right hand content view that grows to a max width of the two column view. Has
     /// a lot of data and is scrollable.
     var content: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        LazyVStack(alignment: .leading, spacing: 16) {
             metadataStack
             StarRatingView(rating: book.rating?.intValue ?? 0)
 

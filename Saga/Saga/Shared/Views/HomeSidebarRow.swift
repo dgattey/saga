@@ -27,7 +27,7 @@ struct HomeSidebarRow: View {
                     .font(.headline)
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
             .padding(.horizontal, 8)
             .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32, alignment: .leading)
             .background {

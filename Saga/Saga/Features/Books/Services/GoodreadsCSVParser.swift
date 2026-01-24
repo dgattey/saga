@@ -14,7 +14,8 @@ import SwiftUI
 private enum BookCSVField: String {
     case title = "Title"
     case author = "Author"
-    case isbn = "ISBN13"
+    case isbn13 = "ISBN13"
+    case isbn10 = "ISBN"
     case rating = "My Rating"
     case review = "My Review"
     case dateStarted = "Date Started"
@@ -177,6 +178,55 @@ struct GoodreadsCSVParser {
         "\(normalizedTitle(title))|\(normalizedAuthor(author))"
     }
 
+    private static func normalizedISBN(_ raw: String) -> String {
+        raw
+            .replacingOccurrences(of: "=\"", with: "")
+            .replacingOccurrences(of: "\"", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: " ", with: "")
+            .uppercased()
+    }
+
+    private static func isbn13(from raw: String) -> String? {
+        let normalized = normalizedISBN(raw)
+        guard !normalized.isEmpty else { return nil }
+        if normalized.count == 13, normalized.allSatisfy({ $0.isNumber }) {
+            return normalized
+        }
+        if normalized.count == 10 {
+            return isbn13(fromISBN10: normalized)
+        }
+        return nil
+    }
+
+    private static func isbn13(fromISBN10 isbn10: String) -> String? {
+        let prefix = isbn10.prefix(9)
+        guard prefix.allSatisfy({ $0.isNumber }) else { return nil }
+        let base = "978" + prefix
+        guard let checkDigit = isbn13CheckDigit(for: base) else { return nil }
+        return base + checkDigit
+    }
+
+    private static func isbn13CheckDigit(for twelveDigits: String) -> String? {
+        guard twelveDigits.count == 12,
+              twelveDigits.allSatisfy({ $0.isNumber }) else { return nil }
+        var sum = 0
+        for (index, char) in twelveDigits.enumerated() {
+            guard let digit = char.wholeNumberValue else { return nil }
+            sum += (index % 2 == 0) ? digit : digit * 3
+        }
+        let check = (10 - (sum % 10)) % 10
+        return String(check)
+    }
+
+    private static func isbnNumber(from isbn13: String) -> NSNumber? {
+        guard let intValue = Int64(isbn13),
+              intValue > 0 else {
+            return nil
+        }
+        return NSNumber(value: intValue)
+    }
+
     static func isDuplicateTitle(_ title: String, _ existingTitle: String) -> Bool {
         title.localizedCaseInsensitiveContains(existingTitle)
         || existingTitle.localizedCaseInsensitiveContains(title)
@@ -285,28 +335,27 @@ struct GoodreadsCSVParser {
         
         func getISBN() async throws -> NSNumber? {
             let cacheKey = isbnCacheKey(title: title, author: author)
-            if let csvIsbnValue = row.value(for: .isbn)?
-                .replacingOccurrences(of: "=\"", with: "")
-                .replacingOccurrences(of: "\"", with: ""),
-               !csvIsbnValue.isEmpty {
-                guard let intValue = Int64(csvIsbnValue),
-                      intValue > 0 else {
-                    return nil
-                }
-                await lookupCache.storeISBN(csvIsbnValue, forKey: cacheKey)
-                return NSNumber(value: intValue)
-            } else {
-                let isbnStringValue = try await lookupCache.isbn(forKey: cacheKey) {
-                    try await OpenLibraryAPIService.isbnFor(title: title, author: author)
-                }
-                guard let isbnStringValue,
-                      !isbnStringValue.isEmpty,
-                      let intValue = Int64(isbnStringValue),
-                      intValue > 0 else {
-                    return nil
-                }
-                return NSNumber(value: intValue)
+            if let csvIsbnValue = row.value(for: .isbn13),
+               let isbn13Value = isbn13(from: csvIsbnValue),
+               let isbnNumber = isbnNumber(from: isbn13Value) {
+                await lookupCache.storeISBN(isbn13Value, forKey: cacheKey)
+                return isbnNumber
             }
+            if let csvIsbnValue = row.value(for: .isbn10),
+               let isbn13Value = isbn13(from: csvIsbnValue),
+               let isbnNumber = isbnNumber(from: isbn13Value) {
+                await lookupCache.storeISBN(isbn13Value, forKey: cacheKey)
+                return isbnNumber
+            }
+            let isbnStringValue = try await lookupCache.isbn(forKey: cacheKey) {
+                try await OpenLibraryAPIService.isbnFor(title: title, author: author)
+            }
+            guard let isbnStringValue,
+                  let isbn13Value = isbn13(from: isbnStringValue),
+                  let isbnNumber = isbnNumber(from: isbn13Value) else {
+                return nil
+            }
+            return isbnNumber
         }
         
         let rating = row.value(for: .rating).flatMap { val -> NSNumber? in

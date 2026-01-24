@@ -58,8 +58,8 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
                 alignment: .topTrailing
             )
             .scrollClipDisabled()
-            
-            ScrollView(.vertical) {
+
+            scrollableContentView {
                 columnB
                     .padding([.trailing, .vertical], outsidePadding)
             }
@@ -69,12 +69,19 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
     }
     
     private var oneColumnLayout: some View {
-        ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: gap) {
+        scrollableContentView {
+            LazyVStack(alignment: .leading, spacing: gap) {
                 columnA
                 columnB
             }
             .padding(outsidePadding)
         }
     }
+
+    private func scrollableContentView<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView(.vertical) {
+            content()
+        }
+    }
+
 }

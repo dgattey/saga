@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import CoreData
 
 private struct Constants {
     static let outsidePadding: CGFloat = 32
@@ -100,6 +99,7 @@ struct HomeBookThumbnailView: View {
     
     var body: some View {
         Button {
+            guard selection != .book(book.objectID) else { return }
             withAnimation(AppAnimation.selectionSpring) {
                 selection = .book(book.objectID)
             }
