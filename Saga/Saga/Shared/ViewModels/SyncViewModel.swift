@@ -12,6 +12,8 @@ import CoreData
 class SyncViewModel: ObservableObject {
     private var controller = PersistenceController()
     @Published var isSyncing = false
+    @Published var isResetting = false
+    @Published var resetToken = UUID()
     private var syncTask: Task<Void, Never>?
     
     var viewContext: NSManagedObjectContext {
@@ -20,33 +22,44 @@ class SyncViewModel: ObservableObject {
     
     /// Syncs if there's no sync running already
     func sync() async {
-        await orchestrateSync { [weak self] in
+        await orchestrateSync(start: { [weak self] in
+            self?.isSyncing = true
+        }, finish: { [weak self] in
+            self?.isSyncing = false
+        }) { [weak self] in
             try await self?.controller.syncWithApi()
         }
     }
     
     /// Resets all data, then syncs as long as there's no sync running already
     func resetAndSync() async {
-        await orchestrateSync { [weak self] in
+        await orchestrateSync(start: { [weak self] in
+            self?.isResetting = true
+            self?.resetToken = UUID()
+        }, finish: { [weak self] in
+            self?.isResetting = false
+        }) { [weak self] in
             try await self?.controller.resetAndSyncWithApi()
         }
     }
     
     /// Helper to orchestrate some sync function, managing state as it does so
-    private func orchestrateSync(_ syncFunction: @escaping () async throws -> Void) async {
-        guard !isSyncing else { return }
+    private func orchestrateSync(start: @escaping () -> Void,
+                                 finish: @escaping () -> Void,
+                                 _ syncFunction: @escaping () async throws -> Void) async {
+        guard !isSyncing, !isResetting else { return }
         syncTask = Task(priority: .background) {
             await MainActor.run {
-                isSyncing = true
+                start()
             }
             do {
                 try await syncFunction()
                 await MainActor.run {
-                    isSyncing = false
+                    finish()
                 }
             } catch {
                 await MainActor.run {
-                    isSyncing = false
+                    finish()
                 }
                 print("Error syncing: \(error)")
             }

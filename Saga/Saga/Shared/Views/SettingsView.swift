@@ -53,7 +53,7 @@ struct SettingsView: View {
         HStack {
             Text("Local data")
             Spacer()
-            if viewModel.isSyncing {
+            if viewModel.isResetting {
                 HStack(spacing: 8) {
                     ProgressView()
                         .progressViewStyle(.automatic)
@@ -70,7 +70,7 @@ struct SettingsView: View {
                 .foregroundStyle(.red)
             }
         }
-        .disabled(viewModel.isSyncing)
+        .disabled(viewModel.isSyncing || viewModel.isResetting)
     }
     
     var appInformation: some View {

@@ -17,6 +17,7 @@ private enum BookCSVField: String {
     case isbn = "ISBN13"
     case rating = "My Rating"
     case review = "My Review"
+    case dateStarted = "Date Started"
     case dateAdded = "Date Added"
     case dateRead = "Date Read"
     case exclusiveShelf = "Exclusive Shelf"
@@ -156,18 +157,28 @@ struct GoodreadsCSVParser {
                   intValue > 0 else { return nil }
             return NSNumber(value: intValue)
         }
-        let readDateStarted = row.value(for: .dateAdded).flatMap { dateFormatter.date(from: $0) }
+        let readDateStarted = row.value(for: .dateStarted)
+            .flatMap { dateFormatter.date(from: $0) }
+            ?? row.value(for: .dateAdded).flatMap { dateFormatter.date(from: $0) }
         let readDateFinished: Date? = {
-            print(title, applicableShelves)
             if shelves.contains(currentlyReadingShelfName) {
                 return nil
             } else if let finished = row.value(for: .dateRead).flatMap({ dateFormatter.date(from: $0) }) {
                 return finished
-            } else if let started = readDateStarted {
-                return Calendar.current.date(byAdding: .day, value: 3, to: started)
+            } else if let added = row.value(for: .dateAdded).flatMap({ dateFormatter.date(from: $0) }) {
+                return added
             } else {
                 return nil
             }
+        }()
+        let validatedReadDateFinished: Date? = {
+            guard let readDateFinished else { return nil }
+            guard let readDateStarted else { return readDateFinished }
+            guard readDateFinished >= readDateStarted else {
+                print("Warning: read finish before start for \"\(title)\". start=\(readDateStarted) finish=\(readDateFinished)")
+                return nil
+            }
+            return readDateFinished
         }()
         let reviewDescription: RichTextDocument? = {
             let review = row.value(for: .review)
@@ -181,7 +192,7 @@ struct GoodreadsCSVParser {
             author: author,
             getISBN: getISBN,
             readDateStarted: readDateStarted,
-            readDateFinished: readDateFinished,
+            readDateFinished: validatedReadDateFinished,
             rating: rating,
             reviewDescription: reviewDescription
         )

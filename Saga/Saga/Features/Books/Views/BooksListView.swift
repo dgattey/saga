@@ -6,19 +6,23 @@
 //
 
 import SwiftUI
+import CoreData
 
 struct BooksListView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject private var viewModel: BooksViewModel
+    @Binding var selection: NSManagedObjectID?
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
         animation: .default) private var books: FetchedResults<Book>
 
     var body: some View {
-        List {
+        List(selection: $selection) {
             Section {
-                ForEach(viewModel.filteredBooks, id: \.model.id) { result in
-                    BookView(result: result)
+                ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
+                    BookListPreviewView(result: result)
+                        .padding(.vertical, 4)
+                        .tag(result.model.objectID)
                 }
                 .onDelete(perform: deleteBooks)
             }
