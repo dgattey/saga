@@ -39,10 +39,11 @@ jobs:
         run: |
           set -euo pipefail
           notes="$(swift scripts/versioning.swift extract-notes --event "$GITHUB_EVENT_PATH")"
+          delimiter="NOTES_$(uuidgen)"
           {
-            echo "notes<<'EOF'"
+            echo "notes<<$delimiter"
             echo "$notes"
-            echo "EOF"
+            echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
