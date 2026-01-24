@@ -48,6 +48,9 @@ All parsing and updates are centralized in `scripts/versioning.swift`:
 - `update-metadata` rewrites the PR body metadata block.
 - `extract-notes` pulls the release notes from the PR body.
 
+### Local cleanup helper
+`scripts/clean-actions-rebase.swift` drops GitHub Actions-authored commits on the current branch, then fetches and rebases onto `origin/main` to reduce version bump conflicts. Run with `swift scripts/clean-actions-rebase.swift` (use `--dry-run` to preview). Flags: `--base origin/main`/`-b`, `--dry-run`/`-d`, `--verbose`/`-V`.
+
 ## Adding new models
 Don't forget to add to `PersistenceModel` after adding a core data model + the model file (and ensure there aren't auto-gen files from the core model).
 
