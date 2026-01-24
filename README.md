@@ -67,6 +67,7 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
 - [] polish
     - [] trigger new sync call when window gets focus (or some other trigger to regularly get new data)
 - [] create new book screen
+- [] save scroll position on history
 
 ### Later
 - [] supporting video games, movies, tv shows
@@ -96,6 +97,7 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
     - [x] fetching cover images
     - [x] better merge new data (ISBN) with dupes
     - [x] fetch isbn where missing
+- [x] navigation back and forth
 - [x] fix content pane not getting cleared when resetting local data
 - [x] fix sort order after import (might be fixed by in-mempry sorting?)
 - [x] improve image parsing code to get best images
