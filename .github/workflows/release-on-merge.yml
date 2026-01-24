@@ -1,0 +1,76 @@
+name: Create GitHub release
+
+on:
+  pull_request:
+    types: [closed]
+
+env:
+  PBXPROJ_PATH: Saga/Saga.xcodeproj/project.pbxproj
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout merged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Read version/build from project
+        id: version
+        run: |
+          set -euo pipefail
+          read_output="$(swift scripts/versioning.swift read --path "$PBXPROJ_PATH")"
+          version="$(echo "$read_output" | awk -F= '/^VERSION=/{print $2}')"
+          build="$(echo "$read_output" | awk -F= '/^BUILD=/{print $2}')"
+          if [[ -z "$version" || -z "$build" ]]; then
+            echo "Failed to read version/build" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+      - name: Extract release notes
+        id: notes
+        run: |
+          set -euo pipefail
+          notes="$(swift scripts/versioning.swift extract-notes --event "$GITHUB_EVENT_PATH")"
+          {
+            echo "notes<<'EOF'"
+            echo "$notes"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD: ${{ steps.version.outputs.build }}
+          NOTES: ${{ steps.notes.outputs.notes }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const tag = `v${process.env.VERSION}`;
+            const body = process.env.NOTES || "";
+            try {
+              await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              core.info(`Release ${tag} already exists, skipping.`);
+              return;
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+            await github.rest.repos.createRelease({
+              owner,
+              repo,
+              tag_name: tag,
+              name: tag,
+              body,
+              target_commitish: context.payload.pull_request.merge_commit_sha
+            });

@@ -21,6 +21,33 @@ CONTENTFUL_SPACE_ID = your_space_id
 CONTENTFUL_ACCESS_TOKEN = your_access_token
 ```
 
+## Release automation
+This repo uses GitHub Actions to bump versions on PRs and create releases on merge.
+
+### How it works
+- PR template (`.github/pull_request_template.md`) includes:
+  - `# What changed?` section for release notes
+  - `# Release type` checkboxes (Major/Minor/Patch)
+  - A release info block inserted between `<!-- release-metadata-start -->` and `<!-- release-metadata-end -->` after the first action run
+- On PR open/edit/sync (`.github/workflows/pr-version-bump.yml`):
+  - Reads the base version/build from `main` (so reruns are idempotent).
+  - Determines release type from the PR checkboxes (default Patch).
+  - Sets build number to `max(baseBuild + 1, PR updated_at epoch seconds)` so edits refresh it and it always increases.
+  - Updates `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `Saga/Saga.xcodeproj/project.pbxproj`.
+  - Commits the bump into the PR branch and updates the metadata block in the PR body.
+- On merge (`.github/workflows/release-on-merge.yml`):
+  - Reads the version/build from the merged code.
+  - Creates a GitHub Release tagged `vX.Y.Z`.
+  - Uses only the text under `# What changed?` (up to `# Release type`) as the release notes.
+
+### Script used by workflows
+All parsing and updates are centralized in `scripts/versioning.swift`:
+- `read` reads current version/build from the Xcode project.
+- `bump` computes the next version/build and updates the project file.
+- `pr-info` parses release type and PR updated timestamp from the GitHub event.
+- `update-metadata` rewrites the PR body metadata block.
+- `extract-notes` pulls the release notes from the PR body.
+
 ## Adding new models
 Don't forget to add to `PersistenceModel` after adding a core data model + the model file (and ensure there aren't auto-gen files from the core model).
 
