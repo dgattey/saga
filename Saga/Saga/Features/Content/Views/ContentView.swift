@@ -12,6 +12,7 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject private var syncViewModel: SyncViewModel
     @State private var selection: SidebarSelection? = .home(lastSelectedBookID: nil)
+    @StateObject private var navigationHistory = NavigationHistory()
     @State private var coverMatchActive = false
     @State private var coverMatchTask: Task<Void, Never>?
     @State private var lastSelectionWasHome = true
@@ -39,16 +40,18 @@ struct ContentView: View {
                 }
             })
         }
+        .environmentObject(navigationHistory)
         .environment(\.coverNamespace, coverNamespace)
         .environment(\.coverMatchActive, coverMatchActive)
         .symbolRenderingMode(.hierarchical)
         .toolbar {
-            ContentViewToolbar()
+            ContentViewToolbar(navigationHistory: navigationHistory, selection: $selection)
         }
         #if os(macOS)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         #endif
         .onChange(of: selection) { oldSelection, newSelection in
+            navigationHistory.recordSelectionChange(from: oldSelection, to: newSelection)
             let isHome = newSelection?.isHome ?? true
             if isHome != lastSelectionWasHome {
                 startCoverMatch()
