@@ -27,7 +27,7 @@ This repo uses GitHub Actions to bump versions on PRs and create releases on mer
 ### How it works
 - PR template (`.github/pull_request_template.md`) includes:
   - `# What changed?` section for release notes
-  - `# Release type` checkboxes (Major/Minor/Patch)
+  - `# Release info` checkboxes (Major/Minor/Patch)
   - A release info block inserted between `<!-- release-metadata-start -->` and `<!-- release-metadata-end -->` after the first action run
 - On PR open/edit/sync (`.github/workflows/pr-version-bump.yml`):
   - Reads the base version/build from `main` (so reruns are idempotent).

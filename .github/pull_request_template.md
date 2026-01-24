@@ -2,7 +2,7 @@
 
 - 
 
-# Release type
+# Release info
 
 - [ ] Major
 - [ ] Minor

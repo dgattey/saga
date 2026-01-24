@@ -10,7 +10,7 @@ struct Constants {
     static let metadataStart = "<!-- release-metadata-start -->"
     static let metadataEnd = "<!-- release-metadata-end -->"
     static let whatChangedHeading = "What changed?"
-    static let releaseTypeHeading = "Release type"
+    static let releaseTypeHeading = "Release info"
     static let releaseTypeMajor = "Major"
     static let releaseTypeMinor = "Minor"
     static let releaseTypePatch = "Patch"
@@ -160,8 +160,9 @@ func epochSeconds(from iso8601: String) throws -> Int {
 func metadataBlock(fromVersion: String, toVersion: String, fromBuild: String, toBuild: String, releaseType: String) -> String {
     [
         Constants.metadataStart,
-        "#### 🚀 Release info",
-        "v\(fromVersion) (\(fromBuild)) -> v\(toVersion) (\(toBuild))",
+        "---",
+        "<small><code>Version information</code></small>",
+        "<small><code>v\(fromVersion) (\(fromBuild)) -> v\(toVersion) (\(toBuild))</code></small>",
         Constants.metadataEnd
     ].joined(separator: "\n")
 }
