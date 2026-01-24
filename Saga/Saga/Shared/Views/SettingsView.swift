@@ -103,7 +103,9 @@ struct SettingsView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                #if os(macOS)
                 .pointerStyle(.link)
+                #endif
                 .onHover { hovering in
                     withAnimation(.easeInOut(duration: 0.15)) {
                         isHoveringLink = hovering

@@ -31,10 +31,12 @@ struct SagaApp: App {
         .environmentObject(contentViewModel)
         .defaultSize(width: 1000, height: 600)
         
+        #if os(macOS)
         Settings {
             SettingsView()
                 .windowBackground()
         }
         .environmentObject(viewModel)
+        #endif
     }
 }
