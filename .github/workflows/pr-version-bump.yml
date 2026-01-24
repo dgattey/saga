@@ -14,6 +14,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      checks: write
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -90,7 +91,36 @@ jobs:
             -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Bump version to ${{ steps.bump.outputs.version_to }} (${{ steps.bump.outputs.build_to }})"
           git push
+          new_sha="$(git rev-parse HEAD)"
+          echo "sha=$new_sha" >> "$GITHUB_OUTPUT"
           echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create check for bumped commit
+        if: steps.commit.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headSha = process.env.BUMP_SHA;
+            if (!headSha) {
+              core.warning("No bump SHA available, skipping check creation.");
+              return;
+            }
+            await github.rest.checks.create({
+              owner,
+              repo,
+              name: "bump",
+              head_sha: headSha,
+              status: "completed",
+              conclusion: "success",
+              output: {
+                title: "Version bump committed",
+                summary: "Version/build were updated by the workflow on this commit."
+              }
+            });
+        env:
+          BUMP_SHA: ${{ steps.commit.outputs.sha }}
 
       - name: Update PR metadata block
         uses: actions/github-script@v7
