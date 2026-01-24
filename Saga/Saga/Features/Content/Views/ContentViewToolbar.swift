@@ -25,7 +25,7 @@ struct ContentViewToolbar: ToolbarContent {
                 Label(viewModel.isSyncing ? "Syncing..." : "Sync", systemImage: "arrow.down.circle")
                     .labelStyle(.titleAndIcon)
             }
-            .disabled(viewModel.isSyncing)
+            .disabled(viewModel.isSyncing || viewModel.isResetting)
         }
     }
 }

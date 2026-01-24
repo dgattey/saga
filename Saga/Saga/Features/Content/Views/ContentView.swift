@@ -9,13 +9,21 @@ import SwiftUI
 import CoreData
 
 struct ContentView: View {
+    @Environment(\.managedObjectContext) private var viewContext
+    @EnvironmentObject private var syncViewModel: SyncViewModel
+    @State private var selectedBookID: NSManagedObjectID?
 
     var body: some View {
         GoodreadsUploadDropzoneContainer {
             NavigationSplitView(sidebar: {
-                BooksListView()
+                BooksListView(selection: $selectedBookID)
             }, detail: {
-                EmptyContentView()
+                if let selectedBookID,
+                   let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book {
+                    BookContentView(book: selectedBook)
+                } else {
+                    EmptyContentView()
+                }
             })
         }
         .symbolRenderingMode(.hierarchical)
@@ -23,6 +31,9 @@ struct ContentView: View {
             ContentViewToolbar()
         }
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .onChange(of: syncViewModel.resetToken) { _ in
+            selectedBookID = nil
+        }
 #if os(macOS)
         .frame(minWidth: 600, minHeight: 300)
 #endif
