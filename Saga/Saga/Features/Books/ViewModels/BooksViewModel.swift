@@ -13,7 +13,17 @@ class BooksViewModel: ObservableObject {
     @Published var searchModel = SearchViewModel()
 
     func performSearch(with books: FetchedResults<Book>) {
-        searchModel.search(in: sorted(from: books)) { self.filteredBooks = $0 }
+        let sortedBooks = sorted(from: books)
+        let indexByObjectID = Dictionary(
+            uniqueKeysWithValues: sortedBooks.enumerated().map { ($0.element.objectID, $0.offset) }
+        )
+        searchModel.search(in: sortedBooks) { results in
+            self.filteredBooks = results.sorted { left, right in
+                let leftIndex = indexByObjectID[left.model.objectID] ?? 0
+                let rightIndex = indexByObjectID[right.model.objectID] ?? 0
+                return leftIndex < rightIndex
+            }
+        }
     }
     
     /// Unfinished books at the top, then date descending with either finished or start, then title comparison. Most recent first.

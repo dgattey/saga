@@ -7,16 +7,16 @@
 
 import SwiftUI
 
-private let coverAspectRatio: CGFloat = 1/1.5
-
 /// Creates a stylized version of the cover image, async loaded
 struct BookCoverImageView: View {
+    static let coverAspectRatio: CGFloat = 1 / 1.5
+
     let book: Book
     
     var body: some View {
         AssetImageView(asset: book.coverImage)
             .id(book.coverImage?.id)
-            .aspectRatio(coverAspectRatio, contentMode: .fit)
+            .aspectRatio(Self.coverAspectRatio, contentMode: .fit)
             .cornerRadius(6)
     }
 }

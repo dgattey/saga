@@ -127,9 +127,4 @@ class SearchViewModel: ObservableObject {
         
         return attributed
     }
-
-
-
-
-
 }
