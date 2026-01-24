@@ -14,7 +14,7 @@ struct EmptyContentView: View {
             Image(systemName: "list.bullet.circle.fill")
                 .resizable()
                 .frame(width: 64, height: 64)
-                .font(.largeTitle)
+                .font(.largeTitleBold)
                 .foregroundStyle(Color.accent)
                 .transition(.symbolEffect(.appear.byLayer))
             Text("Select an item")
