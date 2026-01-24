@@ -102,8 +102,8 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
         }
 
         let coverAsset: Asset?
-        if duplicateInfo.needsCoverImage, let isbn = isbn {
-            let coverImageURL = await getCoverImageURL(forISBN: isbn, andTitle: title)
+        if duplicateInfo.needsCoverImage {
+            let coverImageURL = await getCoverImageURL(forISBN: isbn, title: title, author: author)
             coverAsset = try await Asset.add(to: context, withURL: coverImageURL)
         } else {
             coverAsset = nil
@@ -147,16 +147,37 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     }
     
     /// Helper method to get cover image URL without creating Asset
-    private static func getCoverImageURL(forISBN isbn: NSNumber?, andTitle title: String) async -> String? {
+    private static func getCoverImageURL(
+        forISBN isbn: NSNumber?,
+        title: String,
+        author: String
+    ) async -> String? {
         guard let isbn = isbn?.stringValue else {
-            return nil
+            do {
+                return try await OpenLibraryAPIService.coverImageURL(forTitle: title, author: author)
+            } catch {
+                return nil
+            }
         }
         return await coverImageURLCache.value(forISBN: isbn) {
             do {
-                if let url = try await OpenLibraryAPIService.coverImageURL(forISBN: isbn), !url.isEmpty {
-                    return url
-                }
-                return try await BookcoverAPIService.coverImageURL(forISBN: isbn)
+                let openLibraryCandidate = try await OpenLibraryAPIService.bestCoverCandidate(
+                    forISBN: isbn,
+                    title: title,
+                    author: author
+                )
+                let shouldCheckBookcover: Bool = {
+                    guard let openLibraryCandidate else { return true }
+                    return openLibraryCandidate.bytes < CoverSelection.openLibraryPreferBookcoverBelowBytes
+                }()
+                let bookcoverCandidate = shouldCheckBookcover
+                ? try await BookcoverAPIService.coverImageCandidate(forISBN: isbn)
+                : nil
+                let preferredCandidate = preferredCoverCandidate(
+                    openLibrary: openLibraryCandidate,
+                    bookcover: bookcoverCandidate
+                )
+                return preferredCandidate?.url
             } catch {
                 return nil
             }
@@ -213,19 +234,36 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     /// new Asset for this ISBN because it doesn't already exist.
     private static func getOrAddCoverImage(to context: NSManagedObjectContext,
                                            forISBN isbn: NSNumber?,
-                                           andTitle title: String) async throws -> Asset? {
-        let fetchTask: Task<String?, Error> = Task.detached(priority: .background) {
-            guard let isbn = isbn?.stringValue else {
-                return nil
-            }
-            let url = try await OpenLibraryAPIService.coverImageURL(forISBN: isbn)
-            guard let url = url, !url.isEmpty else {
-                return try await BookcoverAPIService.coverImageURL(forISBN: isbn)
-            }
-            return url
+                                           andTitle title: String,
+                                           author: String) async throws -> Asset? {
+        let fetchTask: Task<String?, Never> = Task.detached(priority: .background) {
+            await getCoverImageURL(forISBN: isbn, title: title, author: author)
         }
-        let coverImageUrl = try await fetchTask.value
+        let coverImageUrl = await fetchTask.value
         return try await Asset.add(to: context, withURL: coverImageUrl)
+    }
+
+    private enum CoverSelection {
+        static let openLibraryPreferBookcoverBelowBytes = 80_000
+        static let bookcoverPreferredMinBytes = 30_000
+        static let bookcoverPreferredRatio = 0.85
+    }
+
+    private static func preferredCoverCandidate(
+        openLibrary: CoverImageCandidate?,
+        bookcover: CoverImageCandidate?
+    ) -> CoverImageCandidate? {
+        guard let openLibrary else {
+            return bookcover
+        }
+        guard let bookcover else {
+            return openLibrary
+        }
+        if bookcover.bytes >= CoverSelection.bookcoverPreferredMinBytes,
+           Double(bookcover.bytes) >= Double(openLibrary.bytes) * CoverSelection.bookcoverPreferredRatio {
+            return bookcover
+        }
+        return openLibrary.bytes >= bookcover.bytes ? openLibrary : bookcover
     }
 
     static func fieldMapping() -> [Contentful.FieldName: String] {

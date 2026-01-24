@@ -15,7 +15,6 @@ struct BookCoverImageView: View {
     
     var body: some View {
         AssetImageView(asset: book.coverImage)
-            .id(book.coverImage?.id)
             .aspectRatio(Self.coverAspectRatio, contentMode: .fit)
             .cornerRadius(6)
     }

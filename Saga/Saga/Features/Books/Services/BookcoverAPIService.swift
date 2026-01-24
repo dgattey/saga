@@ -24,6 +24,11 @@ struct BookcoverAPIService: CoverImageURLProvider {
 
     /// Fetches one cover image URL from the BookcoverAPI, which uses Goodreads API under the hood
     static func coverImageURL(forISBN isbn: String) async throws -> String? {
+        return try await coverImageCandidate(forISBN: isbn)?.url
+    }
+
+    /// Fetches a cover image candidate from the BookcoverAPI, which uses Goodreads API under the hood
+    static func coverImageCandidate(forISBN isbn: String) async throws -> CoverImageCandidate? {
         guard let url = URL(string: "\(Constants.apiBaseURL)/\(isbn)") else {
             return nil
         }
@@ -31,10 +36,10 @@ struct BookcoverAPIService: CoverImageURLProvider {
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             return nil
         }
-        // Decode the JSON response
-        guard let coverImageResponse = try? JSONDecoder().decode(CoverImageURLResponse.self, from: data) else {
+        guard let coverImageResponse = try? JSONDecoder().decode(CoverImageURLResponse.self, from: data),
+              let coverURL = URL(string: coverImageResponse.url) else {
             return nil
         }
-        return coverImageResponse.url
+        return try await CoverImageCandidate.from(url: coverURL)
     }
 }

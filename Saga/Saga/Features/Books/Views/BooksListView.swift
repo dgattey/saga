@@ -38,6 +38,7 @@ struct BooksListView: View {
                     } else {
                         ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
                             Button {
+                                guard selection != .book(result.model.objectID) else { return }
                                 withAnimation(AppAnimation.selectionSpring) {
                                     selection = .book(result.model.objectID)
                                 }

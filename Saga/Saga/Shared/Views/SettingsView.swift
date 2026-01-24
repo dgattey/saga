@@ -11,6 +11,11 @@ struct SettingsView: View {
     @EnvironmentObject var viewModel: SyncViewModel
     @State private var isHoveringAppInfo = false
     @State private var isHoveringLink = false
+    @AppStorage("downsampledImageCacheLimitGB") private var cacheLimitGB: Double = 10
+    @State private var cacheSizeBytes: Int64 = 0
+    @State private var cacheLimitIndex: Double = 2
+    private let cacheLimitOptions: [Double] = [0.5, 1, 5, 10, 20, 0]
+    private let cacheRefreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     
     var appIcon: PlatformImage? {
         let iconName = Bundle.main.iconFileName
@@ -26,6 +31,12 @@ struct SettingsView: View {
         Form {
             Section {
                 localDataRow
+            }
+            Section {
+                imageCacheRow
+            } header: {
+                Text("Storage")
+                    .font(.headline)
             }
         }
         .formStyle(.grouped)
@@ -46,7 +57,14 @@ struct SettingsView: View {
             appInformation
                 .padding()
         }
-        .frame(maxWidth: 400, minHeight: 200)
+        .frame(minWidth: 300, idealWidth: 400, maxWidth: 500, minHeight: 520)
+        .onAppear {
+            refreshCacheSize()
+            cacheLimitIndex = Double(cacheLimitOptions.firstIndex(of: cacheLimitGB) ?? 2)
+        }
+        .onReceive(cacheRefreshTimer) { _ in
+            refreshCacheSize()
+        }
     }
     
     var localDataRow: some View {
@@ -120,6 +138,81 @@ struct SettingsView: View {
                 isHoveringAppInfo = hovering
             }
         }
+    }
+
+    var imageCacheRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Cache limit")
+                Spacer()
+                Text(cacheLimitLabel(for: cacheLimitGB))
+                    .font(.callout.monospacedDigit())
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(.quaternary)
+                    )
+            }
+            ZStack {
+                Capsule()
+                    .fill(.quaternary)
+                    .frame(height: 6)
+                Slider(value: $cacheLimitIndex, in: 0...Double(cacheLimitOptions.count - 1), step: 1)
+                    .labelsHidden()
+                    .tint(.accentColor)
+            }
+            HStack {
+                Text("Current usage")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(formatBytes(cacheSizeBytes))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Text("Image cache")
+                Spacer()
+                Button("Clear cache", role: .destructive) {
+                    DownsampledAsyncImage.clearAllCaches()
+                    refreshCacheSize()
+                }
+                .foregroundStyle(.red)
+            }
+        }
+        .onChange(of: cacheLimitGB) { _, _ in
+            DownsampledAsyncImage.enforceDiskCacheLimit()
+            refreshCacheSize()
+        }
+        .onChange(of: cacheLimitIndex) { _, newValue in
+            let index = max(0, min(cacheLimitOptions.count - 1, Int(newValue.rounded())))
+            let newLimit = cacheLimitOptions[index]
+            if cacheLimitGB != newLimit {
+                cacheLimitGB = newLimit
+            }
+        }
+    }
+
+    private func refreshCacheSize() {
+        cacheSizeBytes = DownsampledAsyncImage.diskCacheSizeBytes()
+    }
+
+    private func formatBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useGB, .useMB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
+    }
+
+    private func cacheLimitLabel(for value: Double) -> String {
+        if value == 0 {
+            return "Unlimited"
+        }
+        if value < 1 {
+            return "\(Int(value * 1000)) MB"
+        }
+        return "\(Int(value)) GB"
     }
     
     var settingsIcon: some View {

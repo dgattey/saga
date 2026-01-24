@@ -57,15 +57,12 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
     - [] editable review
     - [] editable dates
     - [] save changes locally
-- [] figure out why The Color Purple, Transcendant Kingdom, Remembrance of Earth's Past, Chamber of Secrets, Deathly Hallows, Order of Phoenix, da vinci code, amulet of samarkand all didn't parse cover images right
 - [] save local data to server
     - [] upload + create new cover images
     - [] upload + create new books
     - [] update existing books
 - [] polish
     - [] trigger new sync call when window gets focus (or some other trigger to regularly get new data)
-    - [] fix sort order after import (might be fixed by in-mempry sorting?)
-    - [] fix content pane not getting cleared when resetting local data
 - [] create new book screen
 
 ### Later
@@ -96,3 +93,7 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
     - [x] fetching cover images
     - [x] better merge new data (ISBN) with dupes
     - [x] fetch isbn where missing
+- [x] fix content pane not getting cleared when resetting local data
+- [x] fix sort order after import (might be fixed by in-mempry sorting?)
+- [x] improve image parsing code to get best images
+- [x] add control over image caching + better downsampling

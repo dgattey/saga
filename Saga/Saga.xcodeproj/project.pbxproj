@@ -11,7 +11,6 @@
 		7558CB4D2E1CEF2F00D92477 /* Ifrit in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 7558CB4B2E1CEF2F00D92477 /* Ifrit */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 7589F8172E1B29E5005C31D9 /* ContentfulPersistence */; };
 		7589F82D2E1B4203005C31D9 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 7589F82C2E1B4203005C31D9 /* README.md */; };
-		7589F8442E1B5AC7005C31D9 /* CachedAsyncImage in Frameworks */ = {isa = PBXBuildFile; productRef = 7589F8432E1B5AC7005C31D9 /* CachedAsyncImage */; };
 		758F7A2B2E1E2D58007CDCC8 /* SwiftCSV in Frameworks */ = {isa = PBXBuildFile; productRef = 758F7A2A2E1E2D58007CDCC8 /* SwiftCSV */; };
 /* End PBXBuildFile section */
 
@@ -64,7 +63,6 @@
 				7558CB4C2E1CEF2F00D92477 /* Ifrit in Frameworks */,
 				758F7A2B2E1E2D58007CDCC8 /* SwiftCSV in Frameworks */,
 				7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */,
-				7589F8442E1B5AC7005C31D9 /* CachedAsyncImage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,7 +116,6 @@
 			name = Saga;
 			packageProductDependencies = (
 				7589F8172E1B29E5005C31D9 /* ContentfulPersistence */,
-				7589F8432E1B5AC7005C31D9 /* CachedAsyncImage */,
 				7558CB4B2E1CEF2F00D92477 /* Ifrit */,
 				758F7A2A2E1E2D58007CDCC8 /* SwiftCSV */,
 			);
@@ -152,7 +149,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */,
-				7589F8422E1B5AC7005C31D9 /* XCRemoteSwiftPackageReference "swiftui-cached-async-image" */,
 				7558CB442E1CE7E300D92477 /* XCRemoteSwiftPackageReference "Ifrit" */,
 				758F7A292E1E2D58007CDCC8 /* XCRemoteSwiftPackageReference "SwiftCSV" */,
 			);
@@ -444,14 +440,6 @@
 				minimumVersion = 0.18.1;
 			};
 		};
-		7589F8422E1B5AC7005C31D9 /* XCRemoteSwiftPackageReference "swiftui-cached-async-image" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/lorenzofiamingo/swiftui-cached-async-image";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.1.1;
-			};
-		};
 		758F7A292E1E2D58007CDCC8 /* XCRemoteSwiftPackageReference "SwiftCSV" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/swiftcsv/SwiftCSV";
@@ -472,11 +460,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */;
 			productName = ContentfulPersistence;
-		};
-		7589F8432E1B5AC7005C31D9 /* CachedAsyncImage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 7589F8422E1B5AC7005C31D9 /* XCRemoteSwiftPackageReference "swiftui-cached-async-image" */;
-			productName = CachedAsyncImage;
 		};
 		758F7A2A2E1E2D58007CDCC8 /* SwiftCSV */ = {
 			isa = XCSwiftPackageProductDependency;
