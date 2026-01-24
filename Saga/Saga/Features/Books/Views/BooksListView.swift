@@ -11,7 +11,9 @@ import CoreData
 struct BooksListView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject private var viewModel: BooksViewModel
+#if os(macOS)
     @Environment(\.controlActiveState) private var controlActiveState
+#endif
     @Binding var selection: SidebarSelection?
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
@@ -98,11 +100,17 @@ struct BooksListView: View {
     }
 
     private var selectionBackgroundColor: Color {
+#if os(macOS)
         switch controlActiveState {
         case .inactive:
             return Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
         default:
             return Color(nsColor: .selectedContentBackgroundColor)
         }
+#else
+        // iOS fallback: use standard selection-like background
+        return Color.accentColor.opacity(0.15)
+#endif
     }
 }
+

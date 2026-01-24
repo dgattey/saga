@@ -45,8 +45,10 @@ struct ContentView: View {
         .toolbar {
             ContentViewToolbar()
         }
+        #if os(macOS)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-        .onChange(of: selection) { _, newSelection in
+        #endif
+        .onChange(of: selection) { oldSelection, newSelection in
             let isHome = newSelection?.isHome ?? true
             if isHome != lastSelectionWasHome {
                 startCoverMatch()

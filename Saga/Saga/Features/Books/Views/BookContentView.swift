@@ -82,8 +82,8 @@ struct BookContentView: View {
                     )
                 }
             }
-            .copyable([coverImageURLText])
 #if os(macOS)
+            .copyable([coverImageURLText])
             .help(coverImageURLText)
 #endif
             .background {
@@ -178,11 +178,11 @@ struct BookContentView: View {
         VStack(alignment: .leading, spacing: 16) {
             metadataStack
             StarRatingView(rating: book.rating?.intValue ?? 0)
-            
+
             Text(book.isbn?.stringValue ?? "No ISBN")
-            
+
             BookReadingStatusView(book: book)
-            
+
             reviewView
         }
         .frame(

@@ -6,7 +6,16 @@
 //
 
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
+private enum VisualEffectDefaults {
+    static let gradientStops: [CGFloat] = [0.0, 0.6, 1.0]
+    static let gradientAlphas: [CGFloat] = [1.0, 0.9, 0.0]
+}
+
+#if os(macOS)
 struct VisualEffectView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
@@ -56,8 +65,8 @@ struct MaskedVisualEffectView: NSViewRepresentable {
     var material: NSVisualEffectView.Material = .underWindowBackground
     var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
     var state: NSVisualEffectView.State = .active
-    var gradientStops: [CGFloat] = [0.0, 0.6, 1.0]
-    var gradientAlphas: [CGFloat] = [1.0, 0.9, 0.0]
+    var gradientStops: [CGFloat] = VisualEffectDefaults.gradientStops
+    var gradientAlphas: [CGFloat] = VisualEffectDefaults.gradientAlphas
     
     func makeNSView(context: Context) -> MaskedVisualEffectContainer {
         let container = MaskedVisualEffectContainer()
@@ -80,8 +89,52 @@ struct MaskedVisualEffectView: NSViewRepresentable {
     }
 }
 
-// MARK: - Window Background Modifier
+#else
+// Fallback SwiftUI-only implementation for platforms without AppKit.
+// Uses system materials and a gradient mask to mimic the macOS visual effect.
+struct VisualEffectView: View {
+    var material: Material = .ultraThinMaterial
+    var body: some View {
+        Rectangle().fill(material)
+    }
+}
 
+private struct GradientMask: View {
+    var stops: [CGFloat]
+    var alphas: [CGFloat]
+
+    var body: some View {
+        LinearGradient(
+            stops: zip(stops.indices, stops).map { idx, location in
+                let alpha = alphas.indices.contains(idx) ? alphas[idx] : 1.0
+                return .init(color: Color.white.opacity(Double(alpha)), location: location)
+            },
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+}
+
+private extension View {
+    func masked(with stops: [CGFloat], alphas: [CGFloat]) -> some View {
+        mask(GradientMask(stops: stops, alphas: alphas))
+    }
+}
+
+struct MaskedVisualEffectView: View {
+    var material: Material = .ultraThinMaterial
+    var gradientStops: [CGFloat] = VisualEffectDefaults.gradientStops
+    var gradientAlphas: [CGFloat] = VisualEffectDefaults.gradientAlphas
+
+    var body: some View {
+        VisualEffectView(material: material)
+            .masked(with: gradientStops, alphas: gradientAlphas)
+    }
+}
+
+#endif
+
+// MARK: - Window Background Modifier
 struct WindowBackgroundModifier: ViewModifier {
     func body(content: Content) -> some View {
         content

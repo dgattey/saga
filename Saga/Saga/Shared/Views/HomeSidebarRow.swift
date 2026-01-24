@@ -8,7 +8,9 @@
 import SwiftUI
 
 struct HomeSidebarRow: View {
+#if os(macOS)
     @Environment(\.controlActiveState) private var controlActiveState
+#endif
     @Binding var selection: SidebarSelection?
     
     var body: some View {
@@ -43,11 +45,16 @@ struct HomeSidebarRow: View {
     }
     
     private var selectionBackgroundColor: Color {
+#if os(macOS)
         switch controlActiveState {
         case .inactive:
             return Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
         default:
             return Color(nsColor: .selectedContentBackgroundColor)
         }
+#else
+        // iOS fallback: use standard selection-like background
+        return Color.accentColor.opacity(0.15)
+#endif
     }
 }
