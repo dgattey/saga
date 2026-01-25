@@ -16,8 +16,7 @@ struct BooksListView: View {
   #endif
   @Binding var entry: NavigationEntry?
   @FetchRequest(
-    sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
-    animation: .default
+    sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)]
   ) private var books: FetchedResults<Book>
 
   var body: some View {
@@ -96,7 +95,7 @@ struct BooksListView: View {
   }
 
   private func deleteBook(_ book: Book) {
-    withAnimation {
+    withAnimation(AppAnimation.selectionSpring) {
       viewContext.delete(book)
       do {
         try viewContext.save()

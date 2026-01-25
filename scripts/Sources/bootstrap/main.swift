@@ -7,13 +7,6 @@ let description = scriptDescription(filePath: #filePath)
 
 // MARK: - CLI
 
-enum Option: String, CaseIterable {
-  case help = "--help"
-  case helpShort = "-h"
-
-  static var completions: [String] { allCases.map(\.rawValue) }
-}
-
 func usage() -> String {
   """
   \(description)
@@ -28,19 +21,8 @@ func usage() -> String {
 }
 
 func parseArguments(_ args: [String]) throws {
-  for arg in args {
-    if arg == "--completions" {
-      print(Option.completions.joined(separator: "\n"))
-      exit(0)
-    }
-    guard let option = Option(rawValue: arg) else {
-      throw ScriptError("Unknown argument: \(arg)")
-    }
-    switch option {
-    case .help, .helpShort:
-      print(usage())
-      exit(0)
-    }
+  guard args.isEmpty else {
+    throw ScriptError("Unknown argument: \(args.joined(separator: " "))")
   }
 }
 
@@ -50,6 +32,7 @@ struct BootstrapCommand {
     runMain {
       let args = normalizeScriptArgs(
         Array(CommandLine.arguments.dropFirst()), scriptName: "bootstrap")
+      preflightCLI(args, completions: standardCompletions([]), usage: usage())
       try parseArguments(args)
 
       let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath

@@ -11,8 +11,6 @@ let targetDirectories = ["Saga", "scripts"]
 // MARK: - CLI
 
 enum Option: String, CaseIterable {
-  case help = "--help"
-  case helpShort = "-h"
   case format = "--format"
   case lint = "--lint"
 
@@ -47,17 +45,10 @@ func parseArguments(_ args: [String]) throws -> ChecksSelection {
   var runLint = false
 
   for arg in args {
-    if arg == "--completions" {
-      print(Option.completions.joined(separator: "\n"))
-      exit(0)
-    }
     guard let option = Option(rawValue: arg) else {
       throw ScriptError("Unknown argument: \(arg)")
     }
     switch option {
-    case .help, .helpShort:
-      print(usage())
-      exit(0)
     case .format:
       runFormat = true
     case .lint:
@@ -110,6 +101,7 @@ struct ChecksCommand {
   static func main() {
     runMain {
       let args = normalizeScriptArgs(Array(CommandLine.arguments.dropFirst()), scriptName: "checks")
+      preflightCLI(args, completions: standardCompletions(Option.completions), usage: usage())
       let selection = try parseArguments(args)
 
       let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath

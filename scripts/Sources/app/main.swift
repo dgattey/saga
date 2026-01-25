@@ -7,9 +7,8 @@ let description = scriptDescription(filePath: #filePath)
 
 // MARK: - CLI
 
+/// CLI options supported by the app runner.
 enum Option: String, CaseIterable {
-  case help = "--help"
-  case helpShort = "-h"
   case verbose = "--verbose"
   case verboseShort = "-v"
   case buildOnly = "--build-only"
@@ -18,6 +17,7 @@ enum Option: String, CaseIterable {
   static var completions: [String] { allCases.map(\.rawValue) }
 }
 
+/// Returns the help/usage text for this command.
 func usage() -> String {
   """
   \(description)
@@ -35,26 +35,21 @@ func usage() -> String {
   """
 }
 
+/// Parsed configuration for the app command.
 struct Config {
   var verbose: Bool = false
   var buildOnly: Bool = false
 }
 
+/// Parses CLI arguments into a config, exiting on help/completions.
 func parseArguments(_ args: [String]) throws -> Config {
   var config = Config()
 
   for arg in args {
-    if arg == "--completions" {
-      print(Option.completions.joined(separator: "\n"))
-      exit(0)
-    }
     guard let option = Option(rawValue: arg) else {
       throw ScriptError("Unknown argument: \(arg)")
     }
     switch option {
-    case .help, .helpShort:
-      print(usage())
-      exit(0)
     case .verbose, .verboseShort:
       config.verbose = true
     case .buildOnly, .buildOnlyShort:
@@ -67,44 +62,9 @@ func parseArguments(_ args: [String]) throws -> Config {
 
 // MARK: - Build helpers
 
-func findProjectPath(repoRoot: String) throws -> String {
-  let path = URL(fileURLWithPath: repoRoot)
-    .appendingPathComponent("Saga")
-    .appendingPathComponent("Saga.xcodeproj")
-    .path
-  guard FileManager.default.fileExists(atPath: path) else {
-    throw ScriptError("Xcode project not found at \(path)")
-  }
-  return path
-}
-
-func checkXcodeToolsSelected() throws {
-  let output = try runCommand(
-    "xcode-select", ["-p"],
-    allowFailure: true,
-    emitOutput: false
-  )
-  if output == "/Library/Developer/CommandLineTools" {
-    throw ScriptError(
-      """
-      Xcode build tools are not selected.
-      Run: sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-      """
-    )
-  }
-}
-
-func currentArchitecture() throws -> String {
-  try runCommand("uname", ["-m"], emitOutput: false)
-}
-
-func killRunningApp() {
-  // Kill any running instance of Saga (ignore errors if not running)
-  _ = try? runCommand("pkill", ["-x", "Saga"], allowFailure: true, emitOutput: false)
-}
-
+/// Builds the Saga macOS app using xcodebuild.
 func buildApp(projectPath: String, derivedDataPath: String, arch: String, verbose: Bool) throws {
-  killRunningApp()
+  terminateProcess(named: "Saga")
   print("Building Saga (Debug)...")
   var args = [
     "-project", projectPath,
@@ -120,60 +80,15 @@ func buildApp(projectPath: String, derivedDataPath: String, arch: String, verbos
   try runCommand("xcodebuild", args)
 }
 
-func openApp(at path: String) throws {
-  guard FileManager.default.fileExists(atPath: path) else {
-    throw ScriptError("App not found at \(path)")
-  }
-  print("Launching Saga...")
-  try runCommand("open", [path])
-}
-
-func waitForProcessID(named processName: String, retries: Int = 20, delaySeconds: TimeInterval = 0.25)
-  throws -> Int
-{
-  for _ in 0..<retries {
-    let output = try runCommand(
-      "pgrep",
-      ["-x", "-n", processName],
-      allowFailure: true,
-      emitOutput: false
-    )
-    let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
-    if let pid = Int(trimmed) {
-      return pid
-    }
-    Thread.sleep(forTimeInterval: delaySeconds)
-  }
-  throw ScriptError("Timed out waiting for \(processName) to launch.")
-}
-
-func streamLogs(processName: String) throws -> Process {
-  let predicate = "process == \"\(processName)\" && subsystem == \"Saga\""
-  print("Streaming logs for \(processName). Press Ctrl+C to stop.")
-  let process = Process()
-  process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-  process.arguments = [
-    "log", "stream", "--predicate", predicate, "--style", "compact", "--level", "debug",
-  ]
-  process.standardOutput = FileHandle.standardOutput
-  process.standardError = FileHandle.standardError
-  try process.run()
-  return process
-}
-
-func waitForProcessExit(processID: Int) {
-  while kill(pid_t(processID), 0) == 0 {
-    Thread.sleep(forTimeInterval: 0.5)
-  }
-}
-
 // MARK: - Main
 
+/// Entry point for `run app`.
 @main
 struct AppCommand {
   static func main() {
     runMain(usage: usage()) {
       let args = normalizeScriptArgs(Array(CommandLine.arguments.dropFirst()), scriptName: "app")
+      preflightCLI(args, completions: standardCompletions(Option.completions), usage: usage())
       let config = try parseArguments(args)
 
       let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
@@ -192,11 +107,18 @@ struct AppCommand {
         verbose: config.verbose
       )
       if !config.buildOnly {
-        let logProcess = try streamLogs(processName: "Saga")
+        var logProcess: Process?
+        let signalSources = installSignalHandlers {
+          logProcess?.terminate()
+        }
+        _ = signalSources
+        print("Streaming logs for Saga. Press Ctrl+C to stop.")
+        logProcess = try streamLogs(processName: "Saga")
+        print("Launching Saga...")
         try openApp(at: appPath)
         let pid = try waitForProcessID(named: "Saga")
         waitForProcessExit(processID: pid)
-        logProcess.terminate()
+        logProcess?.terminate()
       }
     }
   }

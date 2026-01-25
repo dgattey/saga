@@ -322,8 +322,6 @@ enum Command: String, CaseIterable {
   case prInfo = "pr-info"
   case extractNotes = "extract-notes"
   case updateMetadata = "update-metadata"
-  case help = "--help"
-  case helpShort = "-h"
 
   static var completions: [String] { allCases.map(\.rawValue) }
 }
@@ -334,12 +332,8 @@ struct VersionAndReleaseCommand {
     runMain(usage: usage()) {
       let args = normalizeScriptArgs(
         Array(CommandLine.arguments.dropFirst()), scriptName: "version-and-release")
+      preflightCLI(args, completions: standardCompletions(Command.completions), usage: usage())
       guard let mode = args.first else { throw ScriptError("Missing mode argument") }
-
-      if mode == "--completions" {
-        print(Command.completions.joined(separator: "\n"))
-        exit(0)
-      }
 
       guard let command = Command(rawValue: mode) else {
         throw ScriptError("Unknown mode: \(mode)")

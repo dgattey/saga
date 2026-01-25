@@ -14,22 +14,6 @@ enum AppAnimation {
     response: selectionSpringResponse,
     dampingFraction: selectionSpringDamping
   )
-  static let coverFadeResponse: Double = 0.4
-  static let coverFadeDamping: Double = 1.0
-  static let coverFade = Animation.spring(
-    response: coverFadeResponse,
-    dampingFraction: coverFadeDamping
-  )
-  static let coverRotationResponse: Double = selectionSpringResponse
-  static let coverRotationDamping: Double = selectionSpringDamping
-  static let coverRotation = Animation.spring(
-    response: coverRotationResponse,
-    dampingFraction: coverRotationDamping
-  )
-  static let coverMatchHoldDuration: Double = max(
-    selectionSpringResponse,
-    max(coverFadeResponse, coverRotationResponse)
-  )
 
   static func coverRotationDegrees(
     from hash: Int,

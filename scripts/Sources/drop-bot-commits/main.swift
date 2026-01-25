@@ -33,8 +33,6 @@ enum Option: String, CaseIterable {
   case dryRunShort = "-d"
   case verbose = "--verbose"
   case verboseShort = "-V"
-  case help = "--help"
-  case helpShort = "-h"
 
   static var completions: [String] { allCases.map(\.rawValue) }
 }
@@ -62,10 +60,6 @@ func parseArguments(_ args: [String]) throws -> Config {
   var index = 0
   while index < args.count {
     let arg = args[index]
-    if arg == "--completions" {
-      print(Option.completions.joined(separator: "\n"))
-      exit(0)
-    }
     guard let option = Option(rawValue: arg) else {
       throw ScriptError("Unknown argument: \(arg)")
     }
@@ -80,9 +74,6 @@ func parseArguments(_ args: [String]) throws -> Config {
     case .verbose, .verboseShort:
       config.verbose = true
       index += 1
-    case .help, .helpShort:
-      print(usage())
-      exit(0)
     }
   }
   return config
@@ -167,6 +158,7 @@ struct DropBotCommitsCommand {
         Array(CommandLine.arguments.dropFirst()),
         scriptName: "drop-bot-commits"
       )
+      preflightCLI(args, completions: standardCompletions(Option.completions), usage: usage())
       let config = try parseArguments(args)
 
       let repoRoot = try runGit(["rev-parse", "--show-toplevel"], config: config)
