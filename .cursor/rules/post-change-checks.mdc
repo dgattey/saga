@@ -1,0 +1,13 @@
+---
+description: Run checks/build after big change batches
+alwaysApply: true
+---
+
+# Post-change checks
+
+After a big batch of changes:
+- Run lint/format with `./run checks`
+- Fix any problems until the run passes
+- Run a build with `./run app -b`
+- Fix any errors or warnings until the run passes
+- If reporting to the user, give a succinct summary of what passed, one line at most
