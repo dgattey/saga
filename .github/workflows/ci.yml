@@ -1,4 +1,4 @@
-name: Deploy
+name: CI
 
 on:
   pull_request:
@@ -101,7 +101,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh api repos/${{ github.repository }}/check-runs -X POST \
-            -f name="📦 Bump Version" \
+            -f name="📦 Bump version" \
             -f head_sha="${{ steps.head.outputs.sha }}" \
             -f status="completed" \
             -f conclusion="success" \

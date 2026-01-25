@@ -1,4 +1,4 @@
-name: Create GitHub release
+name: Release
 
 on:
   pull_request:
@@ -6,6 +6,7 @@ on:
 
 jobs:
   release:
+    name: 🚀 Release
     if: github.event.pull_request.merged == true
     runs-on: macos-latest
     permissions:
