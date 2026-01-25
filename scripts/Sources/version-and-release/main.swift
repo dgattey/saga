@@ -255,7 +255,15 @@ func runBump(arguments: Arguments) throws {
 
   let fromVersion = "\(baseVersion.major).\(baseVersion.minor).\(baseVersion.patch)"
   let toVersion = "\(bumpedVersion.major).\(bumpedVersion.minor).\(bumpedVersion.patch)"
-  let toBuild = max(baseBuild + 1, updatedEpoch)
+  
+  // Build number = 30-minute increments since repo inception
+  let repoInception = 1751838521  // 2025-07-06 21:48:41 UTC (first commit)
+  let halfHoursSinceInception = (updatedEpoch - repoInception) / 1800
+  
+  // If base build is already using the new format (< 100000), use max to handle multiple PRs in same 30-min window
+  // Otherwise, ignore the old epoch-based format and start fresh with half-hours since inception
+  let isNewFormat = baseBuild < 100000
+  let toBuild = isNewFormat ? max(baseBuild + 1, halfHoursSinceInception) : halfHoursSinceInception
 
   let newContent = try replacingValue(
     for: Constants.marketingVersionKey, with: toVersion, in: content)
