@@ -6,9 +6,9 @@
 //
 
 extension String {
-    var cleanedWhitespace: String {
-        self.components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-    }
+  var cleanedWhitespace: String {
+    self.components(separatedBy: .whitespacesAndNewlines)
+      .filter { !$0.isEmpty }
+      .joined(separator: " ")
+  }
 }

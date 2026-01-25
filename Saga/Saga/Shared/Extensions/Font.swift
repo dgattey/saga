@@ -8,7 +8,7 @@
 import SwiftUI
 
 extension Font {
-    static var largeTitleBold: Font {
-        .largeTitle.weight(.semibold)
-    }
+  static var largeTitleBold: Font {
+    .largeTitle.weight(.semibold)
+  }
 }

@@ -8,6 +8,6 @@
 import SwiftUI
 
 enum SidebarLayout {
-    static let rowHorizontalPadding: CGFloat = 12
-    static let headerLeadingPadding: CGFloat = 20
+  static let rowHorizontalPadding: CGFloat = 12
+  static let headerLeadingPadding: CGFloat = 20
 }

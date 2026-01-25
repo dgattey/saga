@@ -9,14 +9,14 @@ import SwiftUI
 
 /// Renders the navigation link item of a book for use in a list
 struct BookView: View {
-    var result: SearchHighlightResult<Book>
-    
-    var body: some View {
-        NavigationLink {
-            BookContentView(book: result.model)
-        } label: {
-            BookListPreviewView(result: result)
-                .padding(.vertical, 4)
-        }
+  var result: SearchHighlightResult<Book>
+
+  var body: some View {
+    NavigationLink {
+      BookContentView(book: result.model)
+    } label: {
+      BookListPreviewView(result: result)
+        .padding(.vertical, 4)
     }
+  }
 }

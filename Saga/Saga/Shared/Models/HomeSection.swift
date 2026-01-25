@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct HomeSection: Identifiable {
-    let id = UUID()
-    let title: String
-    let content: AnyView
+  let id: String
+  let title: String
+  let content: AnyView
 }

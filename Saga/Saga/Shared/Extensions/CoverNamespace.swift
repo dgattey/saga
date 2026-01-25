@@ -8,21 +8,21 @@
 import SwiftUI
 
 private struct CoverNamespaceKey: EnvironmentKey {
-    static let defaultValue: Namespace.ID? = nil
+  static let defaultValue: Namespace.ID? = nil
 }
 
 private struct CoverMatchActiveKey: EnvironmentKey {
-    static let defaultValue = false
+  static let defaultValue = false
 }
 
 extension EnvironmentValues {
-    var coverNamespace: Namespace.ID? {
-        get { self[CoverNamespaceKey.self] }
-        set { self[CoverNamespaceKey.self] = newValue }
-    }
+  var coverNamespace: Namespace.ID? {
+    get { self[CoverNamespaceKey.self] }
+    set { self[CoverNamespaceKey.self] = newValue }
+  }
 
-    var coverMatchActive: Bool {
-        get { self[CoverMatchActiveKey.self] }
-        set { self[CoverMatchActiveKey.self] = newValue }
-    }
+  var coverMatchActive: Bool {
+    get { self[CoverMatchActiveKey.self] }
+    set { self[CoverMatchActiveKey.self] = newValue }
+  }
 }
