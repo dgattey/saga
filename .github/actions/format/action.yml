@@ -1,0 +1,36 @@
+name: Format
+description: Check code formatting with swift-format
+
+outputs:
+  result:
+    description: "'pass' if code is formatted correctly, 'fail' otherwise"
+    value: ${{ steps.format_result.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install swift-format
+      shell: bash
+      run: brew install swift-format
+
+    - name: Check formatting
+      id: run_format
+      continue-on-error: true
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./run checks --format
+        git diff --exit-code
+
+    - name: Record format result
+      id: format_result
+      if: always()
+      shell: bash
+      run: |
+        if [[ "${{ steps.run_format.outcome }}" == "success" ]]; then
+          echo "result=pass" >> "$GITHUB_OUTPUT"
+        else
+          echo "result=fail" >> "$GITHUB_OUTPUT"
+          echo "::error::Code is not properly formatted. Run './run checks --format' locally and commit the changes."
+        fi
+

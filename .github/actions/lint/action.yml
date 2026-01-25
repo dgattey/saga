@@ -1,0 +1,35 @@
+name: Lint
+description: Lint code with swift-format
+
+outputs:
+  result:
+    description: "'pass' if lint passes, 'fail' otherwise"
+    value: ${{ steps.lint_result.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install swift-format
+      shell: bash
+      run: brew install swift-format
+
+    - name: Lint
+      id: run_lint
+      continue-on-error: true
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./run checks --lint
+
+    - name: Record lint result
+      id: lint_result
+      if: always()
+      shell: bash
+      run: |
+        if [[ "${{ steps.run_lint.outcome }}" == "success" ]]; then
+          echo "result=pass" >> "$GITHUB_OUTPUT"
+        else
+          echo "result=fail" >> "$GITHUB_OUTPUT"
+          echo "::error::Lint issues found. Run './run checks --lint' locally."
+        fi
+

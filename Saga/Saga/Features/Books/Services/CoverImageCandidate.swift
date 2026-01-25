@@ -16,7 +16,7 @@ struct CoverImageCandidate {
   static func from(url: URL, minimumBytes: Int = minimumBytes) async throws -> CoverImageCandidate?
   {
     let headRequest = makeHeadRequest(for: url)
-    let (_, headResponse) = try await URLSession.shared.data(for: headRequest)
+    let (_, headResponse) = try await NetworkCache.urlSession.data(for: headRequest)
     guard let httpResponse = headResponse as? HTTPURLResponse,
       httpResponse.statusCode != 404
     else {

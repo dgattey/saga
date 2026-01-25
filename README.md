@@ -66,7 +66,7 @@ Swift-based scripts live in `scripts/Sources/` and are run via the `run` wrapper
 | `app` | Build and launch the app |
 | `bootstrap` | Set up shell completions for run |
 | `drop-bot-commits` | Drop version bump commits on branch and rebase onto main |
-| `format` | Format and lint all Swift files |
+| `checks` | Run Swift format and/or lint checks |
 | `version-and-release` | Manage version tags and Github releases |
 
 ### Building and running
@@ -84,8 +84,10 @@ run app --help       # show usage
 All Swift code is formatted and linted using `swift-format` with the repo config in `.swift-format`.
 
 ```bash
-run format           # format in place, then lint
-run format --help    # show usage
+run checks           # format and lint
+run checks --format  # format only
+run checks --lint    # lint only
+run checks --help    # show usage
 ```
 
 CI runs this on every PR and fails if formatting produces any changes.

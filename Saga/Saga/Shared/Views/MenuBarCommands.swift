@@ -8,27 +8,37 @@
 import SwiftUI
 
 struct MenuBarCommands: Commands {
-  @EnvironmentObject var viewModel: SyncViewModel
+  @EnvironmentObject var syncViewModel: SyncViewModel
+  @EnvironmentObject var cachesViewModel: CachesViewModel
 
   var body: some Commands {
     CommandGroup(after: .newItem) {
       Divider()
 
-      Button("Refresh") {
+      Button("Refresh data") {
         Task {
-          await viewModel.sync()
+          await syncViewModel.sync()
         }
       }
-      .disabled(viewModel.isSyncing)
+      .disabled(syncViewModel.isSyncing)
       .keyboardShortcut("r", modifiers: [.command])
 
-      Button("Clear cache and refresh") {
+      Button("Clear caches") {
         Task {
-          await viewModel.resetAndSync()
+          await cachesViewModel.clearAll()
+        }
+      }
+      .keyboardShortcut("k", modifiers: [.command, .shift])
+      .disabled(syncViewModel.isSyncing)
+
+      Button("Clear all local data") {
+        Task {
+          await cachesViewModel.clearAll()
+          await syncViewModel.resetAndSync()
         }
       }
       .keyboardShortcut("r", modifiers: [.command, .shift])
-      .disabled(viewModel.isSyncing)
+      .disabled(syncViewModel.isSyncing)
     }
   }
 }

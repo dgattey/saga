@@ -1,5 +1,5 @@
 //
-//  View+ScrollVelocityThrottle.swift
+//  ScrollVelocityThrottle.swift
 //  Saga
 //
 //  Created by Dylan Gattey on 1/25/26.
@@ -69,14 +69,14 @@ private struct ScrollVelocityThrottle: ViewModifier {
           if velocity >= velocityThreshold {
             if !isPaused {
               isPaused = true
-              DownsampledImageCache.setDownloadsPaused(true)
+              ImageCache.setDownloadsPaused(true)
             }
             resumeTask?.cancel()
             resumeTask = Task { @MainActor in
               try? await Task.sleep(for: pauseReleaseDelay)
               guard !Task.isCancelled else { return }
               isPaused = false
-              DownsampledImageCache.setDownloadsPaused(false)
+              ImageCache.setDownloadsPaused(false)
             }
           }
         }
@@ -87,7 +87,7 @@ private struct ScrollVelocityThrottle: ViewModifier {
         resumeTask?.cancel()
         if isPaused {
           isPaused = false
-          DownsampledImageCache.setDownloadsPaused(false)
+          ImageCache.setDownloadsPaused(false)
         }
       }
   }
