@@ -54,7 +54,7 @@ struct DownsampledAsyncImage: View {
         sizeUpdateTask = nil
         if let activeCacheKey {
           Task {
-            await DownsampledImageCache.unregisterRequest(for: activeCacheKey, id: requestID)
+            await ImageCache.unregisterRequest(for: activeCacheKey, id: requestID)
           }
         }
         activeCacheKey = nil
@@ -171,15 +171,15 @@ struct DownsampledAsyncImage: View {
     if let previousKey = activeCacheKey,
       previousKey != cacheKey
     {
-      await DownsampledImageCache.unregisterRequest(for: previousKey, id: requestID)
+      await ImageCache.unregisterRequest(for: previousKey, id: requestID)
     }
     if activeCacheKey != cacheKey {
       activeCacheKey = cacheKey
       didFail = false
-      await DownsampledImageCache.registerRequest(for: cacheKey, id: requestID)
+      await ImageCache.registerRequest(for: cacheKey, id: requestID)
     }
     do {
-      let cgImage = try await DownsampledImageCache.fetchImage(
+      let cgImage = try await ImageCache.fetchImage(
         url: url,
         urlSession: urlSession,
         cacheKey: cacheKey,
@@ -211,10 +211,10 @@ struct DownsampledAsyncImage: View {
   private func cachedImage(for maxPixelSize: CGFloat) -> Image? {
     guard maxPixelSize > 0 else { return nil }
     let key = cacheKey(for: maxPixelSize)
-    if let cgImage = DownsampledImageCache.memoryCachedImage(for: key) {
+    if let cgImage = ImageCache.memoryCachedImage(for: key) {
       return Image(decorative: cgImage, scale: displayScale)
     }
-    if let cgImage = DownsampledImageCache.urlCachedImage(for: url) {
+    if let cgImage = ImageCache.urlCachedImage(for: url) {
       return Image(decorative: cgImage, scale: displayScale)
     }
     return nil

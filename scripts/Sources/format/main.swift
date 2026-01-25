@@ -5,6 +5,9 @@ import Foundation
 
 let description = scriptDescription(filePath: #filePath)
 
+/// Directories to format (relative to repo root). Excludes build/, .build/, etc.
+let targetDirectories = ["Saga", "scripts"]
+
 // MARK: - CLI
 
 enum Option: String, CaseIterable {
@@ -24,6 +27,7 @@ func usage() -> String {
   Notes:
     - Uses swift-format with repo config (.swift-format)
     - Formats in place, then lints (strict)
+    - Only formats: \(targetDirectories.joined(separator: ", "))
   """
 }
 
@@ -90,22 +94,30 @@ struct FormatCommand {
       }
 
       let configPath = findConfigurationPath(repoRoot: repoRoot)
-      try runSwiftFormat(
-        subcommand: "format",
-        targetPath: repoRoot,
-        configPath: configPath,
-        extraArgs: ["--in-place"],
-        cwd: repoURL,
-        description: "Formatting Swift files..."
-      )
-      try runSwiftFormat(
-        subcommand: "lint",
-        targetPath: repoRoot,
-        configPath: configPath,
-        extraArgs: ["--strict"],
-        cwd: repoURL,
-        description: "Linting Swift files..."
-      )
+
+      // Format and lint each target directory (excludes build folders)
+      for directory in targetDirectories {
+        let targetPath = repoURL.appendingPathComponent(directory).path
+        guard FileManager.default.fileExists(atPath: targetPath) else {
+          continue
+        }
+        try runSwiftFormat(
+          subcommand: "format",
+          targetPath: targetPath,
+          configPath: configPath,
+          extraArgs: ["--in-place"],
+          cwd: repoURL,
+          description: "Formatting \(directory)/..."
+        )
+        try runSwiftFormat(
+          subcommand: "lint",
+          targetPath: targetPath,
+          configPath: configPath,
+          extraArgs: ["--strict"],
+          cwd: repoURL,
+          description: "Linting \(directory)/..."
+        )
+      }
     }
   }
 }

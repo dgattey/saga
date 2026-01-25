@@ -1,5 +1,5 @@
 //
-//  RichTextDocument.swift
+//  RichTextRenderer.swift
 //  Saga
 //
 //  Created by Dylan Gattey on 7/17/25.

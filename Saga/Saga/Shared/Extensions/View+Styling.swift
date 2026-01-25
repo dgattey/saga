@@ -1,5 +1,5 @@
 //
-//  View.swift
+//  View+Styling.swift
 //  Saga
 //
 //  Created by Dylan Gattey on 8/20/25.

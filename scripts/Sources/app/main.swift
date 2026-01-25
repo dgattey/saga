@@ -12,6 +12,8 @@ enum Option: String, CaseIterable {
   case helpShort = "-h"
   case verbose = "--verbose"
   case verboseShort = "-v"
+  case buildOnly = "--build-only"
+  case buildOnlyShort = "-b"
 
   static var completions: [String] { allCases.map(\.rawValue) }
 }
@@ -21,16 +23,18 @@ func usage() -> String {
   \(description)
 
   Usage:
-    run app [--verbose|-v]
+    run app [--verbose|-v] [--build-only|-b]
 
   Options:
-    --verbose, -v    Show full xcodebuild output (default is quiet)
-    --help, -h       Show this help message
+    --verbose, -v      Show full xcodebuild output (default is quiet)
+    --build-only, -b   Build without launching the app
+    --help, -h         Show this help message
   """
 }
 
 struct Config {
   var verbose: Bool = false
+  var buildOnly: Bool = false
 }
 
 func parseArguments(_ args: [String]) throws -> Config {
@@ -50,6 +54,8 @@ func parseArguments(_ args: [String]) throws -> Config {
       exit(0)
     case .verbose, .verboseShort:
       config.verbose = true
+    case .buildOnly, .buildOnlyShort:
+      config.buildOnly = true
     }
   }
 
@@ -89,7 +95,13 @@ func currentArchitecture() throws -> String {
   try runCommand("uname", ["-m"], emitOutput: false)
 }
 
+func killRunningApp() {
+  // Kill any running instance of Saga (ignore errors if not running)
+  _ = try? runCommand("pkill", ["-x", "Saga"], allowFailure: true, emitOutput: false)
+}
+
 func buildApp(projectPath: String, derivedDataPath: String, arch: String, verbose: Bool) throws {
+  killRunningApp()
   print("Building Saga (Debug)...")
   var args = [
     "-project", projectPath,
@@ -137,7 +149,9 @@ struct AppCommand {
         arch: arch,
         verbose: config.verbose
       )
-      try openApp(at: appPath)
+      if !config.buildOnly {
+        try openApp(at: appPath)
+      }
     }
   }
 }

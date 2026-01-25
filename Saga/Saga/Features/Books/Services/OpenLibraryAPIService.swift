@@ -179,7 +179,7 @@ struct OpenLibraryAPIService: CoverImageURLProvider {
       URLQueryItem(name: "lang", value: "en"),
     ]
     guard let url = components.url else { return nil }
-    let (data, response) = try await URLSession.shared.data(from: url)
+    let (data, response) = try await NetworkCache.urlSession.data(from: url)
     guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
       print("Couldn't fetch search response for \"\(title)\": \(response)")
       return nil
@@ -194,7 +194,7 @@ struct OpenLibraryAPIService: CoverImageURLProvider {
     let editionsURLString = "\(Constants.apiBaseURL)\(workKey)/editions.json"
     guard let editionsURL = URL(string: editionsURLString) else { return nil }
 
-    let (data, response) = try await URLSession.shared.data(from: editionsURL)
+    let (data, response) = try await NetworkCache.urlSession.data(from: editionsURL)
     guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
       print("Couldn't fetch editions response for \"\(title)\": \(response)")
       return nil

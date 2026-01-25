@@ -1,5 +1,5 @@
 //
-//  PersistenceController.swift
+//  PersistenceService.swift
 //  Saga
 //
 //  Created by Dylan Gattey on 7/6/25.
@@ -10,7 +10,7 @@ import ContentfulPersistence
 import CoreData
 
 /// Handles syncing with Contentful – register new entry types in `PersistenceModel.swift` and ensure your `Config.xcconfig` is set up properly via directions in readme
-struct PersistenceController {
+struct PersistenceService {
   let container: NSPersistentContainer
   private var syncManager: SynchronizationManager
   private var client: Client

@@ -10,7 +10,7 @@ import SwiftUI
 
 /// Handles syncing data across the full app, delegating to service functions as needed
 class SyncViewModel: ObservableObject {
-  private var controller = PersistenceController()
+  private var controller = PersistenceService()
   @Published var isSyncing = false
   @Published var isResetting = false
   @Published var resetToken = UUID()
@@ -19,6 +19,8 @@ class SyncViewModel: ObservableObject {
   var viewContext: NSManagedObjectContext {
     return controller.container.viewContext
   }
+
+  // MARK: - Sync Operations
 
   /// Syncs if there's no sync running already
   func sync() async {

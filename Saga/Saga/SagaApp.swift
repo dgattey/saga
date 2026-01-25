@@ -9,8 +9,9 @@ import SwiftUI
 
 @main
 struct SagaApp: App {
-  @StateObject private var viewModel = SyncViewModel()
-  @StateObject private var contentViewModel = BooksViewModel()
+  @StateObject private var syncViewModel = SyncViewModel()
+  @StateObject private var cachesViewModel = CachesViewModel()
+  @StateObject private var booksViewModel = BooksViewModel()
 
   init() {
     // Register our transformers
@@ -20,15 +21,16 @@ struct SagaApp: App {
   var body: some Scene {
     WindowGroup {
       ContentView()
-        .environment(\.managedObjectContext, viewModel.viewContext)
+        .environment(\.managedObjectContext, syncViewModel.viewContext)
         .windowBackground()
     }
     .commands {
       MenuBarCommands()
       SidebarCommands()
     }
-    .environmentObject(viewModel)
-    .environmentObject(contentViewModel)
+    .environmentObject(syncViewModel)
+    .environmentObject(cachesViewModel)
+    .environmentObject(booksViewModel)
     .defaultSize(width: 1000, height: 600)
 
     #if os(macOS)
@@ -36,7 +38,8 @@ struct SagaApp: App {
         SettingsView()
           .windowBackground()
       }
-      .environmentObject(viewModel)
+      .environmentObject(syncViewModel)
+      .environmentObject(cachesViewModel)
     #endif
   }
 }
