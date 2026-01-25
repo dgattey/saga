@@ -13,17 +13,20 @@ struct PersistentScrollView<Content: View>: View {
   let scrollKey: ScrollKey
   let axis: Axis.Set
   let showsIndicators: Bool
+  let onRestore: (() -> Void)?
   let content: () -> Content
 
   init(
     scrollKey: ScrollKey,
     axis: Axis.Set = .vertical,
     showsIndicators: Bool = true,
+    onRestore: (() -> Void)? = nil,
     @ViewBuilder content: @escaping () -> Content
   ) {
     self.scrollKey = scrollKey
     self.axis = axis
     self.showsIndicators = showsIndicators
+    self.onRestore = onRestore
     self.content = content
   }
 
@@ -34,6 +37,7 @@ struct PersistentScrollView<Content: View>: View {
       axis: axis,
       showsIndicators: showsIndicators,
       initialOffset: scrollStore.position(for: scrollKey),
+      onRestore: onRestore,
       content: content
     )
     .id(scrollKey)
@@ -46,10 +50,13 @@ private struct PersistentScrollViewBody<Content: View>: View {
   let scrollKey: ScrollKey
   let axis: Axis.Set
   let showsIndicators: Bool
+  let onRestore: (() -> Void)?
   let content: () -> Content
 
   @State private var position: ScrollPosition
   @State private var isRestoring = false
+  @State private var didNotifyRestore = false
+  @State private var pendingRestoreNotify = false
 
   init(
     scrollStore: ScrollPositionStore,
@@ -57,12 +64,14 @@ private struct PersistentScrollViewBody<Content: View>: View {
     axis: Axis.Set,
     showsIndicators: Bool,
     initialOffset: Double?,
+    onRestore: (() -> Void)?,
     @ViewBuilder content: @escaping () -> Content
   ) {
     self.scrollStore = scrollStore
     self.scrollKey = scrollKey
     self.axis = axis
     self.showsIndicators = showsIndicators
+    self.onRestore = onRestore
     self.content = content
     if let initialOffset {
       if axis.contains(.vertical) {
@@ -71,7 +80,8 @@ private struct PersistentScrollViewBody<Content: View>: View {
         _position = State(initialValue: ScrollPosition(x: CGFloat(initialOffset)))
       }
     } else {
-      _position = State(initialValue: ScrollPosition(edge: axis.contains(.vertical) ? .top : .leading))
+      _position = State(
+        initialValue: ScrollPosition(edge: axis.contains(.vertical) ? .top : .leading))
     }
   }
 
@@ -86,11 +96,18 @@ private struct PersistentScrollViewBody<Content: View>: View {
       }
       return Double(geometry.contentOffset.x)
     } action: { _, newValue in
+      if pendingRestoreNotify {
+        pendingRestoreNotify = false
+        notifyRestoreIfNeeded()
+      }
       guard !isRestoring, newValue.isFinite else { return }
       scrollStore.update(newValue, for: scrollKey)
     }
     .onChange(of: scrollStore.resetToken) {
       restorePosition()
+    }
+    .onAppear {
+      pendingRestoreNotify = true
     }
   }
 
@@ -108,6 +125,13 @@ private struct PersistentScrollViewBody<Content: View>: View {
 
     DispatchQueue.main.async {
       isRestoring = false
+      pendingRestoreNotify = true
     }
+  }
+
+  private func notifyRestoreIfNeeded() {
+    guard !didNotifyRestore else { return }
+    didNotifyRestore = true
+    onRestore?()
   }
 }

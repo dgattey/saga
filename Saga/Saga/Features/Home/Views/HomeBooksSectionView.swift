@@ -17,7 +17,7 @@ private struct Constants {
 /// Renders the books section in the Home view
 struct HomeBooksSectionView: View {
   @EnvironmentObject private var viewModel: BooksViewModel
-  @Binding var selection: SidebarSelection?
+  @Binding var entry: NavigationEntry?
   @State private var gridWidth: CGFloat = 0
 
   private var columns: [GridItem] {
@@ -49,7 +49,7 @@ struct HomeBooksSectionView: View {
         ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
           HomeBookThumbnailView(
             book: result.model,
-            selection: $selection,
+            entry: $entry,
             gridItemSize: gridItemSize
           )
         }
@@ -95,14 +95,14 @@ struct HomeBookThumbnailView: View {
   @Environment(\.coverNamespace) private var coverNamespace
   @Environment(\.coverMatchActive) private var coverMatchActive
   let book: Book
-  @Binding var selection: SidebarSelection?
+  @Binding var entry: NavigationEntry?
   let gridItemSize: CGSize
 
   var body: some View {
     Button {
-      guard selection != .book(book.objectID) else { return }
+      guard entry?.selection != .book(book.objectID) else { return }
       withAnimation(AppAnimation.selectionSpring) {
-        selection = .book(book.objectID)
+        entry = NavigationEntry(selection: .book(book.objectID))
       }
     } label: {
       coverImageView
@@ -135,7 +135,7 @@ struct HomeBookThumbnailView: View {
       let coverImage = BookCoverImageView(book: book, targetSize: gridItemSize)
         .defaultShadow()
         .rotationEffect(coverRotation)
-        .animation(AppAnimation.coverRotation, value: selection)
+        .animation(AppAnimation.coverRotation, value: entry?.selection)
       coverImage
         .frame(width: gridItemSize.width, height: gridItemSize.height)
         .matchedGeometryEffect(id: coverID, in: coverNamespace)
@@ -147,11 +147,11 @@ struct HomeBookThumbnailView: View {
   }
 
   private var shouldMatchGeometry: Bool {
-    selection?.matchedBookID == book.objectID
+    entry?.selection.matchedBookID == book.objectID
   }
 
   private var coverRotation: Angle {
-    guard case .book(let selectedBookID) = selection,
+    guard case .book(let selectedBookID) = entry?.selection,
       selectedBookID == book.objectID
     else {
       return .degrees(0)

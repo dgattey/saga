@@ -22,6 +22,21 @@ final class ScrollPositionStore: ObservableObject {
     positions[key] = clamped
   }
 
+  func clonePositions(from sourceContextID: UUID, to targetContextID: UUID, scope: ScrollScope) {
+    let matches = positions.filter { key, _ in
+      key.scope == scope && key.contextID == sourceContextID
+    }
+    guard !matches.isEmpty else { return }
+    for (key, value) in matches {
+      let targetKey = ScrollKey(
+        scope: key.scope,
+        region: key.region,
+        contextID: targetContextID
+      )
+      positions[targetKey] = value
+    }
+  }
+
   func reset() {
     positions.removeAll()
     resetToken = UUID()

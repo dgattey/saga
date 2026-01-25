@@ -16,11 +16,19 @@ private struct Constants {
 /// Renders the home view with a book grid
 struct HomeView: View {
   @EnvironmentObject private var viewModel: BooksViewModel
-  @Binding var selection: SidebarSelection?
+  @Environment(\.scrollContextID) private var scrollContextID
+  @Binding var entry: NavigationEntry?
 
   var body: some View {
     ZStack(alignment: .topLeading) {
-      PersistentScrollView(scrollKey: ScrollKey(scope: .home, region: "main")) {
+      PersistentScrollView(
+        scrollKey: ScrollKey(
+          scope: .home,
+          region: "main",
+          contextID: scrollContextID
+        ),
+        onRestore: notifyScrollRestored
+      ) {
         ScrollVelocityReader()
         LazyVStack(alignment: .leading, pinnedViews: [.sectionHeaders]) {
           ForEach(sections) { section in
@@ -46,13 +54,21 @@ struct HomeView: View {
     #endif
   }
 
+  private func notifyScrollRestored() {
+    guard let scrollContextID else { return }
+    NotificationCenter.default.post(
+      name: .homeScrollRestored,
+      object: scrollContextID
+    )
+  }
+
   private var sections: [HomeSection] {
     [
       HomeSection(
         id: "books",
         title: "Books",
         content: AnyView(
-          HomeBooksSectionView(selection: $selection)
+          HomeBooksSectionView(entry: $entry)
         )
       )
     ]

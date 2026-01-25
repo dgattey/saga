@@ -16,7 +16,7 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
   let outsidePadding: CGFloat
   let gap: CGFloat
   let scrollScope: ScrollScope?
-    let scrollContextID: UUID?
+  let scrollContextID: UUID?
 
   init(
     threshold: CGFloat = 576,
@@ -28,8 +28,8 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
     gap: CGFloat = 0,
     /// Optional scroll persistence scope for contained scroll views
     scrollScope: ScrollScope? = nil,
-        /// Optional scroll persistence context identifier
-        scrollContextID: UUID? = nil,
+    /// Optional scroll persistence context identifier
+    scrollContextID: UUID? = nil,
     @ViewBuilder columnA: () -> ColumnA,
     @ViewBuilder columnB: () -> ColumnB
   ) {
@@ -38,7 +38,7 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
     self.outsidePadding = outsidePadding
     self.gap = gap
     self.scrollScope = scrollScope
-        self.scrollContextID = scrollContextID
+    self.scrollContextID = scrollContextID
     self.columnA = columnA()
     self.columnB = columnB()
   }
@@ -92,13 +92,13 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
     @ViewBuilder content: @escaping () -> Content
   ) -> some View {
     if let scrollScope {
-            PersistentScrollView(
-                scrollKey: ScrollKey(
-                    scope: scrollScope,
-                    region: region,
-                    contextID: scrollContextID
-                )
-            ) {
+      PersistentScrollView(
+        scrollKey: ScrollKey(
+          scope: scrollScope,
+          region: region,
+          contextID: scrollContextID
+        )
+      ) {
         content()
       }
     } else {

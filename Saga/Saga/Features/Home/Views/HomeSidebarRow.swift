@@ -11,12 +11,14 @@ struct HomeSidebarRow: View {
   #if os(macOS)
     @Environment(\.controlActiveState) private var controlActiveState
   #endif
-  @Binding var selection: SidebarSelection?
+  @Binding var entry: NavigationEntry?
+  let makeHomeEntry: () -> NavigationEntry
 
   var body: some View {
     Button {
       withAnimation(AppAnimation.selectionSpring) {
-        selection = selection?.homeSelectionPreservingLast() ?? .home(lastSelectedBookID: nil)
+        guard entry?.selection.isHome != true else { return }
+        entry = makeHomeEntry()
       }
     } label: {
       HStack(spacing: 8) {
@@ -31,7 +33,7 @@ struct HomeSidebarRow: View {
       .padding(.horizontal, 8)
       .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32, alignment: .leading)
       .background {
-        if selection?.isHome == true {
+        if entry?.selection.isHome == true {
           RoundedRectangle(cornerRadius: 6)
             .fill(selectionBackgroundColor)
         }
