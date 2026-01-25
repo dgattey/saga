@@ -10,7 +10,9 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: ./.github/actions/ci-setup
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Format and lint with swift-format
         run: |

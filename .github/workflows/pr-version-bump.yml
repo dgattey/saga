@@ -14,9 +14,10 @@ jobs:
       checks: write
     steps:
       - name: Checkout PR branch
-        uses: ./.github/actions/ci-setup
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
+          fetch-depth: 0
 
       - name: Fetch main
         run: git fetch origin main
@@ -40,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           base_file="$(mktemp)"
-          git show origin/main:"$PBXPROJ_PATH" > "$base_file"
+          git show origin/main:"${{ vars.PBXPROJ_PATH }}" > "$base_file"
           base_output="$(./run version-and-release read --path "$base_file")"
           base_version="$(echo "$base_output" | awk -F= '/^VERSION=/{print $2}')"
           base_build="$(echo "$base_output" | awk -F= '/^BUILD=/{print $2}')"
@@ -56,7 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           bump_output="$(./run version-and-release bump \
-            --path "$PBXPROJ_PATH" \
+            --path "${{ vars.PBXPROJ_PATH }}" \
             --base-version "${{ steps.base.outputs.version }}" \
             --base-build "${{ steps.base.outputs.build }}" \
             --release-type "${{ steps.prinfo.outputs.release_type }}" \
@@ -79,7 +80,7 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git add "$PBXPROJ_PATH"
+          git add "${{ vars.PBXPROJ_PATH }}"
           git -c user.name="github-actions[bot]" \
             -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Bump version to ${{ steps.bump.outputs.version_to }} (${{ steps.bump.outputs.build_to }})"
