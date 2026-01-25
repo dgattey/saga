@@ -7,49 +7,81 @@
 
 import SwiftUI
 
+struct NavigationEntry: Hashable {
+  let selection: SidebarSelection
+  let scrollContextID: UUID
+
+  init(selection: SidebarSelection, scrollContextID: UUID = UUID()) {
+    self.selection = selection
+    self.scrollContextID = scrollContextID
+  }
+}
+
 final class NavigationHistory: ObservableObject {
-  @Published private(set) var backStack: [SidebarSelection] = []
-  @Published private(set) var forwardStack: [SidebarSelection] = []
-  @Published private(set) var lastSelectionChange: SidebarSelection?
+  @Published private(set) var backStack: [NavigationEntry] = []
+  @Published private(set) var forwardStack: [NavigationEntry] = []
+  @Published private(set) var lastSelectionChange: NavigationEntry?
   @Published private(set) var lastSelectionChangeWasHistory = false
+  @Published private(set) var lastHomeScrollContextID: UUID?
 
   private var isHistoryNavigation = false
 
   var canGoBack: Bool { !backStack.isEmpty }
   var canGoForward: Bool { !forwardStack.isEmpty }
 
+  init(initialHomeScrollContextID: UUID? = nil) {
+    self.lastHomeScrollContextID = initialHomeScrollContextID
+  }
+
   func recordSelectionChange(
-    from oldSelection: SidebarSelection?, to newSelection: SidebarSelection?
+    from oldEntry: NavigationEntry?, to newEntry: NavigationEntry?
   ) {
-    guard let newSelection else { return }
-    lastSelectionChange = newSelection
+    guard let newEntry else { return }
+    lastSelectionChange = newEntry
     lastSelectionChangeWasHistory = isHistoryNavigation
+    if newEntry.selection.isHome {
+      lastHomeScrollContextID = newEntry.scrollContextID
+    }
 
     defer { isHistoryNavigation = false }
     guard !isHistoryNavigation else { return }
-    guard let oldSelection, oldSelection != newSelection else { return }
+    guard let oldEntry, oldEntry != newEntry else { return }
 
-    backStack.append(oldSelection)
+    backStack.append(oldEntry)
     forwardStack.removeAll()
-
   }
 
-  func goBack(selection: Binding<SidebarSelection?>) {
-    guard let previousSelection = backStack.popLast() else { return }
-    if let currentSelection = selection.wrappedValue {
-      forwardStack.append(currentSelection)
+  func goBack(entry: Binding<NavigationEntry?>) {
+    guard let previousEntry = backStack.popLast() else { return }
+    if let currentEntry = entry.wrappedValue {
+      forwardStack.append(currentEntry)
     }
     isHistoryNavigation = true
-    selection.wrappedValue = previousSelection
+    entry.wrappedValue = previousEntry
   }
 
-  func goForward(selection: Binding<SidebarSelection?>) {
-    guard let nextSelection = forwardStack.popLast() else { return }
-    if let currentSelection = selection.wrappedValue {
-      backStack.append(currentSelection)
+  func goForward(entry: Binding<NavigationEntry?>) {
+    guard let nextEntry = forwardStack.popLast() else { return }
+    if let currentEntry = entry.wrappedValue {
+      backStack.append(currentEntry)
     }
     isHistoryNavigation = true
-    selection.wrappedValue = nextSelection
+    entry.wrappedValue = nextEntry
   }
 
+  @MainActor
+  func makeHomeEntry(
+    currentEntry: NavigationEntry?,
+    scrollStore: ScrollPositionStore,
+    cloneFromLast: Bool = true
+  ) -> NavigationEntry {
+    let selection =
+      currentEntry?.selection.homeSelectionPreservingLast() ?? .home(lastSelectedBookID: nil)
+    let newContextID = UUID()
+    if cloneFromLast, let sourceID = lastHomeScrollContextID {
+      scrollStore.clonePositions(from: sourceID, to: newContextID, scope: .home)
+    }
+    lastHomeScrollContextID = newContextID
+    return NavigationEntry(selection: selection, scrollContextID: newContextID)
+  }
 }

@@ -19,8 +19,8 @@ private struct Constants {
 
 /// Renders the full version of a book
 struct BookContentView: View {
-
   var book: Book
+  @Environment(\.scrollContextID) private var scrollContextID
   @Environment(\.coverNamespace) private var coverNamespace
   @Environment(\.coverMatchActive) private var coverMatchActive
   @State private var containerWidth: CGFloat = 0
@@ -35,6 +35,8 @@ struct BookContentView: View {
     ResponsiveLayout(
       outsidePadding: Constants.outsidePadding,
       gap: Constants.columnGap,
+      scrollScope: ScrollScope.book(book.objectID),
+      scrollContextID: scrollContextID,
       columnA: { sidebar },
       columnB: { content }
     )

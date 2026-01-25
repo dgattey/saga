@@ -14,10 +14,11 @@ struct BooksListView: View {
   #if os(macOS)
     @Environment(\.controlActiveState) private var controlActiveState
   #endif
-  @Binding var selection: SidebarSelection?
+  @Binding var entry: NavigationEntry?
   @FetchRequest(
     sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
-    animation: .default) private var books: FetchedResults<Book>
+    animation: .default
+  ) private var books: FetchedResults<Book>
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
@@ -27,7 +28,7 @@ struct BooksListView: View {
         .padding(.leading, SidebarLayout.headerLeadingPadding)
         .padding(.trailing, SidebarLayout.rowHorizontalPadding)
 
-      ScrollView {
+      PersistentScrollView(scrollKey: ScrollKey(scope: .sidebarBooks, region: "list")) {
         ScrollVelocityReader()
         LazyVStack(alignment: .leading, spacing: 4) {
           if viewModel.filteredBooks.isEmpty, hasActiveSearch {
@@ -39,9 +40,9 @@ struct BooksListView: View {
           } else {
             ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
               Button {
-                guard selection != .book(result.model.objectID) else { return }
+                guard entry?.selection != .book(result.model.objectID) else { return }
                 withAnimation(AppAnimation.selectionSpring) {
-                  selection = .book(result.model.objectID)
+                  entry = NavigationEntry(selection: .book(result.model.objectID))
                 }
               } label: {
                 BookListPreviewView(result: result)
@@ -49,7 +50,7 @@ struct BooksListView: View {
                   .padding(.horizontal, 8)
                   .frame(maxWidth: .infinity, alignment: .leading)
                   .background {
-                    if selection == .book(result.model.objectID) {
+                    if entry?.selection == .book(result.model.objectID) {
                       RoundedRectangle(cornerRadius: 6)
                         .fill(selectionBackgroundColor)
                     }

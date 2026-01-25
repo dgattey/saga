@@ -135,7 +135,6 @@ Syncing data from Contentful to local Core Data storage with read-only views. Ed
 - [] polish
     - [] trigger new sync call when window gets focus (or some other trigger to regularly get new data)
 - [] create new book screen
-- [] save scroll position on history
 
 <details>
 <summary><b>Later</b></summary>
@@ -176,5 +175,6 @@ Syncing data from Contentful to local Core Data storage with read-only views. Ed
 - [x] fix sort order after import (might be fixed by in-mempry sorting?)
 - [x] improve image parsing code to get best images
 - [x] add control over image caching + better downsampling
+- [x] save scroll position on history
 
 </details>
