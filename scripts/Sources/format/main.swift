@@ -49,6 +49,16 @@ func findConfigurationPath(repoRoot: String) -> String? {
   return FileManager.default.fileExists(atPath: path) ? path : nil
 }
 
+func findSwiftFormat() -> (command: String, args: [String]) {
+  // Check if swift-format is in PATH (e.g., installed via Homebrew)
+  let whichResult = try? runCommand("which", ["swift-format"], emitOutput: false)
+  if let path = whichResult, !path.isEmpty {
+    return ("swift-format", [])
+  }
+  // Fall back to xcrun (e.g., bundled with Xcode)
+  return ("xcrun", ["swift-format"])
+}
+
 func runSwiftFormat(
   subcommand: String,
   targetPath: String,
@@ -58,11 +68,12 @@ func runSwiftFormat(
   description: String
 ) throws {
   print(description)
-  var args = ["swift-format", subcommand, "--recursive", "--parallel"]
+  let (command, commandPrefix) = findSwiftFormat()
+  var args = commandPrefix + [subcommand, "--recursive", "--parallel"]
   if let configPath { args.append(contentsOf: ["--configuration", configPath]) }
   args.append(contentsOf: extraArgs)
   args.append(targetPath)
-  try runCommand("xcrun", args, cwd: cwd, failOnStderr: true)
+  try runCommand(command, args, cwd: cwd, failOnStderr: true)
 }
 
 @main
