@@ -1,4 +1,4 @@
-name: Bump version on PR
+name: Deploy
 
 on:
   pull_request:
@@ -6,12 +6,16 @@ on:
 
 jobs:
   bump:
+    name: 📦 Bump Version
+    # Only run for same-repo PRs, not forks
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: macos-latest
     permissions:
       contents: write
       pull-requests: write
       checks: write
+    outputs:
+      head-sha: ${{ steps.head.outputs.sha }}
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -85,40 +89,28 @@ jobs:
             -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Bump version to ${{ steps.bump.outputs.version_to }} (${{ steps.bump.outputs.build_to }})"
           git push
-          new_sha="$(git rev-parse HEAD)"
-          echo "sha=$new_sha" >> "$GITHUB_OUTPUT"
           echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Get HEAD SHA
+        id: head
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Create check for bumped commit
         if: steps.commit.outputs.changed == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const headSha = process.env.BUMP_SHA;
-            if (!headSha) {
-              core.warning("No bump SHA available, skipping check creation.");
-              return;
-            }
-            await github.rest.checks.create({
-              owner,
-              repo,
-              name: "bump",
-              head_sha: headSha,
-              status: "completed",
-              conclusion: "success",
-              output: {
-                title: "Version bump committed",
-                summary: "Version/build were updated by the workflow on this commit."
-              }
-            });
         env:
-          BUMP_SHA: ${{ steps.commit.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/check-runs -X POST \
+            -f name="📦 Bump Version" \
+            -f head_sha="${{ steps.head.outputs.sha }}" \
+            -f status="completed" \
+            -f conclusion="success" \
+            -f "output[title]=Version bump committed" \
+            -f "output[summary]=Version/build were updated by the workflow on this commit."
 
       - name: Update PR metadata block
-        uses: actions/github-script@v7
         if: github.actor != 'github-actions[bot]'
+        uses: actions/github-script@v7
         with:
           script: |
             const { execFileSync } = require("child_process");
@@ -144,3 +136,43 @@ jobs:
           VERSION_TO: ${{ steps.bump.outputs.version_to }}
           BUILD_FROM: ${{ steps.bump.outputs.build_from }}
           BUILD_TO: ${{ steps.bump.outputs.build_to }}
+
+  format:
+    name: 🎨 Format
+    needs: bump
+    runs-on: macos-latest
+    permissions:
+      checks: write
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Check formatting
+        uses: ./.github/actions/format
+        with:
+          create-check: "true"
+          head-sha: ${{ needs.bump.outputs.head-sha }}
+          token: ${{ github.token }}
+
+  lint:
+    name: 🔍 Lint
+    needs: bump
+    runs-on: macos-latest
+    permissions:
+      checks: write
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Lint
+        uses: ./.github/actions/lint
+        with:
+          create-check: "true"
+          head-sha: ${{ needs.bump.outputs.head-sha }}
+          token: ${{ github.token }}

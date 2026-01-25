@@ -1,0 +1,63 @@
+name: Lint
+description: Lint code with swift-format
+
+inputs:
+  create-check:
+    description: "Whether to create a GitHub check result"
+    required: false
+    default: "false"
+  head-sha:
+    description: "SHA to attach check to (required if create-check is true)"
+    required: false
+  token:
+    description: "GitHub token for creating check"
+    required: false
+
+outputs:
+  result:
+    description: "'pass' if lint passes, 'fail' otherwise"
+    value: ${{ steps.lint_result.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install swift-format
+      shell: bash
+      run: brew install swift-format
+
+    - name: Lint
+      id: run_lint
+      continue-on-error: true
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./run checks --lint
+
+    - name: Record lint result
+      id: lint_result
+      if: always()
+      shell: bash
+      run: |
+        if [[ "${{ steps.run_lint.outcome }}" == "success" ]]; then
+          echo "result=pass" >> "$GITHUB_OUTPUT"
+        else
+          echo "result=fail" >> "$GITHUB_OUTPUT"
+          echo "::error::Lint issues found. Run './run checks --lint' locally."
+        fi
+
+    - name: Create check result
+      if: always() && inputs.create-check == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+        RESULT: ${{ steps.lint_result.outputs.result }}
+      run: |
+        conclusion=$([[ "$RESULT" == "pass" ]] && echo "success" || echo "failure")
+        gh api repos/${{ github.repository }}/check-runs -X POST \
+          -f name="🔍 Lint" \
+          -f head_sha="$HEAD_SHA" \
+          -f status="completed" \
+          -f conclusion="$conclusion" \
+          -f "output[title]=$([[ "$RESULT" == "pass" ]] && echo "Lint passed" || echo "Lint issues found")" \
+          -f "output[summary]=$([[ "$RESULT" == "pass" ]] && echo "No lint issues found." || echo "Fix the lint errors reported above.")"
