@@ -9,13 +9,19 @@ import SwiftUI
 
 /// Creates a stylized version of the cover image, async loaded
 struct BookCoverImageView: View {
-    static let coverAspectRatio: CGFloat = 1 / 1.5
+  static let coverAspectRatio: CGFloat = 1 / 1.5
 
-    let book: Book
-    
-    var body: some View {
-        AssetImageView(asset: book.coverImage)
-            .aspectRatio(Self.coverAspectRatio, contentMode: .fit)
-            .cornerRadius(6)
-    }
+  let book: Book
+  let targetSize: CGSize?
+
+  init(book: Book, targetSize: CGSize? = nil) {
+    self.book = book
+    self.targetSize = targetSize
+  }
+
+  var body: some View {
+    AssetImageView(asset: book.coverImage, targetSize: targetSize)
+      .aspectRatio(Self.coverAspectRatio, contentMode: .fit)
+      .cornerRadius(6)
+  }
 }

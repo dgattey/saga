@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+#
+# run - Lightweight wrapper for Swift scripts
+#
+# Discovers and runs Swift scripts from scripts/Sources/. Each script is a
+# directory containing main.swift. Descriptions are extracted from a
+# "// DESCRIPTION: ..." comment at the top of each main.swift.
+#
+# Usage:
+#   run <script> [args...]    Run a script
+#   run --help                List available scripts
+#   run --completions         Output script names (for shell completion)
+#
+# Examples:
+#   run bootstrap
+#   run format
+#   run drop-bot-commits --dry-run
+#
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+SOURCES="$ROOT/scripts/Sources"
+
+# List all script names (directories under Sources/, excluding Common)
+scripts() {
+    for dir in "$SOURCES"/*/; do
+        local name="$(basename "$dir")"
+        [[ "$name" != "Common" ]] && echo "$name"
+    done | sort
+}
+
+# Get description from "// DESCRIPTION: ..." in main.swift
+description() {
+    grep -m1 '^// DESCRIPTION:' "$SOURCES/$1/main.swift" 2>/dev/null \
+        | sed 's|^// DESCRIPTION: *||' || true
+}
+
+# Handle --completions (for shell tab completion)
+if [[ "${1:-}" == "--completions" ]]; then
+    scripts
+    exit 0
+fi
+
+# Handle --help or no arguments
+if [[ $# -lt 1 || "$1" == "-h" || "$1" == "--help" ]]; then
+    echo "Usage: run <script> [args...]"
+    echo
+    echo "Available scripts:"
+    for script in $(scripts); do
+        printf "  %-24s %s\n" "$script" "$(description "$script")"
+    done
+    exit 0
+fi
+
+# Run the requested script via Swift Package Manager
+exec swift run -q --package-path "$ROOT/scripts" "$@"

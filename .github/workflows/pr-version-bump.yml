@@ -4,9 +4,6 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
 
-env:
-  PBXPROJ_PATH: Saga/Saga.xcodeproj/project.pbxproj
-
 jobs:
   bump:
     if: github.event.pull_request.head.repo.full_name == github.repository
@@ -21,7 +18,6 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Fetch main
         run: git fetch origin main
@@ -30,7 +26,7 @@ jobs:
         id: prinfo
         run: |
           set -euo pipefail
-          info_output="$(swift scripts/versioning.swift pr-info --event "$GITHUB_EVENT_PATH")"
+          info_output="$(./run version-and-release pr-info --event "$GITHUB_EVENT_PATH")"
           release_type="$(echo "$info_output" | awk -F= '/^RELEASE_TYPE=/{print $2}')"
           pr_updated_epoch="$(echo "$info_output" | awk -F= '/^PR_UPDATED_EPOCH=/{print $2}')"
           if [[ -z "$release_type" || -z "$pr_updated_epoch" ]]; then
@@ -45,8 +41,8 @@ jobs:
         run: |
           set -euo pipefail
           base_file="$(mktemp)"
-          git show origin/main:"$PBXPROJ_PATH" > "$base_file"
-          base_output="$(swift scripts/versioning.swift read --path "$base_file")"
+          git show origin/main:"${{ vars.PBXPROJ_PATH }}" > "$base_file"
+          base_output="$(./run version-and-release read --path "$base_file")"
           base_version="$(echo "$base_output" | awk -F= '/^VERSION=/{print $2}')"
           base_build="$(echo "$base_output" | awk -F= '/^BUILD=/{print $2}')"
           if [[ -z "$base_version" || -z "$base_build" ]]; then
@@ -60,8 +56,8 @@ jobs:
         id: bump
         run: |
           set -euo pipefail
-          bump_output="$(swift scripts/versioning.swift bump \
-            --path "$PBXPROJ_PATH" \
+          bump_output="$(./run version-and-release bump \
+            --path "${{ vars.PBXPROJ_PATH }}" \
             --base-version "${{ steps.base.outputs.version }}" \
             --base-build "${{ steps.base.outputs.build }}" \
             --release-type "${{ steps.prinfo.outputs.release_type }}" \
@@ -70,12 +66,10 @@ jobs:
           version_to="$(echo "$bump_output" | awk -F= '/^VERSION_TO=/{print $2}')"
           build_from="$(echo "$bump_output" | awk -F= '/^BUILD_FROM=/{print $2}')"
           build_to="$(echo "$bump_output" | awk -F= '/^BUILD_TO=/{print $2}')"
-          release_type="$(echo "$bump_output" | awk -F= '/^RELEASE_TYPE=/{print $2}')"
           echo "version_from=$version_from" >> "$GITHUB_OUTPUT"
           echo "version_to=$version_to" >> "$GITHUB_OUTPUT"
           echo "build_from=$build_from" >> "$GITHUB_OUTPUT"
           echo "build_to=$build_to" >> "$GITHUB_OUTPUT"
-          echo "release_type=$release_type" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
         id: commit
@@ -86,7 +80,7 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git add "$PBXPROJ_PATH"
+          git add "${{ vars.PBXPROJ_PATH }}"
           git -c user.name="github-actions[bot]" \
             -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -m "Bump version to ${{ steps.bump.outputs.version_to }} (${{ steps.bump.outputs.build_to }})"
@@ -134,15 +128,14 @@ jobs:
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
             const body = pr.body || "";
             const args = [
-              "scripts/versioning.swift",
+              "version-and-release",
               "update-metadata",
               "--from-version", process.env.VERSION_FROM,
               "--to-version", process.env.VERSION_TO,
               "--from-build", process.env.BUILD_FROM,
-              "--to-build", process.env.BUILD_TO,
-              "--release-type", process.env.RELEASE_TYPE
+              "--to-build", process.env.BUILD_TO
             ];
-            const newBody = execFileSync("swift", args, { input: body }).toString();
+            const newBody = execFileSync("./run", args, { input: body }).toString();
             if (newBody !== body) {
               await github.rest.pulls.update({ owner, repo, pull_number, body: newBody });
             }
@@ -151,4 +144,3 @@ jobs:
           VERSION_TO: ${{ steps.bump.outputs.version_to }}
           BUILD_FROM: ${{ steps.bump.outputs.build_from }}
           BUILD_TO: ${{ steps.bump.outputs.build_to }}
-          RELEASE_TYPE: ${{ steps.bump.outputs.release_type }}

@@ -7,6 +7,6 @@
 
 /// Every model should conform to this if it's searchable
 protocol SearchableModel {
-    associatedtype DTOType: SearchableDTO
-    func toDTO() -> DTOType
+  associatedtype DTOType: SearchableDTO
+  func toDTO() -> DTOType
 }

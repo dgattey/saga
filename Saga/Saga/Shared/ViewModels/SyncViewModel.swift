@@ -5,64 +5,74 @@
 //  Created by Dylan Gattey on 7/11/25.
 //
 
-import SwiftUI
 import CoreData
+import SwiftUI
 
 /// Handles syncing data across the full app, delegating to service functions as needed
 class SyncViewModel: ObservableObject {
-    private var controller = PersistenceController()
-    @Published var isSyncing = false
-    @Published var isResetting = false
-    @Published var resetToken = UUID()
-    private var syncTask: Task<Void, Never>?
-    
-    var viewContext: NSManagedObjectContext {
-        return controller.container.viewContext
-    }
-    
-    /// Syncs if there's no sync running already
-    func sync() async {
-        await orchestrateSync(start: { [weak self] in
-            self?.isSyncing = true
-        }, finish: { [weak self] in
-            self?.isSyncing = false
-        }) { [weak self] in
-            try await self?.controller.syncWithApi()
+  private var controller = PersistenceController()
+  @Published var isSyncing = false
+  @Published var isResetting = false
+  @Published var resetToken = UUID()
+  private var syncTask: Task<Void, Never>?
+
+  var viewContext: NSManagedObjectContext {
+    return controller.container.viewContext
+  }
+
+  /// Syncs if there's no sync running already
+  func sync() async {
+    await orchestrateSync(
+      start: { [weak self] in
+        self?.isSyncing = true
+      },
+      finish: { [weak self] in
+        self?.isSyncing = false
+      },
+      { [weak self] in
+        try await self?.controller.syncWithApi()
+      }
+    )
+  }
+
+  /// Resets all data, then syncs as long as there's no sync running already
+  func resetAndSync() async {
+    await orchestrateSync(
+      start: { [weak self] in
+        self?.isResetting = true
+        self?.resetToken = UUID()
+      },
+      finish: { [weak self] in
+        self?.isResetting = false
+      },
+      { [weak self] in
+        try await self?.controller.resetAndSyncWithApi()
+      }
+    )
+  }
+
+  /// Helper to orchestrate some sync function, managing state as it does so
+  private func orchestrateSync(
+    start: @escaping () -> Void,
+    finish: @escaping () -> Void,
+    _ syncFunction: @escaping () async throws -> Void
+  ) async {
+    guard !isSyncing, !isResetting else { return }
+    syncTask = Task(priority: .background) {
+      await MainActor.run {
+        start()
+      }
+      do {
+        try await syncFunction()
+        await MainActor.run {
+          finish()
         }
-    }
-    
-    /// Resets all data, then syncs as long as there's no sync running already
-    func resetAndSync() async {
-        await orchestrateSync(start: { [weak self] in
-            self?.isResetting = true
-            self?.resetToken = UUID()
-        }, finish: { [weak self] in
-            self?.isResetting = false
-        }) { [weak self] in
-            try await self?.controller.resetAndSyncWithApi()
+      } catch {
+        await MainActor.run {
+          finish()
         }
+        print("Error syncing: \(error)")
+      }
     }
-    
-    /// Helper to orchestrate some sync function, managing state as it does so
-    private func orchestrateSync(start: @escaping () -> Void,
-                                 finish: @escaping () -> Void,
-                                 _ syncFunction: @escaping () async throws -> Void) async {
-        guard !isSyncing, !isResetting else { return }
-        syncTask = Task(priority: .background) {
-            await MainActor.run {
-                start()
-            }
-            do {
-                try await syncFunction()
-                await MainActor.run {
-                    finish()
-                }
-            } catch {
-                await MainActor.run {
-                    finish()
-                }
-                print("Error syncing: \(error)")
-            }
-        }
-    }
+  }
 }

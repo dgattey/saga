@@ -4,9 +4,6 @@ on:
   pull_request:
     types: [closed]
 
-env:
-  PBXPROJ_PATH: Saga/Saga.xcodeproj/project.pbxproj
-
 jobs:
   release:
     if: github.event.pull_request.merged == true
@@ -24,7 +21,7 @@ jobs:
         id: version
         run: |
           set -euo pipefail
-          read_output="$(swift scripts/versioning.swift read --path "$PBXPROJ_PATH")"
+          read_output="$(./run version-and-release read --path "${{ vars.PBXPROJ_PATH }}")"
           version="$(echo "$read_output" | awk -F= '/^VERSION=/{print $2}')"
           build="$(echo "$read_output" | awk -F= '/^BUILD=/{print $2}')"
           if [[ -z "$version" || -z "$build" ]]; then
@@ -38,7 +35,7 @@ jobs:
         id: notes
         run: |
           set -euo pipefail
-          notes="$(swift scripts/versioning.swift extract-notes --event "$GITHUB_EVENT_PATH")"
+          notes="$(./run version-and-release extract-notes --event "$GITHUB_EVENT_PATH")"
           delimiter="NOTES_$(uuidgen)"
           {
             echo "notes<<$delimiter"

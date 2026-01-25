@@ -1,3 +1,5 @@
 xcuserdata
 *.xcconfig
 *.swp
+scripts/.build/
+build
