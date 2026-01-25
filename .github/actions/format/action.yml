@@ -1,18 +1,6 @@
 name: Format
 description: Check code formatting with swift-format
 
-inputs:
-  create-check:
-    description: "Whether to create a GitHub check result"
-    required: false
-    default: "false"
-  head-sha:
-    description: "SHA to attach check to (required if create-check is true)"
-    required: false
-  token:
-    description: "GitHub token for creating check"
-    required: false
-
 outputs:
   result:
     description: "'pass' if code is formatted correctly, 'fail' otherwise"
@@ -46,19 +34,3 @@ runs:
           echo "::error::Code is not properly formatted. Run './run checks --format' locally and commit the changes."
         fi
 
-    - name: Create check result
-      if: always() && inputs.create-check == 'true'
-      shell: bash
-      env:
-        GH_TOKEN: ${{ inputs.token }}
-        HEAD_SHA: ${{ inputs.head-sha }}
-        RESULT: ${{ steps.format_result.outputs.result }}
-      run: |
-        conclusion=$([[ "$RESULT" == "pass" ]] && echo "success" || echo "failure")
-        gh api repos/${{ github.repository }}/check-runs -X POST \
-          -f name="🎨 Format" \
-          -f head_sha="$HEAD_SHA" \
-          -f status="completed" \
-          -f conclusion="$conclusion" \
-          -f "output[title]=$([[ "$RESULT" == "pass" ]] && echo "Code is properly formatted" || echo "Code formatting issues found")" \
-          -f "output[summary]=$([[ "$RESULT" == "pass" ]] && echo "All Swift files are properly formatted." || echo "Run './run checks --format' locally and commit the changes.")"

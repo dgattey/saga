@@ -13,7 +13,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      checks: write
     outputs:
       head-sha: ${{ steps.head.outputs.sha }}
     steps:
@@ -95,19 +94,6 @@ jobs:
         id: head
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Create check for bumped commit
-        if: steps.commit.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api repos/${{ github.repository }}/check-runs -X POST \
-            -f name="📦 Bump version" \
-            -f head_sha="${{ steps.head.outputs.sha }}" \
-            -f status="completed" \
-            -f conclusion="success" \
-            -f "output[title]=Version bump committed" \
-            -f "output[summary]=Version/build were updated by the workflow on this commit."
-
       - name: Update PR metadata block
         if: github.actor != 'github-actions[bot]'
         uses: actions/github-script@v7
@@ -141,38 +127,26 @@ jobs:
     name: 🎨 Format
     needs: bump
     runs-on: macos-latest
-    permissions:
-      checks: write
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ needs.bump.outputs.head-sha }}
           fetch-depth: 0
 
       - name: Check formatting
         uses: ./.github/actions/format
-        with:
-          create-check: "true"
-          head-sha: ${{ needs.bump.outputs.head-sha }}
-          token: ${{ github.token }}
 
   lint:
     name: 🔍 Lint
     needs: bump
     runs-on: macos-latest
-    permissions:
-      checks: write
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ needs.bump.outputs.head-sha }}
           fetch-depth: 0
 
       - name: Lint
         uses: ./.github/actions/lint
-        with:
-          create-check: "true"
-          head-sha: ${{ needs.bump.outputs.head-sha }}
-          token: ${{ github.token }}
