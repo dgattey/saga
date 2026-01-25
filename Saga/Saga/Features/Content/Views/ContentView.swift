@@ -8,6 +8,10 @@
 import CoreData
 import SwiftUI
 
+#if os(macOS)
+  import AppKit
+#endif
+
 struct ContentView: View {
   @Environment(\.managedObjectContext) private var viewContext
   @EnvironmentObject private var syncViewModel: SyncViewModel
@@ -130,6 +134,14 @@ struct ContentView: View {
       )
     }
     #if os(macOS)
+      .onReceive(
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+      ) { _ in
+        // Scene phase doesn't consistently fire on macOS focus changes, so we sync on app activation.
+        Task {
+          await syncViewModel.sync()
+        }
+      }
       .frame(minWidth: 600, minHeight: 300)
     #endif
   }

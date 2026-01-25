@@ -24,6 +24,7 @@ class SyncViewModel: ObservableObject {
 
   /// Syncs if there's no sync running already
   func sync() async {
+    LoggerService.log("Sync starting refresh", level: .notice, surface: .sync)
     await orchestrateSync(
       start: { [weak self] in
         self?.isSyncing = true
@@ -39,6 +40,7 @@ class SyncViewModel: ObservableObject {
 
   /// Resets all data, then syncs as long as there's no sync running already
   func resetAndSync() async {
+    LoggerService.log("Sync starting reset + refresh", level: .notice, surface: .sync)
     await orchestrateSync(
       start: { [weak self] in
         self?.isResetting = true
@@ -73,7 +75,7 @@ class SyncViewModel: ObservableObject {
         await MainActor.run {
           finish()
         }
-        print("Error syncing: \(error)")
+        LoggerService.log("Sync failed", error: error, surface: .sync)
       }
     }
   }

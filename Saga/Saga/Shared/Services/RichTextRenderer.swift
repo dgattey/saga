@@ -142,7 +142,11 @@ final class RichTextToAttributedStringTransformer {
   }
 
   private func emptyString(for node: Node) -> NSAttributedString {
-    print("Warning: unsupported node type \(node.nodeType)")
+    LoggerService.log(
+      "Unsupported rich text node type: \(node.nodeType)",
+      level: .warning,
+      surface: .richText
+    )
     return NSAttributedString()
   }
 }

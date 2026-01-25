@@ -46,7 +46,7 @@ struct GoodreadsUploadDropzoneContainer<Content: View>: View {
           )
       }
     } catch {
-      print("CSV file parse failed with error: \(error)")
+      LoggerService.log("CSV file parse failed", error: error, surface: .booksImport)
     }
   }
 }

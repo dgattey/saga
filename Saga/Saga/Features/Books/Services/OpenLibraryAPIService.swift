@@ -100,7 +100,11 @@ struct OpenLibraryAPIService: CoverImageURLProvider {
     guard let response = searchResponse,
       let docs = response.docs, !docs.isEmpty
     else {
-      print("Error: failed to fetch search: \(searchResponse.debugDescription)")
+      LoggerService.log(
+        "Search response missing docs: \(String(describing: searchResponse))",
+        level: .error,
+        surface: .network
+      )
       return nil
     }
 
@@ -133,7 +137,11 @@ struct OpenLibraryAPIService: CoverImageURLProvider {
       return isbn
     }
 
-    print("Warning: missing ISBNs for \"\(title)\"")
+    LoggerService.log(
+      "Missing ISBNs for \"\(title)\"",
+      level: .warning,
+      surface: .network
+    )
     return nil
   }
 
@@ -147,7 +155,7 @@ struct OpenLibraryAPIService: CoverImageURLProvider {
       let editions = response.entries,
       !editions.isEmpty
     else {
-      print("Error: empty editions response")
+      LoggerService.log("Empty editions response", level: .error, surface: .network)
       return nil
     }
     for edition in editions {
@@ -157,7 +165,11 @@ struct OpenLibraryAPIService: CoverImageURLProvider {
         return edition.isbn
       }
     }
-    print("Error: editions didn't include an isbn for \(title): \(editions)\n")
+    LoggerService.log(
+      "Editions response missing ISBN for \(title): \(editions)",
+      level: .error,
+      surface: .network
+    )
     return nil
   }
 
@@ -181,7 +193,11 @@ struct OpenLibraryAPIService: CoverImageURLProvider {
     guard let url = components.url else { return nil }
     let (data, response) = try await NetworkCache.urlSession.data(from: url)
     guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-      print("Couldn't fetch search response for \"\(title)\": \(response)")
+      LoggerService.log(
+        "Search response failed for \"\(title)\": \(response)",
+        level: .error,
+        surface: .network
+      )
       return nil
     }
     return try? JSONDecoder().decode(SearchResponse.self, from: data)
@@ -196,7 +212,11 @@ struct OpenLibraryAPIService: CoverImageURLProvider {
 
     let (data, response) = try await NetworkCache.urlSession.data(from: editionsURL)
     guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-      print("Couldn't fetch editions response for \"\(title)\": \(response)")
+      LoggerService.log(
+        "Editions response failed for \"\(title)\": \(response)",
+        level: .error,
+        surface: .network
+      )
       return nil
     }
     return try? JSONDecoder().decode(EditionsResponse.self, from: data)

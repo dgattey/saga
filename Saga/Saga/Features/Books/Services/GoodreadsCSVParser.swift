@@ -395,8 +395,11 @@ struct GoodreadsCSVParser {
       }
     }()
     if let finished = readDateFinished, let started = readDateStarted, finished < started {
-      print(
-        "Warning: read finish before start for \"\(title)\". start=\(started) finish=\(finished)")
+      LoggerService.log(
+        "Read finish before start for \"\(title)\". start=\(started) finish=\(finished)",
+        level: .warning,
+        surface: .booksImport
+      )
       // Create mutable copies we can adjust
       var adjustedStarted: Date? = readDateStarted
       var adjustedFinished: Date? = readDateFinished
