@@ -12,11 +12,17 @@ struct ContentViewToolbar: ToolbarContent {
   @EnvironmentObject var viewModel: SyncViewModel
   @ObservedObject var navigationHistory: NavigationHistory
   @Binding var selection: SidebarSelection?
+  @Binding var scrollContextID: UUID
+  @Binding var previousScrollContextID: UUID
 
   var body: some ToolbarContent {
     ToolbarItemGroup(placement: .navigation) {
       Button {
-        navigationHistory.goBack(selection: $selection)
+        navigationHistory.goBack(
+          selection: $selection,
+          scrollContextID: $scrollContextID,
+          previousScrollContextID: $previousScrollContextID
+        )
       } label: {
         Image(systemName: "chevron.left")
       }
@@ -24,7 +30,11 @@ struct ContentViewToolbar: ToolbarContent {
       .accessibilityLabel("Back")
 
       Button {
-        navigationHistory.goForward(selection: $selection)
+        navigationHistory.goForward(
+          selection: $selection,
+          scrollContextID: $scrollContextID,
+          previousScrollContextID: $previousScrollContextID
+        )
       } label: {
         Image(systemName: "chevron.right")
       }

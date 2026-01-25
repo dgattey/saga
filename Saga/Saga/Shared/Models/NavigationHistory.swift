@@ -7,10 +7,15 @@
 
 import SwiftUI
 
+struct NavigationEntry: Hashable {
+  let selection: SidebarSelection
+  let scrollContextID: UUID
+}
+
 final class NavigationHistory: ObservableObject {
-  @Published private(set) var backStack: [SidebarSelection] = []
-  @Published private(set) var forwardStack: [SidebarSelection] = []
-  @Published private(set) var lastSelectionChange: SidebarSelection?
+  @Published private(set) var backStack: [NavigationEntry] = []
+  @Published private(set) var forwardStack: [NavigationEntry] = []
+  @Published private(set) var lastSelectionChange: NavigationEntry?
   @Published private(set) var lastSelectionChangeWasHistory = false
 
   private var isHistoryNavigation = false
@@ -19,37 +24,55 @@ final class NavigationHistory: ObservableObject {
   var canGoForward: Bool { !forwardStack.isEmpty }
 
   func recordSelectionChange(
-    from oldSelection: SidebarSelection?, to newSelection: SidebarSelection?
+    from oldEntry: NavigationEntry?, to newEntry: NavigationEntry?
   ) {
-    guard let newSelection else { return }
-    lastSelectionChange = newSelection
+    guard let newEntry else { return }
+    lastSelectionChange = newEntry
     lastSelectionChangeWasHistory = isHistoryNavigation
 
     defer { isHistoryNavigation = false }
     guard !isHistoryNavigation else { return }
-    guard let oldSelection, oldSelection != newSelection else { return }
+    guard let oldEntry, oldEntry != newEntry else { return }
 
-    backStack.append(oldSelection)
+    backStack.append(oldEntry)
     forwardStack.removeAll()
-
   }
 
-  func goBack(selection: Binding<SidebarSelection?>) {
-    guard let previousSelection = backStack.popLast() else { return }
+  func goBack(
+    selection: Binding<SidebarSelection?>,
+    scrollContextID: Binding<UUID>,
+    previousScrollContextID: Binding<UUID>
+  ) {
+    guard let previousEntry = backStack.popLast() else { return }
     if let currentSelection = selection.wrappedValue {
-      forwardStack.append(currentSelection)
+      let currentEntry = NavigationEntry(
+        selection: currentSelection,
+        scrollContextID: scrollContextID.wrappedValue
+      )
+      forwardStack.append(currentEntry)
     }
     isHistoryNavigation = true
-    selection.wrappedValue = previousSelection
+    previousScrollContextID.wrappedValue = scrollContextID.wrappedValue
+    scrollContextID.wrappedValue = previousEntry.scrollContextID
+    selection.wrappedValue = previousEntry.selection
   }
 
-  func goForward(selection: Binding<SidebarSelection?>) {
-    guard let nextSelection = forwardStack.popLast() else { return }
+  func goForward(
+    selection: Binding<SidebarSelection?>,
+    scrollContextID: Binding<UUID>,
+    previousScrollContextID: Binding<UUID>
+  ) {
+    guard let nextEntry = forwardStack.popLast() else { return }
     if let currentSelection = selection.wrappedValue {
-      backStack.append(currentSelection)
+      let currentEntry = NavigationEntry(
+        selection: currentSelection,
+        scrollContextID: scrollContextID.wrappedValue
+      )
+      backStack.append(currentEntry)
     }
     isHistoryNavigation = true
-    selection.wrappedValue = nextSelection
+    previousScrollContextID.wrappedValue = scrollContextID.wrappedValue
+    scrollContextID.wrappedValue = nextEntry.scrollContextID
+    selection.wrappedValue = nextEntry.selection
   }
-
 }

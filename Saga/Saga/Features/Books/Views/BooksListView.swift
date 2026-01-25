@@ -17,7 +17,8 @@ struct BooksListView: View {
   @Binding var selection: SidebarSelection?
   @FetchRequest(
     sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
-    animation: .default) private var books: FetchedResults<Book>
+    animation: .default
+  ) private var books: FetchedResults<Book>
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
@@ -27,7 +28,7 @@ struct BooksListView: View {
         .padding(.leading, SidebarLayout.headerLeadingPadding)
         .padding(.trailing, SidebarLayout.rowHorizontalPadding)
 
-      ScrollView {
+      PersistentScrollView(scrollKey: ScrollKey(scope: .sidebarBooks, region: "list")) {
         ScrollVelocityReader()
         LazyVStack(alignment: .leading, spacing: 4) {
           if viewModel.filteredBooks.isEmpty, hasActiveSearch {

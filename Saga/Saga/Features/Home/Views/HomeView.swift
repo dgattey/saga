@@ -20,7 +20,7 @@ struct HomeView: View {
 
   var body: some View {
     ZStack(alignment: .topLeading) {
-      ScrollView {
+      PersistentScrollView(scrollKey: ScrollKey(scope: .home, region: "main")) {
         ScrollVelocityReader()
         LazyVStack(alignment: .leading, pinnedViews: [.sectionHeaders]) {
           ForEach(sections) { section in

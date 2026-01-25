@@ -15,6 +15,8 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
   let widthRatio: CGFloat
   let outsidePadding: CGFloat
   let gap: CGFloat
+  let scrollScope: ScrollScope?
+    let scrollContextID: UUID?
 
   init(
     threshold: CGFloat = 576,
@@ -24,6 +26,10 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
     outsidePadding: CGFloat = 0,
     /// The gap between columns
     gap: CGFloat = 0,
+    /// Optional scroll persistence scope for contained scroll views
+    scrollScope: ScrollScope? = nil,
+        /// Optional scroll persistence context identifier
+        scrollContextID: UUID? = nil,
     @ViewBuilder columnA: () -> ColumnA,
     @ViewBuilder columnB: () -> ColumnB
   ) {
@@ -31,6 +37,8 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
     self.widthRatio = widthRatio
     self.outsidePadding = outsidePadding
     self.gap = gap
+    self.scrollScope = scrollScope
+        self.scrollContextID = scrollContextID
     self.columnA = columnA()
     self.columnB = columnB()
   }
@@ -48,7 +56,7 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
   /// Each column scrolls separately, and the views are stickied to each other horizontally
   private func twoColumnLayout(containerWidth: CGFloat) -> some View {
     HStack(alignment: .top, spacing: gap) {
-      ScrollView(.vertical) {
+      scrollableContentView(region: "sidebar") {
         columnA
           .padding([.leading, .vertical], outsidePadding)
       }
@@ -59,7 +67,7 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
       )
       .scrollClipDisabled()
 
-      scrollableContentView {
+      scrollableContentView(region: "content") {
         columnB
           .padding([.trailing, .vertical], outsidePadding)
       }
@@ -69,7 +77,7 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
   }
 
   private var oneColumnLayout: some View {
-    scrollableContentView {
+    scrollableContentView(region: "single") {
       LazyVStack(alignment: .leading, spacing: gap) {
         columnA
         columnB
@@ -78,11 +86,25 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
     }
   }
 
-  private func scrollableContentView<Content: View>(@ViewBuilder content: () -> Content)
-    -> some View
-  {
-    ScrollView(.vertical) {
-      content()
+  @ViewBuilder
+  private func scrollableContentView<Content: View>(
+    region: String,
+    @ViewBuilder content: @escaping () -> Content
+  ) -> some View {
+    if let scrollScope {
+            PersistentScrollView(
+                scrollKey: ScrollKey(
+                    scope: scrollScope,
+                    region: region,
+                    contextID: scrollContextID
+                )
+            ) {
+        content()
+      }
+    } else {
+      ScrollView(.vertical) {
+        content()
+      }
     }
   }
 
