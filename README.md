@@ -1,11 +1,34 @@
 # Saga
 
-This is a work in progress app for syncing data to and from Contentful via a Sync API, to a native Swift app (iOS, macOS). Eventually will offer editing capabilities + be an app for keeping track of what I've read/seen/been to/etc.
+A native Swift app (iOS, macOS) for keeping track of what I've read, watched, played, and experienced. The vision is a personal knowledge base with full editing capabilities, synced via Contentful.
 
-To set up:
-1. Create a `Config.xcconfig` file at the top level of the app, and DO NOT add to any targets
-2. Configure under project -> configurations to use it for debug and release
-3. Here are the contents, where you replace the values with real data:
+## Setup
+
+Two manual steps, both one-time setup:
+
+<details>
+<summary>Shell completions</summary>
+
+Sets up shell completions in your `.zshrc` for the `run` command. Run once per machine.
+
+```bash
+./run bootstrap   # first time (before shell function exists)
+source ~/.zshrc   # activate completions
+```
+
+After setup, you can use `run` (with tab completion) instead of `./run`.
+
+</details>
+
+<details>
+<summary>Secret configuration</summary>
+
+Create a `Config.xcconfig` file at the top level of the app:
+
+1. Create the file (DO NOT add to any Xcode targets)
+2. Configure under project → configurations to use it for debug and release
+3. Add these contents, replacing values with real data:
+
 ```
 //
 //  Config.xcconfig
@@ -21,40 +44,83 @@ CONTENTFUL_SPACE_ID = your_space_id
 CONTENTFUL_ACCESS_TOKEN = your_access_token
 ```
 
-## Release automation
-This repo uses GitHub Actions to bump versions on PRs and create releases on merge.
+</details>
 
-### How it works
-- PR template (`.github/pull_request_template.md`) includes:
-  - `# What changed?` section for release notes
-  - `# Release info` checkboxes (Major/Minor/Patch)
-  - A release info block inserted between `<!-- release-metadata-start -->` and `<!-- release-metadata-end -->` after the first action run
-- On PR open/edit/sync (`.github/workflows/pr-version-bump.yml`):
-  - Reads the base version/build from `main` (so reruns are idempotent).
-  - Determines release type from the PR checkboxes (default Patch).
-  - Sets build number to `max(baseBuild + 1, PR updated_at epoch seconds)` so edits refresh it and it always increases.
-  - Updates `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `Saga/Saga.xcodeproj/project.pbxproj`.
-  - Commits the bump into the PR branch and updates the metadata block in the PR body.
-- On merge (`.github/workflows/release-on-merge.yml`):
-  - Reads the version/build from the merged code.
-  - Creates a GitHub Release tagged `vX.Y.Z`.
-  - Uses only the text under `# What changed?` (up to `# Release type`) as the release notes.
+## App architecture
 
-### Script used by workflows
-All parsing and updates are centralized in `scripts/versioning.swift`:
-- `read` reads current version/build from the Xcode project.
-- `bump` computes the next version/build and updates the project file.
-- `pr-info` parses release type and PR updated timestamp from the GitHub event.
-- `update-metadata` rewrites the PR body metadata block.
-- `extract-notes` pulls the release notes from the PR body.
+Saga follows an MVVM architecture with SwiftUI views:
+- **Features/**: Domain-specific features (Books, Assets, Content)
+  - Each feature contains Models, Views, ViewModels, and Services
+- **Shared/**: Reusable components, extensions, and utilities
+- **Services/**: Core services like persistence (Core Data) and syncing (Contentful)
+- Navigation is managed via `NavigationHistory` with a home-based sidebar layout
 
-### Local cleanup helper
-`scripts/clean-actions-rebase.swift` drops GitHub Actions-authored commits on the current branch, then fetches and rebases onto `origin/main` to reduce version bump conflicts. Run with `swift scripts/clean-actions-rebase.swift` (use `--dry-run` to preview). Flags: `--base origin/main`/`-b`, `--dry-run`/`-d`, `--verbose`/`-V`.
+## Development process
 
-## Adding new models
-Don't forget to add to `PersistenceModel` after adding a core data model + the model file (and ensure there aren't auto-gen files from the core model).
+### Scripts
+
+Swift-based scripts live in `scripts/Sources/` and are run via the `run` wrapper at the repo root. Use `run --help` to see available scripts, or `run <script> --help` for script-specific options.
+
+| Script | Description |
+|--------|-------------|
+| `app` | Build and launch the app |
+| `bootstrap` | Set up shell completions for run |
+| `drop-bot-commits` | Drop version bump commits on branch and rebase onto main |
+| `format` | Format and lint all Swift files |
+| `version-and-release` | Manage version tags and Github releases |
+
+### Building and running
+
+Builds Saga in Debug mode using `xcodebuild` and launches the resulting app, or you can use Xcode.
+
+```bash
+run app              # build quietly and launch
+run app --verbose    # show full xcodebuild output
+run app --help       # show usage
+```
+
+### Formatting and linting
+
+All Swift code is formatted and linted using `swift-format` with the repo config in `.swift-format`.
+
+```bash
+run format           # format in place, then lint
+run format --help    # show usage
+```
+
+CI runs this on every PR and fails if formatting produces any changes.
+
+### Adding new models
+
+When adding a new Core Data model:
+1. Create the entity in `Saga.xcdatamodeld`
+2. Create the corresponding Swift model file
+3. Add the model to `PersistenceModel` enum
+4. Ensure Xcode isn't generating auto-gen files for the entity
+
+## Releases
+
+GitHub Actions automatically bump versions on PRs and create releases on merge:
+
+- PRs include release type checkboxes (Major/Minor/Patch, default Patch) and a `# What changed?` section for release notes
+- On PR open/edit, the workflow reads the base version from `main`, computes the next version, sets the build number, and commits the bump
+- On merge, it creates a GitHub Release using the `# What changed?` text as release notes
+
+### Version conflicts
+
+If there are multiple branches, each with their own version bump, then one merges, there will be a
+conflict in `project.pbxproj`. To fix, `run drop-bot-commits` to remove bot-authored version bumps
+and rebase onto `origin/main`. Force pushing the branch should then recreate a new version bump
+commit and you're good.
+
+### Manual management
+
+Shouldn't be necessary, but you can `run version-and-release` for manual version management (see `--help` for subcommands).
 
 ## TODO
+
+Syncing data from Contentful to local Core Data storage with read-only views. Editing and two-way sync are in progress.
+
 - [] book layout + edit view
     - [] rating
     - [] editable review
@@ -69,7 +135,9 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
 - [] create new book screen
 - [] save scroll position on history
 
-### Later
+<details>
+<summary><b>Later</b></summary>
+
 - [] supporting video games, movies, tv shows
 - [] supporting a "what do I watch/play/read" feature
 - [] supporting restaurants, trips, live shows
@@ -85,7 +153,11 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
     - [] explore better solutions for search tokens/scope than built in
     - [] highlight title/author hits as you type
 
-### Done
+</details>
+
+<details>
+<summary><b>Done</b></summary>
+
 - [x] connection to Contentful + sync persistence
 - [x] local persistence with Core Data
 - [x] full data reset via settings
@@ -102,3 +174,5 @@ Don't forget to add to `PersistenceModel` after adding a core data model + the m
 - [x] fix sort order after import (might be fixed by in-mempry sorting?)
 - [x] improve image parsing code to get best images
 - [x] add control over image caching + better downsampling
+
+</details>
