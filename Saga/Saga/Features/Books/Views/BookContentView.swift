@@ -19,17 +19,20 @@ private struct Constants {
 
 /// Renders the full version of a book
 struct BookContentView: View {
-  var book: Book
+  @ObservedObject var book: Book
   let detailLayoutWidth: CGFloat
   @Environment(\.scrollContextID) private var scrollContextID
   @Environment(\.coverNamespace) private var coverNamespace
   @EnvironmentObject private var bookNavigationViewModel: BookNavigationViewModel
+  @StateObject private var viewModel: BookDetailViewModel
   @State private var containerWidth: CGFloat = 0
-  var title: String {
-    book.title ?? "Untitled book"
-  }
-  var author: String {
-    book.author ?? "Unknown author"
+
+  @FocusState private var focusedField: BookDetailViewModel.Field?
+
+  init(book: Book, detailLayoutWidth: CGFloat) {
+    self.book = book
+    self.detailLayoutWidth = detailLayoutWidth
+    _viewModel = StateObject(wrappedValue: BookDetailViewModel(book: book))
   }
 
   var body: some View {
@@ -48,11 +51,22 @@ struct BookContentView: View {
       }
     }
     .textSelection(.enabled)
-    .navigationTitle(title)
+    .contentShape(Rectangle())
+    .simultaneousGesture(
+      TapGesture().onEnded { focusedField = nil }
+    )
+    .onChange(of: focusedField) { _, newValue in
+      viewModel.handleFocusChange(to: newValue)
+    }
+    .onChange(of: book.objectID) { _, _ in
+      viewModel.setBook(book)
+    }
+    .navigationTitle(viewModel.displayTitle)
     #if os(macOS)
-      .navigationSubtitle(author)
+      .navigationSubtitle(viewModel.displayAuthor)
       .toolbar(removing: .title)
     #endif
+    .onExitCommand { focusedField = nil }
   }
 
   /// The "sidebar" of the two column view - shows less info and stays sticky in view
@@ -155,8 +169,8 @@ struct BookContentView: View {
   /// The top level metadata stack
   var metadataStack: some View {
     VStack(alignment: .leading, spacing: 8) {
-      titleView
-      authorView
+      titleField
+      authorField
     }
   }
 
@@ -165,13 +179,41 @@ struct BookContentView: View {
   var content: some View {
     LazyVStack(alignment: .leading, spacing: 16) {
       metadataStack
-      StarRatingView(rating: book.rating?.intValue ?? 0)
-
-      Text(book.isbn?.stringValue ?? "No ISBN")
-
+      labeledField("Rating") {
+        StarRatingView(
+          rating: Binding(
+            get: { viewModel.ratingDraft },
+            set: { newValue in
+              viewModel.updateRatingDraft(newValue)
+              focusedField = .rating
+            }
+          )
+        )
+      }
+      labeledField("ISBN") {
+        TextField("ISBN-13", text: $viewModel.isbnDraft)
+          .textFieldStyle(.roundedBorder)
+          .focused($focusedField, equals: .isbn)
+          .onChange(of: viewModel.isbnDraft) { _, newValue in
+            viewModel.updateISBNDraft(newValue)
+          }
+          .onSubmit { viewModel.commitField(.isbn) }
+      }
+      labeledField("Image URL") {
+        TextField("Cover image URL", text: $viewModel.coverURLDraft)
+          .textFieldStyle(.roundedBorder)
+          .focused($focusedField, equals: .coverURL)
+          .onSubmit { viewModel.commitField(.coverURL) }
+      }
       BookReadingStatusView(book: book)
-
-      reviewView
+      labeledField("Description") {
+        TextEditor(text: $viewModel.reviewDraft)
+          .focused($focusedField, equals: .review)
+          .onChange(of: viewModel.reviewDraft) { _, newValue in
+            viewModel.updateReviewDraft(newValue)
+          }
+          .frame(minHeight: 120)
+      }
     }
     .frame(
       maxWidth: Constants.maxContentWidth,
@@ -179,20 +221,37 @@ struct BookContentView: View {
     )
   }
 
-  var titleView: some View {
-    Text(title).font(.largeTitleBold)
+  private var titleField: some View {
+    TextField("Title", text: $viewModel.titleDraft)
+      .font(.largeTitleBold)
+      .textFieldStyle(.plain)
+      .focused($focusedField, equals: .title)
+      .onChange(of: viewModel.titleDraft) { _, newValue in
+        viewModel.updateTitleDraft(newValue)
+      }
+      .onSubmit { viewModel.commitField(.title) }
   }
 
-  var authorView: some View {
-    Text(author).font(.title2)
+  private var authorField: some View {
+    TextField("Author", text: $viewModel.authorDraft)
+      .font(.title2)
+      .textFieldStyle(.plain)
+      .focused($focusedField, equals: .author)
+      .onChange(of: viewModel.authorDraft) { _, newValue in
+        viewModel.updateAuthorDraft(newValue)
+      }
+      .onSubmit { viewModel.commitField(.author) }
   }
 
-  var reviewView: some View {
-    guard let attributedString = book.reviewDescription?.attributedString else {
-      return AnyView(EmptyView())
+  private func labeledField<Content: View>(_ label: String, @ViewBuilder content: () -> Content)
+    -> some View
+  {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(label)
+        .font(.caption)
+        .foregroundStyle(.secondary)
+      content()
     }
-    return AnyView(
-      AttributedTextViewer(attributedString: attributedString)
-    )
   }
+
 }

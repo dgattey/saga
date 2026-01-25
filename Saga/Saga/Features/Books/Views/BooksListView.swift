@@ -20,9 +20,8 @@ struct BooksListView: View {
   @FetchRequest(
     sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)]
   ) private var books: FetchedResults<Book>
-
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: 4) {
       Text("Books")
         .font(.headline)
         .foregroundStyle(.secondary)
@@ -32,7 +31,7 @@ struct BooksListView: View {
       PersistentScrollView(scrollKey: ScrollKey(scope: .sidebarBooks, region: "list")) {
         ScrollVelocityReader()
         LazyVStack(alignment: .leading, spacing: 4) {
-          if viewModel.filteredBooks.isEmpty, hasActiveSearch {
+          if viewModel.filteredBooks.isEmpty, viewModel.hasActiveSearch {
             Text("No results")
               .foregroundStyle(.secondary)
               .padding(.vertical, 8)
@@ -62,13 +61,13 @@ struct BooksListView: View {
               .padding(.horizontal, SidebarLayout.rowHorizontalPadding)
               .contextMenu {
                 Button("Delete") {
-                  deleteBook(result.model)
+                  viewModel.delete(result.model, in: viewContext)
                 }
               }
             }
           }
         }
-        .padding(.vertical, 4)
+        .padding(.bottom, 4)
       }
       .scrollVelocityThrottle()
       .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -77,13 +76,18 @@ struct BooksListView: View {
       .frame(minWidth: 200, idealWidth: 300)
     #endif
     .task(id: viewModel.searchModel.searchText) {
-      viewModel.performSearch(
-        with: books,
-        debounce: viewModel.searchModel.searchText.isEmpty ? nil : .milliseconds(200)
-      )
+      viewModel.refreshSearch(for: books)
     }
     .onChange(of: Array(books)) {
-      viewModel.performSearch(with: books, debounce: .milliseconds(150))
+      viewModel.handleBooksChange(books)
+    }
+    .onReceive(
+      NotificationCenter.default.publisher(
+        for: .NSManagedObjectContextObjectsDidChange,
+        object: viewContext
+      )
+    ) { notification in
+      viewModel.handleBooksChangeNotification(notification, books: books)
     }
     .onChange(of: viewModel.filteredBooks.map(\.model.objectID)) {
       // Scroll home view to top when search results update (after debounce)
@@ -101,19 +105,6 @@ struct BooksListView: View {
   private var hasActiveSearch: Bool {
     !viewModel.searchModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
-
-  private func deleteBook(_ book: Book) {
-    withAnimation(animationSettings.selectionSpring) {
-      viewContext.delete(book)
-      do {
-        try viewContext.save()
-      } catch {
-        viewContext.rollback()
-        LoggerService.log("Failed to delete book", error: error, surface: .persistence)
-      }
-    }
-  }
-
   private var selectionBackgroundColor: Color {
     #if os(macOS)
       switch controlActiveState {

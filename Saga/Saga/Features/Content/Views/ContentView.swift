@@ -41,7 +41,7 @@ struct ContentView: View {
     GoodreadsUploadDropzoneContainer {
       NavigationSplitView(
         sidebar: {
-          VStack(alignment: .leading, spacing: 8) {
+          VStack(alignment: .leading, spacing: 16) {
             HomeSidebarRow(
               entry: $entry,
               makeHomeEntry: {
