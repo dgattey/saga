@@ -42,7 +42,7 @@ struct PersistenceService {
       do {
         try await syncWithApi()
       } catch {
-        print("Error doing initial sync: \(error)")
+        LoggerService.log("Initial sync failed", error: error, surface: .persistence)
       }
     }
   }
@@ -53,10 +53,10 @@ struct PersistenceService {
       syncManager.sync { result in
         switch result {
         case .success:
-          print("Contentful sync successful")
+          LoggerService.log("Contentful sync successful", level: .debug, surface: .persistence)
           continuation.resume()
         case .failure(let error):
-          print("Contentful sync failed: \(error)")
+          LoggerService.log("Contentful sync failed", error: error, surface: .persistence)
           continuation.resume(throwing: error)
         }
       }
@@ -66,7 +66,11 @@ struct PersistenceService {
   /// Resets all local data and resyncs from server, if needed
   func resetAndSyncWithApi() async throws {
     let entityNames = container.managedObjectModel.entities.compactMap { $0.name }
-    print("Found \(entityNames.count) entities: \(entityNames.joined(separator: ", ")) ")
+    LoggerService.log(
+      "Resetting \(entityNames.count) entities: \(entityNames.joined(separator: ", "))",
+      level: .debug,
+      surface: .persistence
+    )
 
     for entityName in entityNames {
       let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
@@ -81,7 +85,7 @@ struct PersistenceService {
           fromRemoteContextSave: changes, into: [container.viewContext])
       }
     }
-    print("Erased all entities")
+    LoggerService.log("Erased all entities", level: .debug, surface: .persistence)
     try await syncWithApi()
   }
 }

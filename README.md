@@ -132,8 +132,6 @@ Syncing data from Contentful to local Core Data storage with read-only views. Ed
     - [] upload + create new cover images
     - [] upload + create new books
     - [] update existing books
-- [] polish
-    - [] trigger new sync call when window gets focus (or some other trigger to regularly get new data)
 - [] create new book screen
 
 <details>
@@ -176,5 +174,6 @@ Syncing data from Contentful to local Core Data storage with read-only views. Ed
 - [x] improve image parsing code to get best images
 - [x] add control over image caching + better downsampling
 - [x] save scroll position on history
+- [x] trigger new sync call when window gets focus (or some other trigger to regularly get new data)
 
 </details>

@@ -29,6 +29,9 @@ func usage() -> String {
     --verbose, -v      Show full xcodebuild output (default is quiet)
     --build-only, -b   Build without launching the app
     --help, -h         Show this help message
+
+  Notes:
+    When launching the app, this command streams logs until you stop it.
   """
 }
 
@@ -125,6 +128,45 @@ func openApp(at path: String) throws {
   try runCommand("open", [path])
 }
 
+func waitForProcessID(named processName: String, retries: Int = 20, delaySeconds: TimeInterval = 0.25)
+  throws -> Int
+{
+  for _ in 0..<retries {
+    let output = try runCommand(
+      "pgrep",
+      ["-x", "-n", processName],
+      allowFailure: true,
+      emitOutput: false
+    )
+    let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let pid = Int(trimmed) {
+      return pid
+    }
+    Thread.sleep(forTimeInterval: delaySeconds)
+  }
+  throw ScriptError("Timed out waiting for \(processName) to launch.")
+}
+
+func streamLogs(processName: String) throws -> Process {
+  let predicate = "process == \"\(processName)\" && subsystem == \"Saga\""
+  print("Streaming logs for \(processName). Press Ctrl+C to stop.")
+  let process = Process()
+  process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+  process.arguments = [
+    "log", "stream", "--predicate", predicate, "--style", "compact", "--level", "debug",
+  ]
+  process.standardOutput = FileHandle.standardOutput
+  process.standardError = FileHandle.standardError
+  try process.run()
+  return process
+}
+
+func waitForProcessExit(processID: Int) {
+  while kill(pid_t(processID), 0) == 0 {
+    Thread.sleep(forTimeInterval: 0.5)
+  }
+}
+
 // MARK: - Main
 
 @main
@@ -150,7 +192,11 @@ struct AppCommand {
         verbose: config.verbose
       )
       if !config.buildOnly {
+        let logProcess = try streamLogs(processName: "Saga")
         try openApp(at: appPath)
+        let pid = try waitForProcessID(named: "Saga")
+        waitForProcessExit(processID: pid)
+        logProcess.terminate()
       }
     }
   }

@@ -128,7 +128,11 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
         if existingBook.coverImage == nil {
           existingBook.coverImage = coverAssetInContext
         }
-        print("Found duplicate \"\(title)\"")
+        LoggerService.log(
+          "Found duplicate \"\(title)\"",
+          level: .debug,
+          surface: .booksImport
+        )
         existingBook.title = title
         existingBook.isbn ??= isbn
         existingBook.readDateFinished ??= readDateFinished
