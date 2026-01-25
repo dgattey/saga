@@ -28,10 +28,11 @@ class SyncViewModel: ObservableObject {
       },
       finish: { [weak self] in
         self?.isSyncing = false
+      },
+      { [weak self] in
+        try await self?.controller.syncWithApi()
       }
-    ) { [weak self] in
-      try await self?.controller.syncWithApi()
-    }
+    )
   }
 
   /// Resets all data, then syncs as long as there's no sync running already
@@ -43,10 +44,11 @@ class SyncViewModel: ObservableObject {
       },
       finish: { [weak self] in
         self?.isResetting = false
+      },
+      { [weak self] in
+        try await self?.controller.resetAndSyncWithApi()
       }
-    ) { [weak self] in
-      try await self?.controller.resetAndSyncWithApi()
-    }
+    )
   }
 
   /// Helper to orchestrate some sync function, managing state as it does so

@@ -200,9 +200,18 @@ func updatedBody(from body: String, with block: String) throws -> String {
 struct PullRequestEvent: Decodable {
   struct PullRequest: Decodable {
     let body: String?
-    let updated_at: String?
+    let updatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+      case body
+      case updatedAt = "updated_at"
+    }
   }
-  let pull_request: PullRequest
+  let pullRequest: PullRequest
+
+  enum CodingKeys: String, CodingKey {
+    case pullRequest = "pull_request"
+  }
 }
 
 func loadPullRequestEvent(from path: String) throws -> PullRequestEvent {
@@ -266,8 +275,8 @@ func runBump(arguments: Arguments) throws {
 func runPrInfo(arguments: Arguments) throws {
   let eventPath = try arguments.require("--event")
   let event = try loadPullRequestEvent(from: eventPath)
-  let body = event.pull_request.body ?? ""
-  guard let updatedAt = event.pull_request.updated_at else {
+  let body = event.pullRequest.body ?? ""
+  guard let updatedAt = event.pullRequest.updatedAt else {
     throw ScriptError("pull_request.updated_at missing")
   }
   print("RELEASE_TYPE=\(releaseType(from: body))")
@@ -277,7 +286,7 @@ func runPrInfo(arguments: Arguments) throws {
 func runExtractNotes(arguments: Arguments) throws {
   let eventPath = try arguments.require("--event")
   let event = try loadPullRequestEvent(from: eventPath)
-  print(extractNotes(from: event.pull_request.body ?? ""))
+  print(extractNotes(from: event.pullRequest.body ?? ""))
 }
 
 func runUpdateMetadata(arguments: Arguments) throws {
