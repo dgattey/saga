@@ -1,8 +1,7 @@
 ---
-description: Use LoggerService instead of print statements in app code
-alwaysApply: true
+globs: Saga/Saga/**/*.swift
+alwaysApply: false
 ---
-
 # Logging Guidelines
 
 **NEVER use `print()` statements in app code** (code under `Saga/Saga/`).
@@ -19,6 +18,6 @@ LoggerService.log("Message here", level: .debug, surface: .network)
 LoggerService.log("Error occurred", error: someError, surface: .persistence)
 ```
 
-Available surfaces: `sync`, `persistence`, `booksImport`, `network`, `richText`, `animation`
+Available surfaces: read current values from `LoggerService.swift`
 
 Available levels: `debug`, `notice`, `warning`, `error`
