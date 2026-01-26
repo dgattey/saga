@@ -42,6 +42,7 @@ struct HomeSidebarRow: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .accessibilityIdentifier(AccessibilityID.Sidebar.homeButton)
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal, SidebarLayout.rowHorizontalPadding)
     .padding(.top, 8)

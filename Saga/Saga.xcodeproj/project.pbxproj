@@ -12,7 +12,19 @@
 		7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 7589F8172E1B29E5005C31D9 /* ContentfulPersistence */; };
 		7589F82D2E1B4203005C31D9 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 7589F82C2E1B4203005C31D9 /* README.md */; };
 		758F7A2B2E1E2D58007CDCC8 /* SwiftCSV in Frameworks */ = {isa = PBXBuildFile; productRef = 758F7A2A2E1E2D58007CDCC8 /* SwiftCSV */; };
+		694D9E5DAF914F79883DD791 /* SagaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCA819EDF6E64B3F834D7698 /* SagaUITests.swift */; };
+		5D6A8B317F8C4A9DB0C1D2E6 /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6A8B307F8C4A9DB0C1D2E5 /* AccessibilityID.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D79A85D91E1B4AF2AEFF4908 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7589F7F72E1B2299005C31D9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7589F7FE2E1B2299005C31D9 /* Saga */;
+			remoteInfo = Saga;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		7558CB4E2E1CEF2F00D92477 /* Embed Frameworks */ = {
@@ -31,6 +43,9 @@
 /* Begin PBXFileReference section */
 		7589F7FF2E1B2299005C31D9 /* Saga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Saga.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7589F82C2E1B4203005C31D9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = SOURCE_ROOT; };
+		98D8986E6870409A896B460D /* SagaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SagaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D6A8B307F8C4A9DB0C1D2E5 /* AccessibilityID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AccessibilityID.swift; path = ../Saga/Shared/Models/AccessibilityID.swift; sourceTree = "<group>"; };
+		FCA819EDF6E64B3F834D7698 /* SagaUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SagaUITests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -66,6 +81,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2DE7BCF282DF49FCBC7188C4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -76,11 +98,21 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		4C22A9F2BD9645BAAF64D4CD /* SagaUITests */ = {
+			isa = PBXGroup;
+			children = (
+				5D6A8B307F8C4A9DB0C1D2E5 /* AccessibilityID.swift */,
+				FCA819EDF6E64B3F834D7698 /* SagaUITests.swift */,
+			);
+			path = SagaUITests;
+			sourceTree = "<group>";
+		};
 		7589F7F62E1B2299005C31D9 = {
 			isa = PBXGroup;
 			children = (
 				7589F82C2E1B4203005C31D9 /* README.md */,
 				7589F8012E1B2299005C31D9 /* Saga */,
+				4C22A9F2BD9645BAAF64D4CD /* SagaUITests */,
 				7558CB4A2E1CEF2F00D92477 /* Frameworks */,
 				7589F8002E1B2299005C31D9 /* Products */,
 			);
@@ -90,6 +122,7 @@
 			isa = PBXGroup;
 			children = (
 				7589F7FF2E1B2299005C31D9 /* Saga.app */,
+				98D8986E6870409A896B460D /* SagaUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -123,6 +156,24 @@
 			productReference = 7589F7FF2E1B2299005C31D9 /* Saga.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B20A17E4FF1C44608D0FD6B1 /* SagaUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6568DAA4BF89485CBEEEA555 /* Build configuration list for PBXNativeTarget "SagaUITests" */;
+			buildPhases = (
+				DD1DC97CC52A4A33BEC2DAF6 /* Sources */,
+				2DE7BCF282DF49FCBC7188C4 /* Frameworks */,
+				D87AA53205A849E793A2456D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				781FE2BD92414901BECC4ACC /* PBXTargetDependency */,
+			);
+			name = SagaUITests;
+			productName = SagaUITests;
+			productReference = 98D8986E6870409A896B460D /* SagaUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -135,6 +186,10 @@
 				TargetAttributes = {
 					7589F7FE2E1B2299005C31D9 = {
 						CreatedOnToolsVersion = 16.4;
+					};
+					B20A17E4FF1C44608D0FD6B1 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 7589F7FE2E1B2299005C31D9;
 					};
 				};
 			};
@@ -158,6 +213,7 @@
 			projectRoot = "";
 			targets = (
 				7589F7FE2E1B2299005C31D9 /* Saga */,
+				B20A17E4FF1C44608D0FD6B1 /* SagaUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -171,6 +227,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D87AA53205A849E793A2456D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -181,7 +244,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		DD1DC97CC52A4A33BEC2DAF6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D6A8B317F8C4A9DB0C1D2E6 /* AccessibilityID.swift in Sources */,
+				694D9E5DAF914F79883DD791 /* SagaUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		781FE2BD92414901BECC4ACC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7589F7FE2E1B2299005C31D9 /* Saga */;
+			targetProxy = D79A85D91E1B4AF2AEFF4908 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		7589F80E2E1B229B005C31D9 /* Debug */ = {
@@ -404,6 +484,36 @@
 			};
 			name = Release;
 		};
+		E24370CA566143C1B9F78C01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = KCH4HBZ68M;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dylangattey.SagaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Saga;
+			};
+			name = Debug;
+		};
+		8709E5D3F3D14457AF1C9BDC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = KCH4HBZ68M;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dylangattey.SagaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Saga;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -421,6 +531,15 @@
 			buildConfigurations = (
 				7589F8112E1B229B005C31D9 /* Debug */,
 				7589F8122E1B229B005C31D9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6568DAA4BF89485CBEEEA555 /* Build configuration list for PBXNativeTarget "SagaUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E24370CA566143C1B9F78C01 /* Debug */,
+				8709E5D3F3D14457AF1C9BDC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

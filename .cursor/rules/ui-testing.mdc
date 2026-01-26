@@ -1,0 +1,97 @@
+---
+description: UI testing with XCUITest and accessibility identifiers
+globs: **/*.swift
+alwaysApply: false
+---
+
+# UI Testing
+
+## When to Use
+
+- Use XCUITest for visual verification and screenshots
+- Prefer accessibility identifiers over coordinate-based clicks
+
+## Accessibility Identifiers
+
+The source of truth for accessibility identifiers lives in
+`Saga/Saga/Shared/Models/AccessibilityID.swift`. The UI test target includes
+that same file (target membership) so there is only one definition.
+
+### Adding New Identifiers
+
+1. Add the identifier to the appropriate nested enum in `AccessibilityID.swift`:
+   ```swift
+   enum AccessibilityID {
+     enum FeatureName {
+       static let elementName = "feature.element"
+     }
+   }
+   ```
+
+2. Use it in views:
+   ```swift
+   Button("Action") { }
+     .accessibilityIdentifier(AccessibilityID.FeatureName.elementName)
+   ```
+
+3. Use it in UI tests:
+   ```swift
+   let button = app.buttons[AccessibilityID.FeatureName.elementName]
+   ```
+
+### Identifier Naming
+
+- Use dot notation: `feature.element` (e.g., `toolbar.syncButton`, `sidebar.home`)
+- Group by feature area (Toolbar, Sidebar, Home, Books, Settings)
+- Keep names descriptive and stable
+
+## Running UI Tests
+
+Run UI tests with:
+```bash
+run app --ui-test
+```
+
+This will:
+- Build the app and UI test target
+- Run XCUITest via `xcodebuild test` (xctest runner)
+- Export screenshots from the `.xcresult` bundle to `build/UITestScreenshots/<cacheKey>/`
+
+### Screenshot Output
+
+- Screenshot output folder: `build/UITestScreenshots/<cacheKey>/`
+- Result bundle path: `build/UITestResults/<cacheKey>.xcresult`
+- The cache key is a hashed branch name when available, otherwise the short commit hash.
+
+Screenshots are automatically extracted from test attachments using `xcresulttool`.
+
+## Writing UI Tests
+
+UI tests live in `Saga/SagaUITests/`:
+
+1. Import the app module to access `AccessibilityID`:
+   ```swift
+   import XCTest
+   @testable import Saga
+   ```
+
+2. Use accessibility identifiers to locate elements:
+   ```swift
+   let button = app.buttons[AccessibilityID.Toolbar.syncButton]
+   XCTAssertTrue(button.waitForExistence(timeout: 10))
+   ```
+
+3. Capture screenshots as attachments:
+   ```swift
+   let screenshot = XCUIScreen.main.screenshot()
+   let attachment = XCTAttachment(screenshot: screenshot)
+   attachment.name = "test-name"
+   attachment.lifetime = .keepAlways
+   add(attachment)
+   ```
+
+Screenshots are automatically exported after tests complete.
+
+## Build Cache
+
+Build cache is per-branch (hashed branch name) in `build/<branchHash>/`. Each branch gets its own DerivedData to avoid conflicts.

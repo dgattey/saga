@@ -35,7 +35,7 @@ Swift-based scripts live in `scripts/Sources/` and are run via the `run` wrapper
 
 | Script | Description |
 |--------|-------------|
-| `app` | Build and launch the app |
+| `app` | Build, launch, or run UI tests |
 | `bootstrap` | Set up shell completions and pull secrets from 1Password |
 | `drop-bot-commits` | Drop version bump commits on branch and rebase onto main |
 | `checks` | Run Swift format and/or lint checks |
@@ -48,8 +48,18 @@ Builds the macOS app in Debug mode using `xcodebuild` and launches the resulting
 ```bash
 run app              # build quietly and launch
 run app --verbose    # show full xcodebuild output
+run app --ui-test    # run XCUITest UI tests + screenshots
 run app --help       # show usage
 ```
+
+### UI testing (macOS)
+
+UI tests run with XCUITest via `xcodebuild test` (xctest runner) and export screenshots to
+`build/UITestScreenshots/<branchHash>/`.
+
+macOS requires granting Accessibility and Screen Recording permissions to the test runner
+(Xcode or `xcodebuild`). These permissions cannot be limited to a single target app, but the
+tests only interact with Saga and capture Saga's window content.
 
 ### Formatting and linting
 
