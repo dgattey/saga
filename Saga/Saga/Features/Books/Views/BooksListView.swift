@@ -11,6 +11,7 @@ import SwiftUI
 struct BooksListView: View {
   @Environment(\.managedObjectContext) private var viewContext
   @EnvironmentObject private var viewModel: BooksViewModel
+  @EnvironmentObject private var scrollStore: ScrollPositionStore
   #if os(macOS)
     @Environment(\.controlActiveState) private var controlActiveState
   #endif
@@ -82,6 +83,12 @@ struct BooksListView: View {
     }
     .onChange(of: Array(books)) {
       viewModel.performSearch(with: books, debounce: .milliseconds(150))
+    }
+    .onChange(of: viewModel.filteredBooks.map(\.model.objectID)) {
+      // Scroll home view to top when search results update (after debounce)
+      if hasActiveSearch {
+        scrollStore.scrollToTop(for: .home)
+      }
     }
     .searchable(
       text: $viewModel.searchModel.searchText,
