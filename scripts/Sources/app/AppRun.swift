@@ -15,15 +15,18 @@ struct AppPaths {
   ) {
     let buildRoot = URL(fileURLWithPath: repoRoot).appendingPathComponent("build")
     derivedDataPath = buildRoot.appendingPathComponent(cacheKey).path
-    resultBundlePath = buildRoot
+    resultBundlePath =
+      buildRoot
       .appendingPathComponent("UITestResults")
       .appendingPathComponent("\(cacheKey).xcresult")
       .path
-    screenshotsPath = buildRoot
+    screenshotsPath =
+      buildRoot
       .appendingPathComponent("UITestScreenshots")
       .appendingPathComponent(cacheKey)
       .path
-    appPath = URL(fileURLWithPath: derivedDataPath)
+    appPath =
+      URL(fileURLWithPath: derivedDataPath)
       .appendingPathComponent("Build/Products/\(configuration)/\(appName).app")
       .path
   }
@@ -46,7 +49,9 @@ func runApp(appPath: String, processName: String = "Saga", subsystem: String = "
   logProcess.terminate()
 }
 
-func waitForProcessToExit(named processName: String, retries: Int = 20, delaySeconds: TimeInterval = 0.25)
+func waitForProcessToExit(
+  named processName: String, retries: Int = 20, delaySeconds: TimeInterval = 0.25
+)
   throws
 {
   for _ in 0..<retries {
