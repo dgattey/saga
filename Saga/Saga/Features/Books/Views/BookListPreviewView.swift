@@ -10,9 +10,11 @@ import SwiftUI
 /// Renders the list preview version of a book
 struct BookListPreviewView: View {
   var result: SearchHighlightResult<Book>
+  @ObservedObject private var book: Book
 
-  private var book: Book {
-    result.model
+  init(result: SearchHighlightResult<Book>) {
+    self.result = result
+    self._book = ObservedObject(wrappedValue: result.model)
   }
 
   var body: some View {

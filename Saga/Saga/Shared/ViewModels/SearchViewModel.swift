@@ -26,6 +26,10 @@ final class SearchViewModel: ObservableObject {
   @Published var searchText = ""
   private var searchTask: Task<Void, Never>? = nil
 
+  var hasActiveSearch: Bool {
+    !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
   /// TODO: @dgattey this is performant but doesn't allow searching anything but the starts of strings, so the review for example isn't well searchable
   /// The shared fuse configured object for searching for this model
   private let fuse = Fuse(distance: 100, threshold: 0.3, tokenize: true)

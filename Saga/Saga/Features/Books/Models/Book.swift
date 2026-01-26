@@ -154,6 +154,15 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     }
   }
 
+  /// Returns the best cover image URL without creating an Asset.
+  static func bestCoverImageURL(
+    forISBN isbn: NSNumber?,
+    title: String,
+    author: String
+  ) async -> String? {
+    await getCoverImageURL(forISBN: isbn, title: title, author: author)
+  }
+
   /// Helper method to get cover image URL without creating Asset
   private static func getCoverImageURL(
     forISBN isbn: NSNumber?,
@@ -254,6 +263,50 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     }
     let coverImageUrl = await fetchTask.value
     return try await Asset.add(to: context, withURL: coverImageUrl)
+  }
+
+  /// Updates the cover image for a book, using either an override URL or a fallback lookup.
+  static func updateCoverImage(
+    for bookID: NSManagedObjectID,
+    in context: NSManagedObjectContext,
+    overrideURL: String?
+  ) async {
+    let trimmedOverride = overrideURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let normalizedOverride = trimmedOverride?.isEmpty == true ? nil : trimmedOverride
+    let bookInfo = await context.perform {
+      guard let book = try? context.existingObject(with: bookID) as? Book else {
+        return nil as (isbn: NSNumber?, title: String, author: String)?
+      }
+      return (isbn: book.isbn, title: book.title ?? "", author: book.author ?? "")
+    }
+    guard let bookInfo else { return }
+
+    let resolvedURL: String?
+    if let normalizedOverride {
+      resolvedURL = normalizedOverride
+    } else {
+      resolvedURL = await bestCoverImageURL(
+        forISBN: bookInfo.isbn,
+        title: bookInfo.title,
+        author: bookInfo.author
+      )
+    }
+
+    let asset = try? await Asset.add(to: context, withURL: resolvedURL)
+    let assetID = asset?.objectID
+
+    await context.perform {
+      guard let book = try? context.existingObject(with: bookID) as? Book else {
+        return
+      }
+      let assetInContext: Asset? = {
+        if let assetID {
+          return try? context.existingObject(with: assetID) as? Asset
+        }
+        return nil
+      }()
+      book.coverImage = assetInContext
+    }
   }
 
   private enum CoverSelection {

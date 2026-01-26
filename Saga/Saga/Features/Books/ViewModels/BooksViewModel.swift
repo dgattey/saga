@@ -5,12 +5,57 @@
 //  Created by Dylan Gattey on 7/8/25.
 //
 
+import CoreData
 import SwiftUI
 
 /// Contains all our books and allows for filtering
 final class BooksViewModel: ObservableObject {
   @Published var filteredBooks: [SearchHighlightResult<Book>] = []
   @Published var searchModel = SearchViewModel()
+  private var isHandlingBookChanges = false
+
+  var hasActiveSearch: Bool {
+    searchModel.hasActiveSearch
+  }
+
+  func refreshSearch(for books: FetchedResults<Book>) {
+    performSearch(
+      with: books,
+      debounce: searchModel.hasActiveSearch ? .milliseconds(200) : nil
+    )
+  }
+
+  func handleBooksChange(_ books: FetchedResults<Book>) {
+    performSearch(with: books, debounce: .milliseconds(150))
+  }
+
+  func handleBooksChangeNotification(_ notification: Notification, books: FetchedResults<Book>) {
+    guard !isHandlingBookChanges else { return }
+    guard let userInfo = notification.userInfo else { return }
+    let updated = (userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject>) ?? []
+    let inserted = (userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject>) ?? []
+    let refreshed = (userInfo[NSRefreshedObjectsKey] as? Set<NSManagedObject>) ?? []
+    let deleted = (userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject>) ?? []
+    let changed = updated.union(inserted).union(refreshed).union(deleted)
+    guard changed.contains(where: { $0 is Book }) else { return }
+    isHandlingBookChanges = true
+    performSearch(with: books, debounce: .milliseconds(150))
+    DispatchQueue.main.async {
+      self.isHandlingBookChanges = false
+    }
+  }
+
+  func delete(_ book: Book, in context: NSManagedObjectContext) {
+    withAnimation {
+      context.delete(book)
+      do {
+        try context.save()
+      } catch {
+        let nsError = error as NSError
+        fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+      }
+    }
+  }
 
   func performSearch(with books: FetchedResults<Book>, debounce: Duration? = nil) {
     let sortedBooks = sorted(from: books)
