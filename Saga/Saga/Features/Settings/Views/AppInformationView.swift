@@ -53,6 +53,9 @@ struct AppInformationView: View {
         .transition(.move(edge: .bottom).combined(with: .opacity))
       }
     }
+    .padding()
+    .frame(maxWidth: .infinity)
+    .withGlassBackground(edge: .bottom)
     .onHover { hovering in
       withAnimation(.spring(duration: 0.25, bounce: 0.2)) {
         isHoveringAppInfo = hovering

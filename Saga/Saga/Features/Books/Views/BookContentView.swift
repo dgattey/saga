@@ -20,9 +20,10 @@ private struct Constants {
 /// Renders the full version of a book
 struct BookContentView: View {
   var book: Book
+  let detailLayoutWidth: CGFloat
   @Environment(\.scrollContextID) private var scrollContextID
   @Environment(\.coverNamespace) private var coverNamespace
-  @Environment(\.coverMatchActive) private var coverMatchActive
+  @EnvironmentObject private var bookNavigationViewModel: BookNavigationViewModel
   @State private var containerWidth: CGFloat = 0
   var title: String {
     book.title ?? "Untitled book"
@@ -62,20 +63,13 @@ struct BookContentView: View {
         maxWidth: Constants.maxCoverWidth,
         alignment: .center
       )
+      .rotationEffect(bookNavigationViewModel.coverRotation, anchor: .center)
   }
 
   var coverImageView: some View {
     let coverImageURLText = book.coverImage?.assetURL?.absoluteString ?? "No image URL"
     return
       coverImageBase
-      .opacity(showMatchedOverlay ? 0 : 1)
-      .animation(AppAnimation.coverFade, value: showMatchedOverlay)
-      .overlay {
-        matchedCoverImage
-          .opacity(showMatchedOverlay ? 1 : 0)
-          .animation(AppAnimation.coverFade, value: showMatchedOverlay)
-          .allowsHitTesting(false)
-      }
       .contextMenu {
         CopyButton(labelText: "Copy image URL", value: coverImageURLText)
         if let isbn = book.isbn?.stringValue {
@@ -101,30 +95,17 @@ struct BookContentView: View {
       }
   }
 
-  private var coverImageBase: some View {
-    BookCoverImageView(book: book)
-      .defaultShadow()
-      .rotationEffect(coverRotation)
-      .animation(AppAnimation.coverRotation, value: book.objectID)
-      .transition(.opacity)
-      .animation(AppAnimation.coverFade, value: book.objectID)
-  }
-
   @ViewBuilder
-  private var matchedCoverImage: some View {
+  private var coverImageBase: some View {
+    let coverImage = BookCoverImageView(book: book, targetSize: detailCoverSize)
+      .frame(width: detailCoverSize.width, height: detailCoverSize.height)
+      .defaultShadow()
     if let coverNamespace {
-      let coverImage = BookCoverImageView(book: book)
-        .defaultShadow()
-        .rotationEffect(coverRotation)
-        .animation(AppAnimation.coverRotation, value: book.objectID)
       coverImage
-        .frame(width: detailCoverSize.width, height: detailCoverSize.height)
         .matchedGeometryEffect(id: coverID, in: coverNamespace)
+    } else {
+      coverImage
     }
-  }
-
-  private var showMatchedOverlay: Bool {
-    coverMatchActive && coverNamespace != nil
   }
 
   private var detailCoverSize: CGSize {
@@ -136,30 +117,35 @@ struct BookContentView: View {
   }
 
   private var detailCoverWidth: CGFloat {
-    guard containerWidth > 0 else {
+    let width = resolvedContainerWidth
+    guard width > 0 else {
       return Constants.maxCoverWidth
     }
-    if containerWidth >= Constants.layoutThreshold {
-      let columnWidth = containerWidth * Constants.layoutWidthRatio
+    return coverWidth(for: width)
+  }
+
+  private var resolvedContainerWidth: CGFloat {
+    if containerWidth > 0 {
+      return containerWidth
+    }
+    if detailLayoutWidth > 0 {
+      return detailLayoutWidth
+    }
+    return 0
+  }
+
+  private func coverWidth(for width: CGFloat) -> CGFloat {
+    if width >= Constants.layoutThreshold {
+      let columnWidth = width * Constants.layoutWidthRatio
       let availableWidth = max(0, columnWidth - Constants.outsidePadding)
       return clampCoverWidth(availableWidth)
     }
-    let availableWidth = max(0, containerWidth - (Constants.outsidePadding * 2))
+    let availableWidth = max(0, width - (Constants.outsidePadding * 2))
     return clampCoverWidth(availableWidth)
   }
 
   private func clampCoverWidth(_ width: CGFloat) -> CGFloat {
     min(Constants.maxCoverWidth, max(Constants.minCoverWidth, width))
-  }
-
-  private var coverRotation: Angle {
-    Angle.degrees(
-      AppAnimation.coverRotationDegrees(
-        from: book.hashValue,
-        minDegrees: -1,
-        maxDegrees: -8
-      )
-    )
   }
 
   private var coverID: String {

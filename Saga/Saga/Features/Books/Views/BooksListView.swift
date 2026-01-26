@@ -11,13 +11,14 @@ import SwiftUI
 struct BooksListView: View {
   @Environment(\.managedObjectContext) private var viewContext
   @EnvironmentObject private var viewModel: BooksViewModel
+  @EnvironmentObject private var scrollStore: ScrollPositionStore
+  @EnvironmentObject private var animationSettings: AnimationSettings
   #if os(macOS)
     @Environment(\.controlActiveState) private var controlActiveState
   #endif
   @Binding var entry: NavigationEntry?
   @FetchRequest(
-    sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
-    animation: .default
+    sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)]
   ) private var books: FetchedResults<Book>
 
   var body: some View {
@@ -41,7 +42,7 @@ struct BooksListView: View {
             ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
               Button {
                 guard entry?.selection != .book(result.model.objectID) else { return }
-                withAnimation(AppAnimation.selectionSpring) {
+                withAnimation(animationSettings.selectionSpring) {
                   entry = NavigationEntry(selection: .book(result.model.objectID))
                 }
               } label: {
@@ -84,6 +85,12 @@ struct BooksListView: View {
     .onChange(of: Array(books)) {
       viewModel.performSearch(with: books, debounce: .milliseconds(150))
     }
+    .onChange(of: viewModel.filteredBooks.map(\.model.objectID)) {
+      // Scroll home view to top when search results update (after debounce)
+      if hasActiveSearch {
+        scrollStore.scrollToTop(for: .home)
+      }
+    }
     .searchable(
       text: $viewModel.searchModel.searchText,
       placement: .sidebar
@@ -96,13 +103,13 @@ struct BooksListView: View {
   }
 
   private func deleteBook(_ book: Book) {
-    withAnimation {
+    withAnimation(animationSettings.selectionSpring) {
       viewContext.delete(book)
       do {
         try viewContext.save()
       } catch {
-        let nsError = error as NSError
-        fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+        viewContext.rollback()
+        LoggerService.log("Failed to delete book", error: error, surface: .persistence)
       }
     }
   }

@@ -3,8 +3,6 @@
 import Common
 import Foundation
 
-let description = scriptDescription(filePath: #filePath)
-
 // MARK: - Models
 
 struct Config {
@@ -26,63 +24,63 @@ struct Commit {
 
 // MARK: - CLI
 
-enum Option: String, CaseIterable {
-  case base = "--base"
-  case baseShort = "-b"
-  case dryRun = "--dry-run"
-  case dryRunShort = "-d"
-  case verbose = "--verbose"
-  case verboseShort = "-V"
-  case help = "--help"
-  case helpShort = "-h"
+enum Option: String, CLIOptionType, CaseIterable {
+  case base
+  case dryRun = "dry-run"
+  case verbose
 
-  static var completions: [String] { allCases.map(\.rawValue) }
+  var shortName: String? {
+    switch self {
+    case .base: "b"
+    case .dryRun: "d"
+    case .verbose: "V"
+    }
+  }
+
+  var description: String {
+    switch self {
+    case .base: "Base branch (default: origin/main)"
+    case .dryRun: "Preview without making changes"
+    case .verbose: "Show detailed output"
+    }
+  }
+
+  var argumentName: String? {
+    switch self {
+    case .base: "<branch>"
+    case .dryRun, .verbose: nil
+    }
+  }
 }
 
-func usage() -> String {
-  """
-  \(description)
-
-  Usage:
-    run drop-bot-commits [--base|-b <branch>] [--dry-run|-d] [--verbose|-V]
-
-  Options:
-    --base, -b       Base branch (default: origin/main)
-    --dry-run, -d    Preview without making changes
-    --verbose, -V    Show detailed output
-
-  Notes:
-    - Requires a clean working tree
-    - Merge commits are blocked (flatten first)
-  """
-}
+let cli = CLI(
+  filePath: #filePath,
+  options: Option.self,
+  notes: [
+    "Requires a clean working tree",
+    "Merge commits are blocked (flatten first)",
+  ]
+)
 
 func parseArguments(_ args: [String]) throws -> Config {
   var config = Config()
   var index = 0
   while index < args.count {
     let arg = args[index]
-    if arg == "--completions" {
-      print(Option.completions.joined(separator: "\n"))
-      exit(0)
-    }
-    guard let option = Option(rawValue: arg) else {
+    guard let option = Option.match(arg) else {
       throw ScriptError("Unknown argument: \(arg)")
     }
     switch option {
-    case .base, .baseShort:
+    case .base:
       guard index + 1 < args.count else { throw ScriptError("Missing value for --base") }
       config.base = args[index + 1]
       index += 2
-    case .dryRun, .dryRunShort:
+    case .dryRun:
       config.dryRun = true
       index += 1
-    case .verbose, .verboseShort:
+    case .verbose:
       config.verbose = true
       index += 1
-    case .help, .helpShort:
-      print(usage())
-      exit(0)
     }
   }
   return config
@@ -165,8 +163,9 @@ struct DropBotCommitsCommand {
     runMain {
       let args = normalizeScriptArgs(
         Array(CommandLine.arguments.dropFirst()),
-        scriptName: "drop-bot-commits"
+        scriptName: cli.scriptName
       )
+      cli.preflight(args)
       let config = try parseArguments(args)
 
       let repoRoot = try runGit(["rev-parse", "--show-toplevel"], config: config)

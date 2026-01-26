@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// Contains all our books and allows for filtering
-class BooksViewModel: ObservableObject {
+final class BooksViewModel: ObservableObject {
   @Published var filteredBooks: [SearchHighlightResult<Book>] = []
   @Published var searchModel = SearchViewModel()
 

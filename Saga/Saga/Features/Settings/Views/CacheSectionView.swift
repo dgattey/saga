@@ -16,37 +16,15 @@ struct CacheSectionView: View {
   let onLimitChange: () -> Void
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        Text(limitLabel)
-        Spacer()
-        Text(Self.formatLimit(limitGB))
-          .font(.callout.monospaced())
-          .padding(.horizontal, 10)
-          .padding(.vertical, 4)
-          .background(
-            Capsule()
-              .fill(.quaternary)
-          )
-      }
-      ZStack {
-        Capsule()
-          .fill(.quaternary)
-          .frame(height: 6)
-        Slider(value: $limitIndex, in: 0...Double(options.count - 1), step: 1)
-          .labelsHidden()
-          .tint(.accentColor)
-      }
-      HStack {
-        Text("Current usage")
-          .font(.footnote.monospaced())
-          .foregroundStyle(.secondary)
-        Spacer()
-        Text(Self.formatBytes(currentSizeBytes))
-          .font(.footnote.monospaced())
-          .foregroundStyle(.secondary)
-      }
-    }
+    SettingsSliderView(
+      label: limitLabel,
+      formattedValue: Self.formatLimit(limitGB),
+      value: $limitIndex,
+      range: 0...Double(options.count - 1),
+      step: 1,
+      subtitle: "Current usage",
+      subtitleValue: Self.formatBytes(currentSizeBytes)
+    )
     .onChange(of: limitGB) { _, _ in
       onLimitChange()
     }

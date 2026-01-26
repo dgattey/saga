@@ -93,7 +93,7 @@ struct HomeBooksSectionView: View {
 /// Renders a single book thumbnail for the Home grid
 struct HomeBookThumbnailView: View {
   @Environment(\.coverNamespace) private var coverNamespace
-  @Environment(\.coverMatchActive) private var coverMatchActive
+  @EnvironmentObject private var animationSettings: AnimationSettings
   let book: Book
   @Binding var entry: NavigationEntry?
   let gridItemSize: CGSize
@@ -101,7 +101,7 @@ struct HomeBookThumbnailView: View {
   var body: some View {
     Button {
       guard entry?.selection != .book(book.objectID) else { return }
-      withAnimation(AppAnimation.selectionSpring) {
+      withAnimation(animationSettings.selectionSpring) {
         entry = NavigationEntry(selection: .book(book.objectID))
       }
     } label: {
@@ -112,53 +112,18 @@ struct HomeBookThumbnailView: View {
 
   @ViewBuilder
   private var coverImageView: some View {
-    coverImageBase
-      .opacity(showMatchedOverlay ? 0 : 1)
-      .animation(AppAnimation.coverFade, value: showMatchedOverlay)
-      .overlay {
-        matchedCoverImage
-          .opacity(showMatchedOverlay ? 1 : 0)
-          .animation(AppAnimation.coverFade, value: showMatchedOverlay)
-          .allowsHitTesting(false)
-      }
+    if let coverNamespace {
+      coverImageBase
+        .matchedGeometryEffect(id: coverID, in: coverNamespace)
+    } else {
+      coverImageBase
+    }
   }
 
   private var coverImageBase: some View {
     BookCoverImageView(book: book, targetSize: gridItemSize)
       .frame(width: gridItemSize.width, height: gridItemSize.height)
       .defaultShadow()
-  }
-
-  @ViewBuilder
-  private var matchedCoverImage: some View {
-    if let coverNamespace {
-      let coverImage = BookCoverImageView(book: book, targetSize: gridItemSize)
-        .defaultShadow()
-        .rotationEffect(coverRotation)
-        .animation(AppAnimation.coverRotation, value: entry?.selection)
-      coverImage
-        .frame(width: gridItemSize.width, height: gridItemSize.height)
-        .matchedGeometryEffect(id: coverID, in: coverNamespace)
-    }
-  }
-
-  private var showMatchedOverlay: Bool {
-    shouldMatchGeometry && coverMatchActive && coverNamespace != nil
-  }
-
-  private var shouldMatchGeometry: Bool {
-    entry?.selection.matchedBookID == book.objectID
-  }
-
-  private var coverRotation: Angle {
-    guard case .book(let selectedBookID) = entry?.selection,
-      selectedBookID == book.objectID
-    else {
-      return .degrees(0)
-    }
-    return Angle.degrees(
-      AppAnimation.coverRotationDegrees(from: book.hashValue, minDegrees: -1, maxDegrees: -8)
-    )
   }
 
   private var coverID: String {

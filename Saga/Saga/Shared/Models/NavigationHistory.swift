@@ -17,12 +17,20 @@ struct NavigationEntry: Hashable {
   }
 }
 
+/// Protocol for objects that want to be notified of navigation changes
+protocol NavigationObserver: AnyObject {
+  func onNavigationChange(from oldEntry: NavigationEntry?, to newEntry: NavigationEntry?)
+}
+
 final class NavigationHistory: ObservableObject {
   @Published private(set) var backStack: [NavigationEntry] = []
   @Published private(set) var forwardStack: [NavigationEntry] = []
   @Published private(set) var lastSelectionChange: NavigationEntry?
   @Published private(set) var lastSelectionChangeWasHistory = false
   @Published private(set) var lastHomeScrollContextID: UUID?
+
+  /// Observers that get notified of navigation changes
+  private var observers: [NavigationObserver] = []
 
   private var isHistoryNavigation = false
 
@@ -33,7 +41,13 @@ final class NavigationHistory: ObservableObject {
     self.lastHomeScrollContextID = initialHomeScrollContextID
   }
 
-  func recordSelectionChange(
+  /// Registers an observer to be notified of navigation changes
+  func addObserver(_ observer: NavigationObserver) {
+    observers.append(observer)
+  }
+
+  /// Handles navigation changes, updating history stacks and notifying observers
+  func onNavigationChange(
     from oldEntry: NavigationEntry?, to newEntry: NavigationEntry?
   ) {
     guard let newEntry else { return }
@@ -41,6 +55,11 @@ final class NavigationHistory: ObservableObject {
     lastSelectionChangeWasHistory = isHistoryNavigation
     if newEntry.selection.isHome {
       lastHomeScrollContextID = newEntry.scrollContextID
+    }
+
+    // Notify all registered observers
+    for observer in observers {
+      observer.onNavigationChange(from: oldEntry, to: newEntry)
     }
 
     defer { isHistoryNavigation = false }

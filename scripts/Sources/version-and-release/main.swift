@@ -3,8 +3,6 @@
 import Common
 import Foundation
 
-let description = scriptDescription(filePath: #filePath)
-
 // MARK: - Constants
 
 enum Constants {
@@ -17,6 +15,36 @@ enum Constants {
   static let releaseTypeMajor = "Major"
   static let releaseTypeMinor = "Minor"
 }
+
+// MARK: - CLI
+
+enum Command: String, CLISubcommandType, CaseIterable {
+  case read
+  case bump
+  case prInfo = "pr-info"
+  case extractNotes = "extract-notes"
+  case updateMetadata = "update-metadata"
+
+  var description: String {
+    switch self {
+    case .read: "Read version/build from project file"
+    case .bump: "Compute and write next version"
+    case .prInfo: "Parse release type from PR event"
+    case .extractNotes: "Extract release notes from PR body"
+    case .updateMetadata: "Update PR body with version block"
+    }
+  }
+}
+
+let cli = SimpleCLI(
+  filePath: #filePath,
+  subcommands: Command.allCases.map { ($0.rawValue, $0.description) },
+  examples: [
+    "run version-and-release read --path project.pbxproj",
+    "run version-and-release bump --path project.pbxproj --base-version 1.0.0 \\",
+    "  --base-build 100 --release-type patch --pr-updated 1234567890",
+  ]
+)
 
 // MARK: - Argument parsing
 
@@ -52,26 +80,6 @@ struct Arguments {
     }
     return value
   }
-}
-
-// MARK: - CLI
-
-func usage() -> String {
-  """
-  \(description)
-
-  Subcommands:
-    read             Read version/build from project file
-    bump             Compute and write next version
-    pr-info          Parse release type from PR event
-    extract-notes    Extract release notes from PR body
-    update-metadata  Update PR body with version block
-
-  Examples:
-    run version-and-release read --path project.pbxproj
-    run version-and-release bump --path project.pbxproj --base-version 1.0.0 \\
-      --base-build 100 --release-type patch --pr-updated 1234567890
-  """
 }
 
 // MARK: - Version parsing
@@ -316,30 +324,14 @@ func runUpdateMetadata(arguments: Arguments) throws {
 
 // MARK: - Entry point
 
-enum Command: String, CaseIterable {
-  case read
-  case bump
-  case prInfo = "pr-info"
-  case extractNotes = "extract-notes"
-  case updateMetadata = "update-metadata"
-  case help = "--help"
-  case helpShort = "-h"
-
-  static var completions: [String] { allCases.map(\.rawValue) }
-}
-
 @main
 struct VersionAndReleaseCommand {
   static func main() {
-    runMain(usage: usage()) {
+    runMain(usage: cli.usage()) {
       let args = normalizeScriptArgs(
-        Array(CommandLine.arguments.dropFirst()), scriptName: "version-and-release")
+        Array(CommandLine.arguments.dropFirst()), scriptName: cli.scriptName)
+      cli.preflight(args)
       guard let mode = args.first else { throw ScriptError("Missing mode argument") }
-
-      if mode == "--completions" {
-        print(Command.completions.joined(separator: "\n"))
-        exit(0)
-      }
 
       guard let command = Command(rawValue: mode) else {
         throw ScriptError("Unknown mode: \(mode)")
@@ -353,9 +345,6 @@ struct VersionAndReleaseCommand {
       case .prInfo: try runPrInfo(arguments: arguments)
       case .extractNotes: try runExtractNotes(arguments: arguments)
       case .updateMetadata: try runUpdateMetadata(arguments: arguments)
-      case .help, .helpShort:
-        print(usage())
-        exit(0)
       }
     }
   }

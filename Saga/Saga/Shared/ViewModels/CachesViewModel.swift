@@ -9,7 +9,7 @@ import Combine
 import Foundation
 
 /// Manages cache size tracking and clearing for both image and network caches
-class CachesViewModel: ObservableObject {
+final class CachesViewModel: ObservableObject {
   @Published var imageCacheSizeBytes: Int64 = 0
   @Published var networkCacheSizeBytes: Int64 = 0
   private var refreshTimer: AnyCancellable?

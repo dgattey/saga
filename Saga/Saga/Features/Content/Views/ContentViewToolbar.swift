@@ -10,13 +10,14 @@ import SwiftUI
 /// The toolbar for the content view
 struct ContentViewToolbar: ToolbarContent {
   @EnvironmentObject var viewModel: SyncViewModel
+  @EnvironmentObject var animationSettings: AnimationSettings
   @ObservedObject var navigationHistory: NavigationHistory
   @Binding var entry: NavigationEntry?
 
   var body: some ToolbarContent {
     ToolbarItemGroup(placement: .navigation) {
       Button {
-        withAnimation(AppAnimation.selectionSpring) {
+        withAnimation(animationSettings.selectionSpring) {
           navigationHistory.goBack(entry: $entry)
         }
       } label: {
@@ -26,7 +27,7 @@ struct ContentViewToolbar: ToolbarContent {
       .accessibilityLabel("Back")
 
       Button {
-        withAnimation(AppAnimation.selectionSpring) {
+        withAnimation(animationSettings.selectionSpring) {
           navigationHistory.goForward(entry: $entry)
         }
       } label: {

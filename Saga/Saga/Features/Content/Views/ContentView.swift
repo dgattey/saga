@@ -15,15 +15,12 @@ import SwiftUI
 struct ContentView: View {
   @Environment(\.managedObjectContext) private var viewContext
   @EnvironmentObject private var syncViewModel: SyncViewModel
+  @EnvironmentObject private var animationSettings: AnimationSettings
   @State private var entry: NavigationEntry?
   @StateObject private var navigationHistory: NavigationHistory
   @StateObject private var scrollStore = ScrollPositionStore()
-  @State private var coverMatchActive = false
-  @State private var pendingHomeCoverMatch = false
-  @State private var pendingHomeScrollContextID: UUID?
-  @State private var transitioningFromEntry: NavigationEntry?
-  @State private var coverMatchTask: Task<Void, Never>?
-  @State private var lastSelectionWasHome = true
+  @StateObject private var bookNavigationViewModel: BookNavigationViewModel
+  @State private var detailWidth: CGFloat = 0
   @Namespace private var coverNamespace
 
   init() {
@@ -34,9 +31,10 @@ struct ContentView: View {
         scrollContextID: homeContextID
       )
     )
-    _navigationHistory = StateObject(
-      wrappedValue: NavigationHistory(initialHomeScrollContextID: homeContextID)
-    )
+    let history = NavigationHistory(initialHomeScrollContextID: homeContextID)
+    _navigationHistory = StateObject(wrappedValue: history)
+    _bookNavigationViewModel = StateObject(
+      wrappedValue: BookNavigationViewModel(navigationHistory: history))
   }
 
   var body: some View {
@@ -54,26 +52,21 @@ struct ContentView: View {
           }
         },
         detail: {
-          ZStack {
-            Group {
-              switch entry?.selection {
-              case .book(let selectedBookID):
-                if let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book
-                {
-                  BookContentView(book: selectedBook)
-                } else {
-                  HomeView(entry: $entry)
-                }
-              default:
+          Group {
+            switch entry?.selection {
+            case .book(let selectedBookID):
+              if let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book {
+                BookContentView(book: selectedBook, detailLayoutWidth: detailWidth)
+              } else {
                 HomeView(entry: $entry)
               }
+            default:
+              HomeView(entry: $entry)
             }
-            if let transitioningFromEntry,
-              case .book(let previousBookID) = transitioningFromEntry.selection,
-              let previousBook = try? viewContext.existingObject(with: previousBookID) as? Book
-            {
-              BookContentView(book: previousBook)
-                .zIndex(1)
+          }
+          .readSize { size in
+            if size.width != detailWidth {
+              detailWidth = size.width
             }
           }
         }
@@ -81,10 +74,11 @@ struct ContentView: View {
     }
     .environmentObject(navigationHistory)
     .environmentObject(scrollStore)
+    .environmentObject(bookNavigationViewModel)
     .environment(\.scrollContextID, entry?.scrollContextID)
     .environment(\.coverNamespace, coverNamespace)
-    .environment(\.coverMatchActive, coverMatchActive)
     .symbolRenderingMode(.hierarchical)
+    .animation(animationSettings.selectionSpring, value: entry?.selection)
     .toolbar {
       ContentViewToolbar(
         navigationHistory: navigationHistory,
@@ -95,35 +89,7 @@ struct ContentView: View {
       .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
     #endif
     .onChange(of: entry) { oldEntry, newEntry in
-      navigationHistory.recordSelectionChange(from: oldEntry, to: newEntry)
-      let isHome = newEntry?.selection.isHome ?? true
-      if isHome != lastSelectionWasHome {
-        if isHome {
-          transitioningFromEntry = oldEntry
-          pendingHomeCoverMatch = true
-          pendingHomeScrollContextID = newEntry?.scrollContextID
-        } else {
-          pendingHomeCoverMatch = false
-          pendingHomeScrollContextID = nil
-          transitioningFromEntry = nil
-          startCoverMatch()
-        }
-      } else {
-        coverMatchTask?.cancel()
-        coverMatchActive = false
-      }
-      lastSelectionWasHome = isHome
-    }
-    .onReceive(NotificationCenter.default.publisher(for: .homeScrollRestored)) { notification in
-      guard pendingHomeCoverMatch else { return }
-      guard let contextID = notification.object as? UUID else { return }
-      guard contextID == pendingHomeScrollContextID else { return }
-      pendingHomeCoverMatch = false
-      pendingHomeScrollContextID = nil
-      startCoverMatch()
-      withAnimation(AppAnimation.selectionSpring) {
-        transitioningFromEntry = nil
-      }
+      navigationHistory.onNavigationChange(from: oldEntry, to: newEntry)
     }
     .onChange(of: syncViewModel.resetToken) {
       scrollStore.reset()
@@ -146,15 +112,4 @@ struct ContentView: View {
     #endif
   }
 
-  private func startCoverMatch() {
-    coverMatchTask?.cancel()
-    coverMatchActive = true
-    coverMatchTask = Task { @MainActor in
-      let delay = UInt64(AppAnimation.coverMatchHoldDuration * 1_000_000_000)
-      try? await Task.sleep(nanoseconds: delay)
-      if !Task.isCancelled {
-        coverMatchActive = false
-      }
-    }
-  }
 }
