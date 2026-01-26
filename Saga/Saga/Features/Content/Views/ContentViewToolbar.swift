@@ -25,6 +25,7 @@ struct ContentViewToolbar: ToolbarContent {
       }
       .disabled(!navigationHistory.canGoBack)
       .accessibilityLabel("Back")
+      .accessibilityIdentifier(AccessibilityID.Toolbar.backButton)
 
       Button {
         withAnimation(animationSettings.selectionSpring) {
@@ -35,6 +36,7 @@ struct ContentViewToolbar: ToolbarContent {
       }
       .disabled(!navigationHistory.canGoForward)
       .accessibilityLabel("Forward")
+      .accessibilityIdentifier(AccessibilityID.Toolbar.forwardButton)
     }
     // Spacer to push sync button to the right when title is hidden
     ToolbarItem(placement: .principal) {
@@ -50,6 +52,7 @@ struct ContentViewToolbar: ToolbarContent {
           .labelStyle(.titleAndIcon)
       }
       .disabled(viewModel.isSyncing || viewModel.isResetting)
+      .accessibilityIdentifier(AccessibilityID.Toolbar.syncButton)
     }
   }
 }

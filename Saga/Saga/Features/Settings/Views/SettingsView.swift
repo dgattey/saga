@@ -70,6 +70,7 @@ struct SettingsView: View {
     .scrollContentBackground(.hidden)
     .navigationTitle("Settings")
     .toolbar(removing: .title)
+    .accessibilityIdentifier(AccessibilityID.Settings.view)
     .safeAreaInset(edge: .top) {
       SettingsHeaderView(
         title: "Settings",
@@ -99,6 +100,7 @@ struct SettingsView: View {
         }
       }
       .foregroundStyle(.red)
+      .accessibilityIdentifier(AccessibilityID.Settings.clearCaches)
     }
   }
 
@@ -125,6 +127,7 @@ struct SettingsView: View {
           }
         }
         .foregroundStyle(.red)
+        .accessibilityIdentifier(AccessibilityID.Settings.clearCachesAndData)
       }
     }
     .disabled(syncViewModel.isSyncing || syncViewModel.isResetting)

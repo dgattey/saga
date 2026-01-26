@@ -8,11 +8,13 @@ import Foundation
 enum Option: String, CLIOptionType, CaseIterable {
   case verbose
   case buildOnly = "build-only"
+  case uiTest = "ui-test"
 
   var shortName: String? {
     switch self {
     case .verbose: "v"
     case .buildOnly: "b"
+    case .uiTest: nil
     }
   }
 
@@ -20,23 +22,17 @@ enum Option: String, CLIOptionType, CaseIterable {
     switch self {
     case .verbose: "Show full xcodebuild output (default is quiet)"
     case .buildOnly: "Build without launching the app"
+    case .uiTest: "Run XCUITest UI tests and capture screenshots"
     }
   }
 }
 
-let cli = CLI(
-  filePath: #filePath,
-  options: Option.self,
-  notes: ["When launching the app, this command streams logs until you stop it."]
-)
-
-/// Parsed configuration for the app command.
 struct Config {
   var verbose = false
   var buildOnly = false
+  var runUiTests = false
 }
 
-/// Parses CLI arguments into a config.
 func parseArguments(_ args: [String]) throws -> Config {
   var config = Config()
 
@@ -49,73 +45,59 @@ func parseArguments(_ args: [String]) throws -> Config {
       config.verbose = true
     case .buildOnly:
       config.buildOnly = true
+    case .uiTest:
+      config.runUiTests = true
     }
+  }
+
+  if config.runUiTests, config.buildOnly {
+    throw ScriptError("--build-only is not supported with --ui-test")
   }
 
   return config
 }
 
-// MARK: - Build helpers
-
-/// Builds the Saga macOS app using xcodebuild.
-func buildApp(projectPath: String, derivedDataPath: String, arch: String, verbose: Bool) throws {
-  print("Building Saga (Debug)...")
-  var args = [
-    "-project", projectPath,
-    "-scheme", "Saga",
-    "-configuration", "Debug",
-    "-destination", "platform=macOS,arch=\(arch)",
-    "-derivedDataPath", derivedDataPath,
-    "build",
-  ]
-  if !verbose {
-    args.insert("-quiet", at: 0)
-  }
-  try runCommand("xcodebuild", args)
-}
-
 // MARK: - Main
 
-/// Entry point for `run app`.
-@main
-struct AppCommand {
-  static func main() {
-    runMain(usage: cli.usage()) {
-      let args = normalizeScriptArgs(
-        Array(CommandLine.arguments.dropFirst()), scriptName: cli.scriptName)
-      cli.preflight(args)
-      let config = try parseArguments(args)
+let cli = CLI(
+  filePath: #filePath,
+  options: Option.self,
+  notes: ["When launching the app, this command streams logs until you stop it."]
+)
 
-      let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
-      let projectPath = try findProjectPath(repoRoot: repoRoot)
-      let derivedDataPath = URL(fileURLWithPath: repoRoot).appendingPathComponent("build").path
-      let appPath = URL(fileURLWithPath: derivedDataPath)
-        .appendingPathComponent("Build/Products/Debug/Saga.app")
-        .path
+runMain(usage: cli.usage()) {
+  let args = normalizeScriptArgs(
+    Array(CommandLine.arguments.dropFirst()),
+    scriptName: cli.scriptName
+  )
+  cli.preflight(args)
+  let config = try parseArguments(args)
 
-      try checkXcodeToolsSelected()
-      let arch = try currentArchitecture()
-      try buildApp(
-        projectPath: projectPath,
-        derivedDataPath: derivedDataPath,
-        arch: arch,
-        verbose: config.verbose
-      )
-      if !config.buildOnly {
-        terminateProcess(named: "Saga")
-        var logProcess: Process?
-        let signalSources = installSignalHandlers {
-          logProcess?.terminate()
-        }
-        _ = signalSources
-        print("Streaming logs for Saga. Press Ctrl+C to stop.")
-        logProcess = try streamLogs(processName: "Saga")
-        print("Launching Saga...")
-        try openApp(at: appPath)
-        let pid = try waitForProcessID(named: "Saga")
-        waitForProcessExit(processID: pid)
-        logProcess?.terminate()
-      }
+  let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
+  let projectPath = try findProjectPath(repoRoot: repoRoot)
+  let cacheKey = buildCacheKey(repoRoot: repoRoot)
+  let paths = AppPaths(repoRoot: repoRoot, cacheKey: cacheKey)
+
+  try checkXcodeToolsSelected()
+  let arch = try currentArchitecture()
+  if config.runUiTests {
+    try runUiTests(
+      projectPath: projectPath,
+      derivedDataPath: paths.derivedDataPath,
+      arch: arch,
+      verbose: config.verbose,
+      resultBundlePath: paths.resultBundlePath,
+      screenshotsPath: paths.screenshotsPath
+    )
+  } else {
+    try buildApp(
+      projectPath: projectPath,
+      derivedDataPath: paths.derivedDataPath,
+      arch: arch,
+      verbose: config.verbose
+    )
+    if !config.buildOnly {
+      try runApp(appPath: paths.appPath)
     }
   }
 }

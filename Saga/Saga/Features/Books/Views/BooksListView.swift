@@ -70,11 +70,13 @@ struct BooksListView: View {
         .padding(.bottom, 4)
       }
       .scrollVelocityThrottle()
+      .accessibilityIdentifier(AccessibilityID.Books.list)
       .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     #if os(macOS)
       .frame(minWidth: 200, idealWidth: 300)
     #endif
+    .accessibilityIdentifier(AccessibilityID.Books.sidebar)
     .task(id: viewModel.searchModel.searchText) {
       viewModel.refreshSearch(for: books)
     }

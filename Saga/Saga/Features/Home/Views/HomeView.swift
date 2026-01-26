@@ -41,11 +41,14 @@ struct HomeView: View {
       }
       .scrollVelocityThrottle()
       .withGlassOverlay(.top)
+      .accessibilityIdentifier(AccessibilityID.Home.scroll)
       headerTitleView(title: sections.first?.title ?? "")
         .zIndex(2)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .navigationTitle("Home")
+    .accessibilityIdentifier(AccessibilityID.Home.view)
+    .accessibilityElement(children: .contain)
     #if os(macOS)
       .toolbar(removing: .title)
     #endif
