@@ -3,22 +3,15 @@
 import Common
 import Foundation
 
-let description = scriptDescription(filePath: #filePath)
-
 // MARK: - CLI
 
-func usage() -> String {
-  """
-  \(description)
-
-  Usage:
-    run bootstrap
-
-  Notes:
-    - Only adds completions if not already present
-    - Restart your shell or run 'source ~/.zshrc' to activate
-  """
-}
+let cli = SimpleCLI(
+  filePath: #filePath,
+  notes: [
+    "Only adds completions if not already present",
+    "Restart your shell or run 'source ~/.zshrc' to activate",
+  ]
+)
 
 func parseArguments(_ args: [String]) throws {
   guard args.isEmpty else {
@@ -31,8 +24,8 @@ struct BootstrapCommand {
   static func main() {
     runMain {
       let args = normalizeScriptArgs(
-        Array(CommandLine.arguments.dropFirst()), scriptName: "bootstrap")
-      preflightCLI(args, completions: standardCompletions([]), usage: usage())
+        Array(CommandLine.arguments.dropFirst()), scriptName: cli.scriptName)
+      cli.preflight(args)
       try parseArguments(args)
 
       let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath

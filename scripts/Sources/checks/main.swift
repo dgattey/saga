@@ -3,41 +3,36 @@
 import Common
 import Foundation
 
-let description = scriptDescription(filePath: #filePath)
-
 /// Directories to check (relative to repo root). Excludes build/, .build/, etc.
 let targetDirectories = ["Saga", "scripts"]
 
 // MARK: - CLI
 
-enum Option: String, CaseIterable {
-  case format = "--format"
-  case lint = "--lint"
+enum Option: String, CLIOptionType, CaseIterable {
+  case format
+  case lint
 
-  static var completions: [String] { allCases.map(\.rawValue) }
+  var description: String {
+    switch self {
+    case .format: "Run formatting checks only"
+    case .lint: "Run lint checks only"
+    }
+  }
 }
+
+let cli = CLI(
+  filePath: #filePath,
+  options: Option.self,
+  notes: [
+    "Uses swift-format with repo config (.swift-format)",
+    "Defaults to running both format and lint when no options are provided",
+    "Checks only: \(targetDirectories.joined(separator: ", "))",
+  ]
+)
 
 struct ChecksSelection {
   var runFormat: Bool
   var runLint: Bool
-}
-
-func usage() -> String {
-  """
-  \(description)
-
-  Usage:
-    run checks [--format] [--lint]
-
-  Options:
-    --format    Run formatting checks only
-    --lint      Run lint checks only
-
-  Notes:
-    - Uses swift-format with repo config (.swift-format)
-    - Defaults to running both format and lint when no options are provided
-    - Checks only: \(targetDirectories.joined(separator: ", "))
-  """
 }
 
 func parseArguments(_ args: [String]) throws -> ChecksSelection {
@@ -45,7 +40,7 @@ func parseArguments(_ args: [String]) throws -> ChecksSelection {
   var runLint = false
 
   for arg in args {
-    guard let option = Option(rawValue: arg) else {
+    guard let option = Option.match(arg) else {
       throw ScriptError("Unknown argument: \(arg)")
     }
     switch option {
@@ -100,8 +95,9 @@ func runSwiftFormat(
 struct ChecksCommand {
   static func main() {
     runMain {
-      let args = normalizeScriptArgs(Array(CommandLine.arguments.dropFirst()), scriptName: "checks")
-      preflightCLI(args, completions: standardCompletions(Option.completions), usage: usage())
+      let args = normalizeScriptArgs(
+        Array(CommandLine.arguments.dropFirst()), scriptName: cli.scriptName)
+      cli.preflight(args)
       let selection = try parseArguments(args)
 
       let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath

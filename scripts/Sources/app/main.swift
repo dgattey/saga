@@ -3,56 +3,51 @@
 import Common
 import Foundation
 
-let description = scriptDescription(filePath: #filePath)
-
 // MARK: - CLI
 
-/// CLI options supported by the app runner.
-enum Option: String, CaseIterable {
-  case verbose = "--verbose"
-  case verboseShort = "-v"
-  case buildOnly = "--build-only"
-  case buildOnlyShort = "-b"
+enum Option: String, CLIOptionType, CaseIterable {
+  case verbose
+  case buildOnly = "build-only"
 
-  static var completions: [String] { allCases.map(\.rawValue) }
+  var shortName: String? {
+    switch self {
+    case .verbose: "v"
+    case .buildOnly: "b"
+    }
+  }
+
+  var description: String {
+    switch self {
+    case .verbose: "Show full xcodebuild output (default is quiet)"
+    case .buildOnly: "Build without launching the app"
+    }
+  }
 }
 
-/// Returns the help/usage text for this command.
-func usage() -> String {
-  """
-  \(description)
-
-  Usage:
-    run app [--verbose|-v] [--build-only|-b]
-
-  Options:
-    --verbose, -v      Show full xcodebuild output (default is quiet)
-    --build-only, -b   Build without launching the app
-    --help, -h         Show this help message
-
-  Notes:
-    When launching the app, this command streams logs until you stop it.
-  """
-}
+let cli = CLI(
+  filePath: #filePath,
+  options: Option.self,
+  notes: ["When launching the app, this command streams logs until you stop it."]
+)
 
 /// Parsed configuration for the app command.
 struct Config {
-  var verbose: Bool = false
-  var buildOnly: Bool = false
+  var verbose = false
+  var buildOnly = false
 }
 
-/// Parses CLI arguments into a config, exiting on help/completions.
+/// Parses CLI arguments into a config.
 func parseArguments(_ args: [String]) throws -> Config {
   var config = Config()
 
   for arg in args {
-    guard let option = Option(rawValue: arg) else {
+    guard let option = Option.match(arg) else {
       throw ScriptError("Unknown argument: \(arg)")
     }
     switch option {
-    case .verbose, .verboseShort:
+    case .verbose:
       config.verbose = true
-    case .buildOnly, .buildOnlyShort:
+    case .buildOnly:
       config.buildOnly = true
     }
   }
@@ -64,7 +59,6 @@ func parseArguments(_ args: [String]) throws -> Config {
 
 /// Builds the Saga macOS app using xcodebuild.
 func buildApp(projectPath: String, derivedDataPath: String, arch: String, verbose: Bool) throws {
-  terminateProcess(named: "Saga")
   print("Building Saga (Debug)...")
   var args = [
     "-project", projectPath,
@@ -86,9 +80,10 @@ func buildApp(projectPath: String, derivedDataPath: String, arch: String, verbos
 @main
 struct AppCommand {
   static func main() {
-    runMain(usage: usage()) {
-      let args = normalizeScriptArgs(Array(CommandLine.arguments.dropFirst()), scriptName: "app")
-      preflightCLI(args, completions: standardCompletions(Option.completions), usage: usage())
+    runMain(usage: cli.usage()) {
+      let args = normalizeScriptArgs(
+        Array(CommandLine.arguments.dropFirst()), scriptName: cli.scriptName)
+      cli.preflight(args)
       let config = try parseArguments(args)
 
       let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
@@ -107,6 +102,7 @@ struct AppCommand {
         verbose: config.verbose
       )
       if !config.buildOnly {
+        terminateProcess(named: "Saga")
         var logProcess: Process?
         let signalSources = installSignalHandlers {
           logProcess?.terminate()
