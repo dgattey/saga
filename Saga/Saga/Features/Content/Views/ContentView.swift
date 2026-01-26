@@ -15,9 +15,11 @@ import SwiftUI
 struct ContentView: View {
   @Environment(\.managedObjectContext) private var viewContext
   @EnvironmentObject private var syncViewModel: SyncViewModel
+  @EnvironmentObject private var animationSettings: AnimationSettings
   @State private var entry: NavigationEntry?
   @StateObject private var navigationHistory: NavigationHistory
   @StateObject private var scrollStore = ScrollPositionStore()
+  @StateObject private var bookNavigationViewModel: BookNavigationViewModel
   @State private var detailWidth: CGFloat = 0
   @Namespace private var coverNamespace
 
@@ -29,9 +31,10 @@ struct ContentView: View {
         scrollContextID: homeContextID
       )
     )
-    _navigationHistory = StateObject(
-      wrappedValue: NavigationHistory(initialHomeScrollContextID: homeContextID)
-    )
+    let history = NavigationHistory(initialHomeScrollContextID: homeContextID)
+    _navigationHistory = StateObject(wrappedValue: history)
+    _bookNavigationViewModel = StateObject(
+      wrappedValue: BookNavigationViewModel(navigationHistory: history))
   }
 
   var body: some View {
@@ -71,10 +74,11 @@ struct ContentView: View {
     }
     .environmentObject(navigationHistory)
     .environmentObject(scrollStore)
+    .environmentObject(bookNavigationViewModel)
     .environment(\.scrollContextID, entry?.scrollContextID)
     .environment(\.coverNamespace, coverNamespace)
     .symbolRenderingMode(.hierarchical)
-    .animation(AppAnimation.selectionSpring, value: entry?.selection)
+    .animation(animationSettings.selectionSpring, value: entry?.selection)
     .toolbar {
       ContentViewToolbar(
         navigationHistory: navigationHistory,
@@ -85,7 +89,7 @@ struct ContentView: View {
       .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
     #endif
     .onChange(of: entry) { oldEntry, newEntry in
-      navigationHistory.recordSelectionChange(from: oldEntry, to: newEntry)
+      navigationHistory.onNavigationChange(from: oldEntry, to: newEntry)
     }
     .onChange(of: syncViewModel.resetToken) {
       scrollStore.reset()

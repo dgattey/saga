@@ -10,6 +10,7 @@ import SwiftUI
 struct SettingsView: View {
   @EnvironmentObject var syncViewModel: SyncViewModel
   @EnvironmentObject var cachesViewModel: CachesViewModel
+  @EnvironmentObject var animationSettings: AnimationSettings
 
   // Image cache settings
   @AppStorage(ImageCache.cacheLimitKey) private var imageCacheLimitGB: Double = 5
@@ -23,6 +24,14 @@ struct SettingsView: View {
 
   var body: some View {
     Form {
+      Section {
+        animationSpringResponseSlider
+        animationSpringDampingSlider
+        resetAnimationButton
+      } header: {
+        Text("Animations")
+          .font(.headline)
+      }
       Section {
         CacheSectionView(
           limitLabel: "Image cache",
@@ -70,9 +79,8 @@ struct SettingsView: View {
     }
     .safeAreaInset(edge: .bottom) {
       AppInformationView()
-        .padding()
     }
-    .frame(minWidth: 300, idealWidth: 400, maxWidth: 500, minHeight: 600)
+    .frame(minWidth: 400, idealWidth: 450, maxWidth: 600, minHeight: 500, maxHeight: 900)
     .onAppear {
       imageCacheLimitIndex = Double(cacheLimitOptions.firstIndex(of: imageCacheLimitGB) ?? 3)
       networkCacheLimitIndex = Double(cacheLimitOptions.firstIndex(of: networkCacheLimitGB) ?? 3)
@@ -120,6 +128,42 @@ struct SettingsView: View {
       }
     }
     .disabled(syncViewModel.isSyncing || syncViewModel.isResetting)
+  }
+
+  // MARK: - Animation Settings
+
+  private var animationSpringResponseSlider: some View {
+    SettingsSliderView(
+      label: "Spring response",
+      formattedValue: String(format: "%.2f", animationSettings.springResponse),
+      value: $animationSettings.springResponse,
+      range: 0.1...1.0,
+      step: 0.05
+    )
+  }
+
+  private var animationSpringDampingSlider: some View {
+    SettingsSliderView(
+      label: "Spring damping",
+      formattedValue: String(format: "%.2f", animationSettings.springDamping),
+      value: $animationSettings.springDamping,
+      range: 0.1...1.0,
+      step: 0.05
+    )
+  }
+
+  private var resetAnimationButton: some View {
+    HStack {
+      Text("Defaults")
+      Spacer()
+      Button("Reset") {
+        animationSettings.resetToDefaults()
+      }
+      .disabled(
+        animationSettings.springResponse == AnimationSettings.defaultSpringResponse
+          && animationSettings.springDamping == AnimationSettings.defaultSpringDamping
+      )
+    }
   }
 
 }

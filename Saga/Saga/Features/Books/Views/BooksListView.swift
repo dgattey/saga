@@ -12,6 +12,7 @@ struct BooksListView: View {
   @Environment(\.managedObjectContext) private var viewContext
   @EnvironmentObject private var viewModel: BooksViewModel
   @EnvironmentObject private var scrollStore: ScrollPositionStore
+  @EnvironmentObject private var animationSettings: AnimationSettings
   #if os(macOS)
     @Environment(\.controlActiveState) private var controlActiveState
   #endif
@@ -41,7 +42,7 @@ struct BooksListView: View {
             ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
               Button {
                 guard entry?.selection != .book(result.model.objectID) else { return }
-                withAnimation(AppAnimation.selectionSpring) {
+                withAnimation(animationSettings.selectionSpring) {
                   entry = NavigationEntry(selection: .book(result.model.objectID))
                 }
               } label: {
@@ -102,13 +103,13 @@ struct BooksListView: View {
   }
 
   private func deleteBook(_ book: Book) {
-    withAnimation(AppAnimation.selectionSpring) {
+    withAnimation(animationSettings.selectionSpring) {
       viewContext.delete(book)
       do {
         try viewContext.save()
       } catch {
-        let nsError = error as NSError
-        fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+        viewContext.rollback()
+        LoggerService.log("Failed to delete book", error: error, surface: .persistence)
       }
     }
   }

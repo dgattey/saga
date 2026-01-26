@@ -23,6 +23,7 @@ struct BookContentView: View {
   let detailLayoutWidth: CGFloat
   @Environment(\.scrollContextID) private var scrollContextID
   @Environment(\.coverNamespace) private var coverNamespace
+  @EnvironmentObject private var bookNavigationViewModel: BookNavigationViewModel
   @State private var containerWidth: CGFloat = 0
   var title: String {
     book.title ?? "Untitled book"
@@ -62,6 +63,7 @@ struct BookContentView: View {
         maxWidth: Constants.maxCoverWidth,
         alignment: .center
       )
+      .rotationEffect(bookNavigationViewModel.coverRotation, anchor: .center)
   }
 
   var coverImageView: some View {
@@ -98,8 +100,6 @@ struct BookContentView: View {
     let coverImage = BookCoverImageView(book: book, targetSize: detailCoverSize)
       .frame(width: detailCoverSize.width, height: detailCoverSize.height)
       .defaultShadow()
-      .rotationEffect(coverRotation)
-      .animation(AppAnimation.selectionSpring, value: book.objectID)
     if let coverNamespace {
       coverImage
         .matchedGeometryEffect(id: coverID, in: coverNamespace)
@@ -150,16 +150,6 @@ struct BookContentView: View {
 
   private var coverID: String {
     book.objectID.uriRepresentation().absoluteString
-  }
-
-  private var coverRotation: Angle {
-    Angle.degrees(
-      AppAnimation.coverRotationDegrees(
-        from: book.hashValue,
-        minDegrees: -1,
-        maxDegrees: -8
-      )
-    )
   }
 
   /// The top level metadata stack

@@ -71,7 +71,7 @@ Swift-based scripts live in `scripts/Sources/` and are run via the `run` wrapper
 
 ### Building and running
 
-Builds Saga in Debug mode using `xcodebuild` and launches the resulting app, or you can use Xcode.
+Builds the macOS app in Debug mode using `xcodebuild` and launches the resulting app, or you can use Xcode.
 
 ```bash
 run app              # build quietly and launch

@@ -93,6 +93,7 @@ struct HomeBooksSectionView: View {
 /// Renders a single book thumbnail for the Home grid
 struct HomeBookThumbnailView: View {
   @Environment(\.coverNamespace) private var coverNamespace
+  @EnvironmentObject private var animationSettings: AnimationSettings
   let book: Book
   @Binding var entry: NavigationEntry?
   let gridItemSize: CGSize
@@ -100,7 +101,7 @@ struct HomeBookThumbnailView: View {
   var body: some View {
     Button {
       guard entry?.selection != .book(book.objectID) else { return }
-      withAnimation(AppAnimation.selectionSpring) {
+      withAnimation(animationSettings.selectionSpring) {
         entry = NavigationEntry(selection: .book(book.objectID))
       }
     } label: {
@@ -123,19 +124,6 @@ struct HomeBookThumbnailView: View {
     BookCoverImageView(book: book, targetSize: gridItemSize)
       .frame(width: gridItemSize.width, height: gridItemSize.height)
       .defaultShadow()
-      .rotationEffect(coverRotation)
-      .animation(AppAnimation.selectionSpring, value: entry?.selection)
-  }
-
-  private var coverRotation: Angle {
-    guard case .book(let selectedBookID) = entry?.selection,
-      selectedBookID == book.objectID
-    else {
-      return .degrees(0)
-    }
-    return Angle.degrees(
-      AppAnimation.coverRotationDegrees(from: book.hashValue, minDegrees: -1, maxDegrees: -8)
-    )
   }
 
   private var coverID: String {

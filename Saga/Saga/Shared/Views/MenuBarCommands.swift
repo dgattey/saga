@@ -7,9 +7,14 @@
 
 import SwiftUI
 
+#if os(macOS)
+  import AppKit
+#endif
+
 struct MenuBarCommands: Commands {
   @EnvironmentObject var syncViewModel: SyncViewModel
   @EnvironmentObject var cachesViewModel: CachesViewModel
+  @Environment(\.openWindow) private var openWindow
 
   var body: some Commands {
     CommandGroup(after: .newItem) {
@@ -40,5 +45,29 @@ struct MenuBarCommands: Commands {
       .keyboardShortcut("r", modifiers: [.command, .shift])
       .disabled(syncViewModel.isSyncing)
     }
+
+    #if os(macOS)
+      CommandGroup(replacing: .appSettings) {
+        Button("Settings...") {
+          showSettingsWindow()
+        }
+        .keyboardShortcut(",", modifiers: [.command])
+      }
+    #endif
   }
+
+  #if os(macOS)
+    private func showSettingsWindow() {
+      // Find existing settings window and bring it to front
+      if let settingsWindow = NSApp.windows.first(where: { $0.title == "Settings" }) {
+        if settingsWindow.isMiniaturized {
+          settingsWindow.deminiaturize(nil)
+        }
+        settingsWindow.makeKeyAndOrderFront(nil)
+      } else {
+        // Open new window if none exists
+        openWindow(id: "settings")
+      }
+    }
+  #endif
 }

@@ -11,12 +11,13 @@ struct HomeSidebarRow: View {
   #if os(macOS)
     @Environment(\.controlActiveState) private var controlActiveState
   #endif
+  @EnvironmentObject private var animationSettings: AnimationSettings
   @Binding var entry: NavigationEntry?
   let makeHomeEntry: () -> NavigationEntry
 
   var body: some View {
     Button {
-      withAnimation(AppAnimation.selectionSpring) {
+      withAnimation(animationSettings.selectionSpring) {
         guard entry?.selection.isHome != true else { return }
         entry = makeHomeEntry()
       }

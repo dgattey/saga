@@ -10,7 +10,6 @@ import SwiftUI
 
 private struct Constants {
   static let headerPaddingY: CGFloat = 16
-  static let backgroundFadeHeight: CGFloat = 140
 }
 
 /// Renders the home view with a book grid
@@ -40,10 +39,8 @@ struct HomeView: View {
           }
         }
       }
-      .zIndex(0)
       .scrollVelocityThrottle()
-      glassOverlayView
-        .zIndex(1)
+      .withGlassOverlay(.top)
       headerTitleView(title: sections.first?.title ?? "")
         .zIndex(2)
     }
@@ -90,27 +87,6 @@ struct HomeView: View {
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.horizontal, 32)
       .padding(.vertical, Constants.headerPaddingY)
-      .allowsHitTesting(false)
-  }
-
-  private var glassOverlayView: some View {
-    Rectangle()
-      .fill(.ultraThinMaterial)
-      .opacity(1.0)
-      .frame(height: Constants.backgroundFadeHeight)
-      .mask(
-        LinearGradient(
-          stops: [
-            .init(color: .black, location: 0.0),
-            .init(color: .black.opacity(0.75), location: 0.75),
-            .init(color: .clear, location: 1.0),
-          ],
-          startPoint: .top,
-          endPoint: .bottom
-        )
-      )
-      .frame(maxWidth: .infinity, alignment: .top)
-      .ignoresSafeArea(.container, edges: .top)
       .allowsHitTesting(false)
   }
 }

@@ -7,15 +7,36 @@
 
 import SwiftUI
 
+#if os(macOS)
+  import AppKit
+#endif
+
 @main
 struct SagaApp: App {
   @StateObject private var syncViewModel = SyncViewModel()
   @StateObject private var cachesViewModel = CachesViewModel()
   @StateObject private var booksViewModel = BooksViewModel()
+  @StateObject private var animationSettings = AnimationSettings.shared
 
   init() {
     // Register our transformers
     RichTextDocumentTransformer.register()
+
+    #if os(macOS)
+      // Close any restored settings window after app finishes launching
+      NotificationCenter.default.addObserver(
+        forName: NSApplication.didFinishLaunchingNotification,
+        object: nil,
+        queue: .main
+      ) { _ in
+        NSAnimationContext.runAnimationGroup { context in
+          context.duration = 0
+          for window in NSApp.windows where window.title == "Settings" {
+            window.close()
+          }
+        }
+      }
+    #endif
   }
 
   var body: some Scene {
@@ -31,15 +52,20 @@ struct SagaApp: App {
     .environmentObject(syncViewModel)
     .environmentObject(cachesViewModel)
     .environmentObject(booksViewModel)
+    .environmentObject(animationSettings)
     .defaultSize(width: 1000, height: 600)
 
     #if os(macOS)
-      Settings {
+      WindowGroup("Settings", id: "settings") {
         SettingsView()
           .windowBackground()
       }
+      .windowResizability(.contentSize)
+      .defaultSize(width: 450, height: 650)
+      .handlesExternalEvents(matching: ["settings"])
       .environmentObject(syncViewModel)
       .environmentObject(cachesViewModel)
+      .environmentObject(animationSettings)
     #endif
   }
 }

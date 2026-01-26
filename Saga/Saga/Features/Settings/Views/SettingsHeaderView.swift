@@ -25,6 +25,8 @@ struct SettingsHeaderView: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal)
     .padding(.top, 8)
+    .padding(.bottom, 12)
+    .withGlassBackground(edge: .top)
   }
 
   private var icon: some View {

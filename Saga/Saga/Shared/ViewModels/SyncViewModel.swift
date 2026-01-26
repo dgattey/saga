@@ -9,7 +9,7 @@ import CoreData
 import SwiftUI
 
 /// Handles syncing data across the full app, delegating to service functions as needed
-class SyncViewModel: ObservableObject {
+final class SyncViewModel: ObservableObject {
   private var controller = PersistenceService()
   @Published var isSyncing = false
   @Published var isResetting = false

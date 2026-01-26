@@ -22,7 +22,7 @@ struct SearchHighlightResult<Model: SearchableModel> {
   }
 }
 
-class SearchViewModel: ObservableObject {
+final class SearchViewModel: ObservableObject {
   @Published var searchText = ""
   private var searchTask: Task<Void, Never>? = nil
 
