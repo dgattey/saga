@@ -1,0 +1,18 @@
+---
+description: SwiftUI view conventions for Saga
+globs: Saga/Saga/**/Views/**/*.swift
+alwaysApply: false
+---
+# SwiftUI Views
+
+- Keep `body` readable by extracting subviews to `private var` blocks or helper methods, or
+  refactoring more substantial views out to their own files.
+- Use `// MARK:` to separate logical sections in larger views.
+- Prefer `@EnvironmentObject` for shared state (`SyncViewModel`, `BooksViewModel`,
+  `ScrollPositionStore`, `AnimationSettings`) and `@Environment` for context values.
+- Use `PersistentScrollView` + `ScrollKey` when scroll position should persist;
+  add `.scrollVelocityThrottle()` where applicable.
+- Use injected `animationSettings` where possible, or `AnimationSettings.shared.selectionSpring` outside of SwiftUI for selection animations to keep timing consistent.
+- Apply shared styling via `Shared/Views` and `Shared/Extensions`
+  (e.g., `windowBackground()`, `withGlassOverlay`, `defaultShadow()`).
+- Gate platform-specific UI with `#if os(macOS)` / `#else`.

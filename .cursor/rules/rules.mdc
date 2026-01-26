@@ -1,0 +1,12 @@
+---
+description: Guidelines for authoring Cursor rules
+globs: .cursor/rules/**/*.mdc
+alwaysApply: false
+---
+# Rule Authoring Guidelines
+
+- Use YAML frontmatter with a clear `description` and either `alwaysApply: true`
+  or a `globs:` pattern.
+- Keep rules short and scoped to one concern; add examples only when helpful.
+- Update `rule-loading.mdc` when adding or renaming rules so load triggers stay accurate.
+- Follow existing naming conventions (`view-model.mdc`, `post-change-checks.mdc`).

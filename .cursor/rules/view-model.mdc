@@ -1,0 +1,13 @@
+---
+description: ViewModel patterns and async work
+globs: Saga/Saga/**/*ViewModel.swift
+alwaysApply: false
+---
+# ViewModel Patterns
+
+- Use `ObservableObject` + `@Published` for state; prefer `final` unless subclassing.
+- Keep view models focused on orchestration and side effects; views stay declarative.
+- For async work, use `Task` and hop to `MainActor` for UI mutations (see `SyncViewModel`).
+- Log failures with `LoggerService.log` and handle cancellation or duplicate tasks cleanly.
+- Prefer small helpers for sorting/filtering (`BooksViewModel.sorted`) to keep state updates clear.
+- Avoid heavy work in `init`; if needed, make it cancellable and state-aware.

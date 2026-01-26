@@ -1,13 +1,12 @@
 ---
-description: Run checks/build after big change batches
-alwaysApply: true
+globs: **/*.swift
+alwaysApply: false
 ---
-
 # Post-change checks
 
-After a big batch of changes:
+After a refactor or adding new code:
 - Run lint/format with `./run checks`
 - Fix any problems until the run passes
 - Run a build with `./run app -b`
 - Fix any errors or warnings until the run passes
-- If reporting to the user, give a succinct summary of what passed, one line at most
+- Do not report success to user, they will see the jobs run!
