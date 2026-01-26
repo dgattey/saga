@@ -19,6 +19,53 @@ public func checkXcodeToolsSelected() throws {
   }
 }
 
+/// Ensures a Homebrew package is installed, installing it if missing.
+public func ensureBrewPackage(_ package: String) throws {
+  let installed = try runCommand(
+    "brew",
+    ["list", "--formula", "--versions", package],
+    allowFailure: true,
+    emitOutput: false
+  )
+  if installed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    print("Installing \(package) via Homebrew...")
+    _ = try runCommand("brew", ["install", package])
+  } else {
+    print("\(package) already installed.")
+  }
+}
+
+/// Returns true when the 1Password CLI is authenticated for the account.
+public func isOnePasswordAuthenticated(account: String) -> Bool {
+  let output = try? runCommand(
+    "op",
+    ["whoami", "--account", account],
+    allowFailure: true,
+    emitOutput: false
+  )
+  return !(output ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+}
+
+/// Signs into 1Password for the given account.
+public func signInToOnePassword(account: String) throws {
+  _ = try runCommand("op", ["signin", "--account", account])
+}
+
+/// Reads a secret from 1Password using the secret reference syntax.
+public func readOnePasswordSecret(
+  vault: String,
+  item: String,
+  field: String = "value"
+) throws -> String {
+  let reference = "op://\(vault)/\(item)/\(field)"
+  let value = try runCommand("op", ["read", reference], emitOutput: false)
+  let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+  guard !trimmed.isEmpty else {
+    throw ScriptError("Empty secret returned for \(reference)")
+  }
+  return trimmed
+}
+
 /// Returns the current machine architecture (e.g. arm64, x86_64).
 public func currentArchitecture() throws -> String {
   try runCommand("uname", ["-m"], emitOutput: false)

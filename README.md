@@ -4,47 +4,19 @@ A native Swift app (iOS, macOS) for keeping track of what I've read, watched, pl
 
 ## Setup
 
-Two manual steps, both one-time setup:
-
-<details>
-<summary>Shell completions</summary>
-
-Sets up shell completions in your `.zshrc` for the `run` command. Run once per machine.
-
 ```bash
 ./run bootstrap   # first time (before shell function exists)
 source ~/.zshrc   # activate completions
 ```
 
-After setup, you can use `run` (with tab completion) instead of `./run`.
+Bootstrap handles all one-time setup:
 
-</details>
+1. **Installs 1Password CLI** via Homebrew (if not present)
+2. **Authenticates with 1Password** (prompts if needed)
+3. **Writes `Saga/Config/Config.xcconfig`** with Contentful credentials from the `saga` vault (`CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` items)
+4. **Adds shell completions** to your `.zshrc` for the `run` command
 
-<details>
-<summary>Secret configuration</summary>
-
-Create a `Config.xcconfig` file at the top level of the app:
-
-1. Create the file (DO NOT add to any Xcode targets)
-2. Configure under project → configurations to use it for debug and release
-3. Add these contents, replacing values with real data:
-
-```
-//
-//  Config.xcconfig
-//  Saga
-//
-//  Created by Dylan Gattey on 7/6/25.
-//
-
-// Configuration settings file format documentation can be found at:
-// https://developer.apple.com/documentation/xcode/adding-a-build-configuration-file-to-your-project
-
-CONTENTFUL_SPACE_ID = your_space_id
-CONTENTFUL_ACCESS_TOKEN = your_access_token
-```
-
-</details>
+After setup, use `run` (with tab completion) instead of `./run`. Re-run bootstrap any time to refresh credentials.
 
 ## App architecture
 
@@ -64,7 +36,7 @@ Swift-based scripts live in `scripts/Sources/` and are run via the `run` wrapper
 | Script | Description |
 |--------|-------------|
 | `app` | Build and launch the app |
-| `bootstrap` | Set up shell completions for run |
+| `bootstrap` | Set up shell completions and pull secrets from 1Password |
 | `drop-bot-commits` | Drop version bump commits on branch and rebase onto main |
 | `checks` | Run Swift format and/or lint checks |
 | `version-and-release` | Manage version tags and Github releases |
