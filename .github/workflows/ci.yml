@@ -53,10 +53,11 @@ jobs:
           echo "version_to=$(echo "$bump_output" | awk -F= '/^VERSION_TO=/{print $2}')" >> "$GITHUB_OUTPUT"
           echo "build_from=$(echo "$bump_output" | awk -F= '/^BUILD_FROM=/{print $2}')" >> "$GITHUB_OUTPUT"
           echo "build_to=$(echo "$bump_output" | awk -F= '/^BUILD_TO=/{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "changed=$(echo "$bump_output" | awk -F= '/^CHANGED=/{print $2}')" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
         id: commit
-        if: steps.check-bot.outputs.SKIP != 'true' && github.actor != 'github-actions[bot]'
+        if: steps.check-bot.outputs.SKIP != 'true' && github.actor != 'github-actions[bot]' && steps.bump.outputs.changed == '1'
         run: |
           set -euo pipefail
           if git diff --quiet; then
@@ -76,7 +77,7 @@ jobs:
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Post PR version comment
-        if: steps.check-bot.outputs.SKIP != 'true' && github.actor != 'github-actions[bot]'
+        if: steps.check-bot.outputs.SKIP != 'true' && github.actor != 'github-actions[bot]' && steps.bump.outputs.changed == '1'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.bump.outputs.version_to }}

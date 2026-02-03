@@ -276,7 +276,8 @@ func runBump(arguments: Arguments) throws {
   let finalContent = try replacingValue(
     for: Constants.buildVersionKey, with: String(toBuild), in: newContent)
 
-  if finalContent != content {
+  let changed = finalContent != content
+  if changed {
     try finalContent.write(to: fileURL, atomically: true, encoding: .utf8)
   }
 
@@ -284,6 +285,7 @@ func runBump(arguments: Arguments) throws {
   print("VERSION_TO=\(toVersion)")
   print("BUILD_FROM=\(baseBuild)")
   print("BUILD_TO=\(toBuild)")
+  print("CHANGED=\(changed ? "1" : "0")")
 }
 
 func runExtractNotes(arguments: Arguments) throws {
