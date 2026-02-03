@@ -8,12 +8,11 @@ import Foundation
 enum Constants {
   static let marketingVersionKey = "MARKETING_VERSION"
   static let buildVersionKey = "CURRENT_PROJECT_VERSION"
-  static let metadataStart = "<!-- release-metadata-start -->"
-  static let metadataEnd = "<!-- release-metadata-end -->"
   static let whatChangedHeading = "What changed?"
   static let releaseTypeHeading = "Release info"
   static let releaseTypeMajor = "Major"
   static let releaseTypeMinor = "Minor"
+  static let prCommentMarker = "<!-- release-version -->"
 }
 
 // MARK: - CLI
@@ -21,17 +20,15 @@ enum Constants {
 enum Command: String, CLISubcommandType, CaseIterable {
   case read
   case bump
-  case prInfo = "pr-info"
   case extractNotes = "extract-notes"
-  case updateMetadata = "update-metadata"
+  case prComment = "pr-comment"
 
   var description: String {
     switch self {
     case .read: "Read version/build from project file"
-    case .bump: "Compute and write next version"
-    case .prInfo: "Parse release type from PR event"
+    case .bump: "Bump PR branch (event + base ref + path)"
     case .extractNotes: "Extract release notes from PR body"
-    case .updateMetadata: "Update PR body with version block"
+    case .prComment: "Upsert PR version comment (will-be|released)"
     }
   }
 }
@@ -41,8 +38,8 @@ let cli = SimpleCLI(
   subcommands: Command.allCases.map { ($0.rawValue, $0.description) },
   examples: [
     "run version-and-release read --path project.pbxproj",
-    "run version-and-release bump --path project.pbxproj --base-version 1.0.0 \\",
-    "  --base-build 100 --release-type patch --pr-updated 1234567890",
+    "run version-and-release bump --event event.json --path project.pbxproj --base-ref origin/main",
+    "run version-and-release pr-comment --event event.json --version 2.0.0 --state will-be",
   ]
 )
 
@@ -173,34 +170,27 @@ func extractNotes(from body: String) -> String {
   return collected.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
-// MARK: - Metadata block
+// MARK: - Latest tag
 
-func metadataBlock(fromVersion: String, toVersion: String, fromBuild: String, toBuild: String)
-  -> String
-{
-  [
-    Constants.metadataStart,
-    "---",
-    "<small>Version information</small>",
-    "<small><code>v\(fromVersion) (\(fromBuild))</code> → <code>v\(toVersion) (\(toBuild))</code></small>",
-    Constants.metadataEnd,
-  ].joined(separator: "\n")
-}
-
-func metadataRegex() throws -> NSRegularExpression {
-  let start = NSRegularExpression.escapedPattern(for: Constants.metadataStart)
-  let end = NSRegularExpression.escapedPattern(for: Constants.metadataEnd)
-  return try NSRegularExpression(pattern: "\(start)[\\s\\S]*?\(end)")
-}
-
-func updatedBody(from body: String, with block: String) throws -> String {
-  let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
-  let regex = try metadataRegex()
-  let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
-  if regex.firstMatch(in: trimmed, range: range) != nil {
-    return regex.stringByReplacingMatches(in: trimmed, range: range, withTemplate: block)
+/// Returns the latest semantic version tag (e.g. v1.2.3) from the repo.
+/// Caller must run `git fetch --tags` first.
+func latestTagVersion() -> String? {
+  guard
+    let output = try? runCommand(
+      "git", ["tag", "--list", "--sort=-v:refname"],
+      emitOutput: false
+    )
+  else { return nil }
+  let tags = output.split(separator: "\n").map { String($0).trimmingCharacters(in: .whitespaces) }
+  for tag in tags where !tag.isEmpty {
+    let trimmed = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+    let parts = trimmed.split(separator: ".").map { String($0) }
+    guard parts.count >= 3,
+      Int(parts[0]) != nil, Int(parts[1]) != nil, Int(parts[2]) != nil
+    else { continue }
+    return trimmed
   }
-  return trimmed.isEmpty ? block : "\(trimmed)\n\n\(block)"
+  return nil
 }
 
 // MARK: - PR event loading
@@ -243,36 +233,44 @@ func runRead(arguments: Arguments) throws {
 }
 
 func runBump(arguments: Arguments) throws {
+  let eventPath = try arguments.require("--event")
   let path = try arguments.require("--path")
-  let baseVersionRaw = try arguments.require("--base-version")
-  let baseBuildRaw = try arguments.require("--base-build")
-  let releaseType = try arguments.require("--release-type")
-  let updatedRaw = try arguments.require("--pr-updated")
+  let baseRef = try arguments.require("--base-ref")
 
+  let event = try loadPullRequestEvent(from: eventPath)
+  let body = event.pullRequest.body ?? ""
+  guard let updatedAt = event.pullRequest.updatedAt else {
+    throw ScriptError("pull_request.updated_at missing")
+  }
+  let releaseType = releaseType(from: body)
+  let updatedEpoch = try epochSeconds(from: updatedAt)
+
+  let baseContent = try runCommand(
+    "git", ["show", "\(baseRef):\(path)"],
+    emitOutput: false
+  )
+  guard let baseVersionRaw = extractValue(for: Constants.marketingVersionKey, in: baseContent),
+    let baseBuildRaw = extractValue(for: Constants.buildVersionKey, in: baseContent)
+  else {
+    throw ScriptError("Could not read version/build from \(baseRef):\(path)")
+  }
   guard let baseBuild = Int(baseBuildRaw) else {
     throw ScriptError("Invalid base build: \(baseBuildRaw)")
   }
-  guard let updatedEpoch = Int(updatedRaw) else {
-    throw ScriptError("Invalid pr-updated: \(updatedRaw)")
-  }
 
-  let fileURL = URL(fileURLWithPath: path)
-  let content = try String(contentsOf: fileURL, encoding: .utf8)
-  let baseVersion = try normalizedSemver(from: baseVersionRaw)
-  let bumpedVersion = try bumpVersion(baseVersion, releaseType: releaseType)
+  let versionBase = latestTagVersion() ?? baseVersionRaw
+  let versionSemver = try normalizedSemver(from: versionBase)
+  let bumpedSemver = try bumpVersion(versionSemver, releaseType: releaseType)
+  let fromVersion = versionBase
+  let toVersion = "\(bumpedSemver.major).\(bumpedSemver.minor).\(bumpedSemver.patch)"
 
-  let fromVersion = "\(baseVersion.major).\(baseVersion.minor).\(baseVersion.patch)"
-  let toVersion = "\(bumpedVersion.major).\(bumpedVersion.minor).\(bumpedVersion.patch)"
-
-  // Build number = 30-minute increments since repo inception
-  let repoInception = 1_751_838_521  // 2025-07-06 21:48:41 UTC (first commit)
+  let repoInception = 1_751_838_521
   let halfHoursSinceInception = (updatedEpoch - repoInception) / 1800
-
-  // If base build is already using the new format (< 100000), use max to handle multiple PRs in same 30-min window
-  // Otherwise, ignore the old epoch-based format and start fresh with half-hours since inception
   let isNewFormat = baseBuild < 100000
   let toBuild = isNewFormat ? max(baseBuild + 1, halfHoursSinceInception) : halfHoursSinceInception
 
+  let fileURL = URL(fileURLWithPath: path)
+  let content = try String(contentsOf: fileURL, encoding: .utf8)
   let newContent = try replacingValue(
     for: Constants.marketingVersionKey, with: toVersion, in: content)
   let finalContent = try replacingValue(
@@ -288,38 +286,158 @@ func runBump(arguments: Arguments) throws {
   print("BUILD_TO=\(toBuild)")
 }
 
-func runPrInfo(arguments: Arguments) throws {
-  let eventPath = try arguments.require("--event")
-  let event = try loadPullRequestEvent(from: eventPath)
-  let body = event.pullRequest.body ?? ""
-  guard let updatedAt = event.pullRequest.updatedAt else {
-    throw ScriptError("pull_request.updated_at missing")
-  }
-  print("RELEASE_TYPE=\(releaseType(from: body))")
-  print("PR_UPDATED_EPOCH=\(try epochSeconds(from: updatedAt))")
-}
-
 func runExtractNotes(arguments: Arguments) throws {
   let eventPath = try arguments.require("--event")
   let event = try loadPullRequestEvent(from: eventPath)
   print(extractNotes(from: event.pullRequest.body ?? ""))
 }
 
-func runUpdateMetadata(arguments: Arguments) throws {
-  let fromVersion = try arguments.require("--from-version")
-  let toVersion = try arguments.require("--to-version")
-  let fromBuild = try arguments.require("--from-build")
-  let toBuild = try arguments.require("--to-build")
+func runPrComment(arguments: Arguments) throws {
+  let eventPath = try arguments.require("--event")
+  let version = try arguments.require("--version")
+  let stateRaw = try arguments.require("--state")
+  guard stateRaw == "will-be" || stateRaw == "released" else {
+    throw ScriptError("--state must be 'will-be' or 'released'")
+  }
+  let isReleased = stateRaw == "released"
+  let releaseUrl = ProcessInfo.processInfo.environment["RELEASE_URL"]
 
-  let block = metadataBlock(
-    fromVersion: fromVersion,
-    toVersion: toVersion,
-    fromBuild: fromBuild,
-    toBuild: toBuild
-  )
-  let bodyData = FileHandle.standardInput.readDataToEndOfFile()
-  let body = String(data: bodyData, encoding: .utf8) ?? ""
-  print(try updatedBody(from: body, with: block))
+  if isReleased && (releaseUrl == nil || releaseUrl?.isEmpty == true) {
+    throw ScriptError("RELEASE_URL environment variable required when state is 'released'")
+  }
+
+  let (owner, repo, issueNumber) = try loadExtendedEvent(from: eventPath)
+
+  let marker = Constants.prCommentMarker
+  let body: String
+  if isReleased, let url = releaseUrl {
+    body =
+      "\(marker)\n🎉 This PR is included in version \(version) 🎉\n\nThe release is available on [GitHub release](\(url))"
+  } else {
+    body = "\(marker)\n🎉 This PR will be included in version \(version) 🎉"
+  }
+
+  guard let token = ProcessInfo.processInfo.environment["GITHUB_TOKEN"], !token.isEmpty else {
+    throw ScriptError("GITHUB_TOKEN environment variable required")
+  }
+
+  try upsertPrComment(
+    owner: owner, repo: repo, issueNumber: issueNumber, body: body, token: token, marker: marker)
+}
+
+// MARK: - GitHub API
+
+func loadExtendedEvent(from path: String) throws -> (owner: String, repo: String, issueNumber: Int)
+{
+  struct EventPayload: Decodable {
+    let repository: Repo?
+    let pullRequest: PR?
+
+    enum CodingKeys: String, CodingKey {
+      case repository
+      case pullRequest = "pull_request"
+    }
+
+    struct Repo: Decodable {
+      let owner: Owner?
+      let name: String?
+      struct Owner: Decodable {
+        let login: String?
+      }
+    }
+    struct PR: Decodable {
+      let number: Int
+    }
+  }
+  let data = try Data(contentsOf: URL(fileURLWithPath: path))
+  let payload = try JSONDecoder().decode(EventPayload.self, from: data)
+  guard let repo = payload.repository,
+    let owner = repo.owner?.login, !owner.isEmpty,
+    let name = repo.name, !name.isEmpty,
+    let pr = payload.pullRequest
+  else {
+    throw ScriptError("Missing repository or pull request info in event payload")
+  }
+  return (owner, name, pr.number)
+}
+
+func urlSessionSyncData(for request: URLRequest) throws -> (Data, URLResponse) {
+  var result: (Data?, URLResponse?, Error?)?
+  let semaphore = DispatchSemaphore(value: 0)
+  URLSession.shared.dataTask(with: request) { data, response, error in
+    result = (data, response, error)
+    semaphore.signal()
+  }.resume()
+  semaphore.wait()
+  guard let r = result else { throw ScriptError("URLSession data task did not complete") }
+  if let error = r.2 { throw error }
+  guard let data = r.0, let response = r.1 else {
+    throw ScriptError("URLSession returned nil data or response")
+  }
+  return (data, response)
+}
+
+func upsertPrComment(
+  owner: String, repo: String, issueNumber: Int, body: String, token: String, marker: String
+)
+  throws
+{
+  let base = "https://api.github.com"
+  var request = URLRequest(
+    url: URL(string: "\(base)/repos/\(owner)/\(repo)/issues/\(issueNumber)/comments?per_page=100")!)
+  request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+  request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+  request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+  let (data, response) = try urlSessionSyncData(for: request)
+  guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+    let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
+    throw ScriptError("GitHub API error: \(msg)")
+  }
+
+  struct Comment: Decodable {
+    let id: Int
+    let body: String?
+  }
+  struct CommentList: Decodable {
+    let list: [Comment]
+    init(from decoder: Decoder) throws {
+      list = try [Comment](from: decoder)
+    }
+  }
+  let comments = try JSONDecoder().decode([Comment].self, from: data)
+  let existing = comments.first { ($0.body ?? "").contains(marker) }
+
+  if let comment = existing {
+    var patchRequest = URLRequest(
+      url: URL(string: "\(base)/repos/\(owner)/\(repo)/issues/comments/\(comment.id)")!)
+    patchRequest.httpMethod = "PATCH"
+    patchRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    patchRequest.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+    patchRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    patchRequest.httpBody = try JSONSerialization.data(withJSONObject: ["body": body])
+    let (patchData, patchResponse) = try urlSessionSyncData(for: patchRequest)
+    guard let patchHttp = patchResponse as? HTTPURLResponse,
+      (200...299).contains(patchHttp.statusCode)
+    else {
+      let msg = String(data: patchData, encoding: .utf8) ?? "Unknown error"
+      throw ScriptError("GitHub API PATCH error: \(msg)")
+    }
+  } else {
+    var postRequest = URLRequest(
+      url: URL(string: "\(base)/repos/\(owner)/\(repo)/issues/\(issueNumber)/comments")!)
+    postRequest.httpMethod = "POST"
+    postRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+    postRequest.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+    postRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    postRequest.httpBody = try JSONSerialization.data(withJSONObject: ["body": body])
+    let (postData, postResponse) = try urlSessionSyncData(for: postRequest)
+    guard let postHttp = postResponse as? HTTPURLResponse, (200...299).contains(postHttp.statusCode)
+    else {
+      let msg = String(data: postData, encoding: .utf8) ?? "Unknown error"
+      throw ScriptError("GitHub API POST error: \(msg)")
+    }
+  }
 }
 
 // MARK: - Entry point
@@ -342,9 +460,8 @@ struct VersionAndReleaseCommand {
       switch command {
       case .read: try runRead(arguments: arguments)
       case .bump: try runBump(arguments: arguments)
-      case .prInfo: try runPrInfo(arguments: arguments)
       case .extractNotes: try runExtractNotes(arguments: arguments)
-      case .updateMetadata: try runUpdateMetadata(arguments: arguments)
+      case .prComment: try runPrComment(arguments: arguments)
       }
     }
   }

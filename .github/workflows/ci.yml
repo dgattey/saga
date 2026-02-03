@@ -23,61 +23,40 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.PAT_FOR_ACTIONS }}
 
-      - name: Fetch main
-        run: git fetch origin main
+      - name: Fetch main and tags
+        run: |
+          git fetch origin main
+          git fetch --tags
 
-      - name: Extract PR info
-        id: prinfo
+      - name: Check if last commit is bot
+        id: check-bot
         run: |
           set -euo pipefail
-          info_output="$(./run version-and-release pr-info --event "$GITHUB_EVENT_PATH")"
-          release_type="$(echo "$info_output" | awk -F= '/^RELEASE_TYPE=/{print $2}')"
-          pr_updated_epoch="$(echo "$info_output" | awk -F= '/^PR_UPDATED_EPOCH=/{print $2}')"
-          if [[ -z "$release_type" || -z "$pr_updated_epoch" ]]; then
-            echo "Failed to parse PR info" >&2
-            exit 1
+          LAST_AUTHOR=$(git log -1 --format='%an')
+          if [ "$LAST_AUTHOR" = "github-actions[bot]" ]; then
+            echo "Last commit was by bot. Skipping bump steps."
+            echo "SKIP=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "SKIP=false" >> "$GITHUB_OUTPUT"
           fi
-          echo "release_type=$release_type" >> "$GITHUB_OUTPUT"
-          echo "pr_updated_epoch=$pr_updated_epoch" >> "$GITHUB_OUTPUT"
 
-      - name: Read base version/build from main
-        id: base
-        run: |
-          set -euo pipefail
-          base_file="$(mktemp)"
-          git show origin/main:"${{ vars.PBXPROJ_PATH }}" > "$base_file"
-          base_output="$(./run version-and-release read --path "$base_file")"
-          base_version="$(echo "$base_output" | awk -F= '/^VERSION=/{print $2}')"
-          base_build="$(echo "$base_output" | awk -F= '/^BUILD=/{print $2}')"
-          if [[ -z "$base_version" || -z "$base_build" ]]; then
-            echo "Failed to read base version/build" >&2
-            exit 1
-          fi
-          echo "version=$base_version" >> "$GITHUB_OUTPUT"
-          echo "build=$base_build" >> "$GITHUB_OUTPUT"
-
-      - name: Compute target version/build
+      - name: Bump version
         id: bump
+        if: steps.check-bot.outputs.SKIP != 'true'
         run: |
           set -euo pipefail
           bump_output="$(./run version-and-release bump \
+            --event "$GITHUB_EVENT_PATH" \
             --path "${{ vars.PBXPROJ_PATH }}" \
-            --base-version "${{ steps.base.outputs.version }}" \
-            --base-build "${{ steps.base.outputs.build }}" \
-            --release-type "${{ steps.prinfo.outputs.release_type }}" \
-            --pr-updated "${{ steps.prinfo.outputs.pr_updated_epoch }}")"
-          version_from="$(echo "$bump_output" | awk -F= '/^VERSION_FROM=/{print $2}')"
-          version_to="$(echo "$bump_output" | awk -F= '/^VERSION_TO=/{print $2}')"
-          build_from="$(echo "$bump_output" | awk -F= '/^BUILD_FROM=/{print $2}')"
-          build_to="$(echo "$bump_output" | awk -F= '/^BUILD_TO=/{print $2}')"
-          echo "version_from=$version_from" >> "$GITHUB_OUTPUT"
-          echo "version_to=$version_to" >> "$GITHUB_OUTPUT"
-          echo "build_from=$build_from" >> "$GITHUB_OUTPUT"
-          echo "build_to=$build_to" >> "$GITHUB_OUTPUT"
+            --base-ref origin/main)"
+          echo "version_from=$(echo "$bump_output" | awk -F= '/^VERSION_FROM=/{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "version_to=$(echo "$bump_output" | awk -F= '/^VERSION_TO=/{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "build_from=$(echo "$bump_output" | awk -F= '/^BUILD_FROM=/{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "build_to=$(echo "$bump_output" | awk -F= '/^BUILD_TO=/{print $2}')" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
         id: commit
-        if: github.actor != 'github-actions[bot]'
+        if: steps.check-bot.outputs.SKIP != 'true' && github.actor != 'github-actions[bot]'
         run: |
           set -euo pipefail
           if git diff --quiet; then
@@ -96,34 +75,13 @@ jobs:
         id: head
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Update PR metadata block
-        if: github.actor != 'github-actions[bot]'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { execFileSync } = require("child_process");
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const pull_number = context.payload.pull_request.number;
-            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
-            const body = pr.body || "";
-            const args = [
-              "version-and-release",
-              "update-metadata",
-              "--from-version", process.env.VERSION_FROM,
-              "--to-version", process.env.VERSION_TO,
-              "--from-build", process.env.BUILD_FROM,
-              "--to-build", process.env.BUILD_TO
-            ];
-            const newBody = execFileSync("./run", args, { input: body }).toString();
-            if (newBody !== body) {
-              await github.rest.pulls.update({ owner, repo, pull_number, body: newBody });
-            }
+      - name: Post PR version comment
+        if: steps.check-bot.outputs.SKIP != 'true' && github.actor != 'github-actions[bot]'
         env:
-          VERSION_FROM: ${{ steps.bump.outputs.version_from }}
-          VERSION_TO: ${{ steps.bump.outputs.version_to }}
-          BUILD_FROM: ${{ steps.bump.outputs.build_from }}
-          BUILD_TO: ${{ steps.bump.outputs.build_to }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.bump.outputs.version_to }}
+        run: |
+          ./run version-and-release pr-comment --event "$GITHUB_EVENT_PATH" --version "$VERSION" --state will-be
 
   format:
     name: 🎨 Format

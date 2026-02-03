@@ -8,7 +8,4 @@ Closes
 
 - [ ] Major
 - [ ] Minor
-- [ ] Patch
-
-<!-- release-metadata-start -->
-<!-- release-metadata-end -->
+- [x] Patch
