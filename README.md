@@ -1,3 +1,5 @@
+[![GitHub version](https://flat.badgen.net/github/release/dgattey/saga?cache=200)][gh] [![GitHub commits](https://flat.badgen.net/github/commits/dgattey/saga)][gh] [![Last commit](https://flat.badgen.net/github/last-commit/dgattey/saga/main)][gh]
+
 # Saga
 
 A native Swift app (iOS, macOS) for keeping track of what I've read, watched, played, and experienced. The vision is a personal knowledge base with full editing capabilities, synced via Contentful.
@@ -100,3 +102,5 @@ commit and you're good.
 ### Manual management
 
 Shouldn't be necessary, but you can `run version-and-release` for manual version management (see `--help` for subcommands).
+
+[gh]: https://github.com/dgattey/saga
