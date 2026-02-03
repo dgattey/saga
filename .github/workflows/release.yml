@@ -11,6 +11,7 @@ jobs:
     runs-on: macos-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Checkout merged commit
         uses: actions/checkout@v4
@@ -45,6 +46,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
+        id: release
         uses: actions/github-script@v7
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -57,15 +59,16 @@ jobs:
             const tag = `v${process.env.VERSION}`;
             const body = process.env.NOTES || "";
             try {
-              await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              const existing = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
               core.info(`Release ${tag} already exists, skipping.`);
+              core.setOutput('release_url', existing.data.html_url);
               return;
             } catch (error) {
               if (error.status !== 404) {
                 throw error;
               }
             }
-            await github.rest.repos.createRelease({
+            const { data: created } = await github.rest.repos.createRelease({
               owner,
               repo,
               tag_name: tag,
@@ -73,3 +76,11 @@ jobs:
               body,
               target_commitish: context.payload.pull_request.merge_commit_sha
             });
+            core.setOutput('release_url', created.html_url);
+
+      - name: Post PR released comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_URL: ${{ steps.release.outputs.release_url }}
+        run: |
+          ./run version-and-release pr-comment --event "$GITHUB_EVENT_PATH" --version "${{ steps.version.outputs.version }}" --state released

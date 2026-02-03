@@ -10,8 +10,8 @@ let cli = SimpleCLI(
   notes: [
     "Only adds completions if not already present",
     "Writes Saga/Config/Config.xcconfig (overwrites)",
-    "Ensures 1Password CLI is installed and authenticated",
-    "Pulls Contentful credentials from the 1Password saga vault",
+    "Runs 'brew bundle' from repo root (Brewfile: 1password-cli, swift-format)",
+    "Ensures 1Password CLI is authenticated; pulls Contentful credentials from the saga vault",
     "Restart your shell or run 'source ~/.zshrc' to activate",
   ]
 )
@@ -103,8 +103,14 @@ struct BootstrapCommand {
         throw ScriptError("Homebrew is required. Install from https://brew.sh/ and re-run.")
       }
 
-      print("Ensuring system dependencies...")
-      try ensureBrewPackage("1password-cli")
+      let repoRootURL = URL(fileURLWithPath: repoRoot)
+      print("Installing dependencies from Brewfile...")
+      _ = try runCommand(
+        "brew",
+        ["bundle"],
+        cwd: repoRootURL,
+        emitOutput: true
+      )
 
       if !isOnePasswordAuthenticated(account: ConfigDefaults.opAccount) {
         print("Authenticating with 1Password...")
