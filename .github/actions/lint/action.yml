@@ -9,9 +9,9 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Install swift-format
+    - name: Install dependencies
       shell: bash
-      run: brew install swift-format
+      run: brew bundle
 
     - name: Lint
       id: run_lint

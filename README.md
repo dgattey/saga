@@ -11,7 +11,7 @@ source ~/.zshrc   # activate completions
 
 Bootstrap handles all one-time setup:
 
-1. **Installs 1Password CLI** via Homebrew (if not present)
+1. **Installs Brewfile dependencies** (`brew bundle`: 1Password CLI, swift-format)
 2. **Authenticates with 1Password** (prompts if needed)
 3. **Writes `Saga/Config/Config.xcconfig`** with Contentful credentials from the `saga` vault (`CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` items)
 4. **Adds shell completions** to your `.zshrc` for the `run` command

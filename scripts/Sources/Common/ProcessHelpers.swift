@@ -19,22 +19,6 @@ public func checkXcodeToolsSelected() throws {
   }
 }
 
-/// Ensures a Homebrew package is installed, installing it if missing.
-public func ensureBrewPackage(_ package: String) throws {
-  let installed = try runCommand(
-    "brew",
-    ["list", "--formula", "--versions", package],
-    allowFailure: true,
-    emitOutput: false
-  )
-  if installed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-    print("Installing \(package) via Homebrew...")
-    _ = try runCommand("brew", ["install", package])
-  } else {
-    print("\(package) already installed.")
-  }
-}
-
 /// Returns true when the 1Password CLI is authenticated for the account.
 public func isOnePasswordAuthenticated(account: String) -> Bool {
   let output = try? runCommand(
