@@ -28,16 +28,7 @@ struct HotReloadableView<Content: View>: View {
   }
 }
 
-// MARK: - View Modifier
-
-/// View modifier that wraps content in a hot-reloadable container.
-struct HotReloadableModifier: ViewModifier {
-  func body(content: Content) -> some View {
-    HotReloadableView {
-      content
-    }
-  }
-}
+// MARK: - View Extension
 
 extension View {
   /// Enables hot reload for this view and all its descendants.
@@ -56,8 +47,13 @@ extension View {
   /// ```
   ///
   /// Note: Hot reload only works in DEBUG builds with InjectionIII running.
-  /// In release builds, this modifier has no effect on performance.
+  /// In release builds, this modifier returns the view unchanged with zero overhead.
+  @ViewBuilder
   func hotReloadable() -> some View {
-    modifier(HotReloadableModifier())
+    #if DEBUG
+      HotReloadableView { self }
+    #else
+      self
+    #endif
   }
 }
