@@ -1,5 +1,5 @@
 name: Build
-description: Build the macOS app with xcodebuild
+description: Build the macOS app with xcodebuild (without code signing)
 
 outputs:
   result:
@@ -11,11 +11,10 @@ runs:
   steps:
     - name: Build app
       id: run_build
-      continue-on-error: true
       shell: bash
       run: |
         set -euo pipefail
-        ./run app --build-only
+        ./run app --build-only --skip-signing
 
     - name: Record build result
       id: build_result
@@ -27,4 +26,5 @@ runs:
         else
           echo "result=fail" >> "$GITHUB_OUTPUT"
           echo "::error::Build failed. Run './run app --build-only' locally to debug."
+          exit 1
         fi

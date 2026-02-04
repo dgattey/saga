@@ -9,12 +9,14 @@ enum Option: String, CLIOptionType, CaseIterable {
   case verbose
   case buildOnly = "build-only"
   case uiTest = "ui-test"
+  case skipSigning = "skip-signing"
 
   var shortName: String? {
     switch self {
     case .verbose: "v"
     case .buildOnly: "b"
     case .uiTest: nil
+    case .skipSigning: nil
     }
   }
 
@@ -23,6 +25,7 @@ enum Option: String, CLIOptionType, CaseIterable {
     case .verbose: "Show full xcodebuild output (default is quiet)"
     case .buildOnly: "Build without launching the app"
     case .uiTest: "Run XCUITest UI tests and capture screenshots"
+    case .skipSigning: "Skip code signing (for CI without certificates)"
     }
   }
 }
@@ -31,6 +34,7 @@ struct Config {
   var verbose = false
   var buildOnly = false
   var runUiTests = false
+  var skipSigning = false
 }
 
 func parseArguments(_ args: [String]) throws -> Config {
@@ -47,6 +51,8 @@ func parseArguments(_ args: [String]) throws -> Config {
       config.buildOnly = true
     case .uiTest:
       config.runUiTests = true
+    case .skipSigning:
+      config.skipSigning = true
     }
   }
 
@@ -94,7 +100,8 @@ runMain(usage: cli.usage()) {
       projectPath: projectPath,
       derivedDataPath: paths.derivedDataPath,
       arch: arch,
-      verbose: config.verbose
+      verbose: config.verbose,
+      skipSigning: config.skipSigning
     )
     if !config.buildOnly {
       try runApp(appPath: paths.appPath)
