@@ -10,20 +10,6 @@
 import Inject
 import SwiftUI
 
-// MARK: - Environment Key for Hot Reload Status
-
-private struct HotReloadEnabledKey: EnvironmentKey {
-  static let defaultValue = false
-}
-
-extension EnvironmentValues {
-  /// Indicates whether hot reload is enabled for this view hierarchy.
-  var isHotReloadEnabled: Bool {
-    get { self[HotReloadEnabledKey.self] }
-    set { self[HotReloadEnabledKey.self] = newValue }
-  }
-}
-
 // MARK: - Hot Reloadable View Wrapper
 
 /// A wrapper view that enables hot reload for its content and all descendants.
@@ -38,7 +24,6 @@ struct HotReloadableView<Content: View>: View {
 
   var body: some View {
     content
-      .environment(\.isHotReloadEnabled, true)
       .enableInjection()
   }
 }
@@ -76,29 +61,3 @@ extension View {
     modifier(HotReloadableModifier())
   }
 }
-
-// MARK: - Hot Reload Indicator (Optional Debug UI)
-
-#if DEBUG
-  /// A small indicator showing hot reload status.
-  /// Can be added to views during development to confirm hot reload is active.
-  struct HotReloadIndicator: View {
-    @Environment(\.isHotReloadEnabled) private var isHotReloadEnabled
-
-    var body: some View {
-      if isHotReloadEnabled {
-        HStack(spacing: 4) {
-          Circle()
-            .fill(Color.green)
-            .frame(width: 6, height: 6)
-          Text("Hot Reload")
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 3)
-        .background(.ultraThinMaterial, in: Capsule())
-      }
-    }
-  }
-#endif
