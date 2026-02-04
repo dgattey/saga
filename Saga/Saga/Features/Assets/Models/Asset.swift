@@ -9,7 +9,9 @@ import ContentfulPersistence
 import CoreData
 
 @objc(Asset)
-final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
+final class Asset: NSManagedObject, AssetPersistable, SearchableModel, ContentfulSyncable,
+  ContentfulVersionTracking
+{
   static let contentTypeId = "asset"
 
   @NSManaged var id: String
@@ -25,6 +27,12 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
   @NSManaged var size: NSNumber?
   @NSManaged var width: NSNumber?
   @NSManaged var height: NSNumber?
+
+  /// Tracks whether this asset has local changes not yet synced to Contentful
+  @NSManaged var isDirty: Bool
+
+  /// The Contentful version number for optimistic locking during two-way sync
+  @NSManaged var contentfulVersion: Int
 
   /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.
   static func add(
