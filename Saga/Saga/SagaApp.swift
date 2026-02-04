@@ -44,6 +44,7 @@ struct SagaApp: App {
       ContentView()
         .environment(\.managedObjectContext, syncViewModel.viewContext)
         .windowBackground()
+        .hotReloadable()
     }
     .commands {
       MenuBarCommands()
@@ -59,6 +60,7 @@ struct SagaApp: App {
       WindowGroup("Settings", id: "settings") {
         SettingsView()
           .windowBackground()
+          .hotReloadable()
       }
       .windowResizability(.contentSize)
       .defaultSize(width: 450, height: 650)

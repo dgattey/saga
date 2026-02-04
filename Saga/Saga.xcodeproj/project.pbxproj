@@ -14,6 +14,7 @@
 		758F7A2B2E1E2D58007CDCC8 /* SwiftCSV in Frameworks */ = {isa = PBXBuildFile; productRef = 758F7A2A2E1E2D58007CDCC8 /* SwiftCSV */; };
 		694D9E5DAF914F79883DD791 /* SagaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCA819EDF6E64B3F834D7698 /* SagaUITests.swift */; };
 		5D6A8B317F8C4A9DB0C1D2E6 /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6A8B307F8C4A9DB0C1D2E5 /* AccessibilityID.swift */; };
+		A1B2C3D42E2A0B0100HOTREL /* Inject in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D32E2A0B0100HOTREL /* Inject */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +79,7 @@
 				7558CB4C2E1CEF2F00D92477 /* Ifrit in Frameworks */,
 				758F7A2B2E1E2D58007CDCC8 /* SwiftCSV in Frameworks */,
 				7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */,
+				A1B2C3D42E2A0B0100HOTREL /* Inject in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -151,6 +153,7 @@
 				7589F8172E1B29E5005C31D9 /* ContentfulPersistence */,
 				7558CB4B2E1CEF2F00D92477 /* Ifrit */,
 				758F7A2A2E1E2D58007CDCC8 /* SwiftCSV */,
+				A1B2C3D32E2A0B0100HOTREL /* Inject */,
 			);
 			productName = Saga;
 			productReference = 7589F7FF2E1B2299005C31D9 /* Saga.app */;
@@ -206,6 +209,7 @@
 				7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */,
 				7558CB442E1CE7E300D92477 /* XCRemoteSwiftPackageReference "Ifrit" */,
 				758F7A292E1E2D58007CDCC8 /* XCRemoteSwiftPackageReference "SwiftCSV" */,
+				A1B2C3D12E2A0B0100HOTREL /* XCRemoteSwiftPackageReference "Inject" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7589F8002E1B2299005C31D9 /* Products */;
@@ -571,6 +575,14 @@
 				minimumVersion = 0.10.0;
 			};
 		};
+		A1B2C3D12E2A0B0100HOTREL /* XCRemoteSwiftPackageReference "Inject" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/krzysztofzablocki/Inject";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.5.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -588,6 +600,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 758F7A292E1E2D58007CDCC8 /* XCRemoteSwiftPackageReference "SwiftCSV" */;
 			productName = SwiftCSV;
+		};
+		A1B2C3D32E2A0B0100HOTREL /* Inject */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D12E2A0B0100HOTREL /* XCRemoteSwiftPackageReference "Inject" */;
+			productName = Inject;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
