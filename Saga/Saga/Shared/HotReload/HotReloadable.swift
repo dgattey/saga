@@ -16,14 +16,14 @@ import SwiftUI
 /// Uses Inject's `@ObserveInjection` to listen for code changes and trigger view updates.
 struct HotReloadableView<Content: View>: View {
   @ObserveInjection private var inject
-  let content: Content
+  let content: () -> Content
 
-  init(@ViewBuilder content: () -> Content) {
-    self.content = content()
+  init(@ViewBuilder content: @escaping () -> Content) {
+    self.content = content
   }
 
   var body: some View {
-    content
+    content()
       .enableInjection()
   }
 }

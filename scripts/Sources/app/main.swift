@@ -60,6 +60,10 @@ func parseArguments(_ args: [String]) throws -> Config {
     throw ScriptError("--build-only is not supported with --ui-test")
   }
 
+  if config.runUiTests, config.skipSigning {
+    throw ScriptError("--skip-signing is not supported with --ui-test")
+  }
+
   return config
 }
 
