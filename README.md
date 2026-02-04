@@ -20,6 +20,18 @@ Bootstrap handles all one-time setup:
 
 After setup, use `run` (with tab completion) instead of `./run`. Re-run bootstrap any time to refresh credentials.
 
+### Enabling Two-Way Sync
+
+To enable pushing local changes back to Contentful (two-way sync), add your Content Management API token to `Config.xcconfig`:
+
+```
+CONTENTFUL_MANAGEMENT_TOKEN = your_cma_token_here
+```
+
+You can get a CMA token from the Contentful web app under Settings → API keys → Content management tokens.
+
+Without this token, only one-way sync (pull from Contentful) is available.
+
 ## App architecture
 
 Saga follows an MVVM architecture with SwiftUI views:
@@ -28,6 +40,24 @@ Saga follows an MVVM architecture with SwiftUI views:
 - **Shared/**: Reusable components, extensions, and utilities
 - **Services/**: Core services like persistence (Core Data) and syncing (Contentful)
 - Navigation is managed via `NavigationHistory` with a home-based sidebar layout
+
+### Contentful Sync Architecture
+
+Saga uses a bidirectional sync architecture with Contentful:
+
+**Pull (Contentful → CoreData)**
+- Uses [ContentfulPersistence.swift](https://github.com/contentful/contentful-persistence.swift) with delta sync tokens
+- Only fetches changes since last sync (efficient)
+- Automatically maps Contentful entries/assets to CoreData entities
+
+**Push (CoreData → Contentful)** *(requires management token)*
+- Uses the [Content Management API](https://www.contentful.com/developers/docs/references/content-management-api/)
+- Automatically detects local CoreData changes via `NSManagedObjectContextDidSaveNotification`
+- Debounces and batches changes for efficiency
+- Uploads assets (images) with full lifecycle: upload → process → publish
+- Uses "latest-wins" conflict resolution based on `updatedAt` timestamps
+
+Saving to CoreData automatically triggers sync when two-way sync is enabled.
 
 ## Development process
 
