@@ -6,5 +6,7 @@
 	<string>$(CONTENTFUL_ACCESS_TOKEN)</string>
 	<key>ContentfulSpaceId</key>
 	<string>$(CONTENTFUL_SPACE_ID)</string>
+	<key>ContentfulManagementToken</key>
+	<string>$(CONTENTFUL_MANAGEMENT_TOKEN)</string>
 </dict>
 </plist>
