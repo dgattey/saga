@@ -47,13 +47,8 @@ extension View {
   /// ```
   ///
   /// Note: Hot reload only works in DEBUG builds with InjectionIII running.
-  /// In release builds, this modifier returns the view unchanged with zero overhead.
-  @ViewBuilder
+  /// In release builds, this modifier has no effect on performance.
   func hotReloadable() -> some View {
-    #if DEBUG
-      HotReloadableView { self }
-    #else
-      self
-    #endif
+    HotReloadableView { self }
   }
 }
