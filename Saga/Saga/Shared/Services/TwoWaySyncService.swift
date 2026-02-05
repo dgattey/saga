@@ -114,12 +114,19 @@ final class TwoWaySyncService: ObservableObject {
   /// 1. Pull from Contentful (sync down)
   /// 2. Push dirty local changes (sync up)
   func sync() async throws {
-    guard !isSyncing else {
+    // Atomically check and set isSyncing to prevent race conditions
+    let shouldProceed = await MainActor.run {
+      if isSyncing {
+        return false
+      }
+      isSyncing = true
+      return true
+    }
+
+    guard shouldProceed else {
       LoggerService.log("Sync already in progress, skipping", level: .debug, surface: .sync)
       return
     }
-
-    await MainActor.run { isSyncing = true }
 
     do {
       // Step 1: ALWAYS sync down first to get latest state

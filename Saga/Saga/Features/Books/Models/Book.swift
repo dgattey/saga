@@ -83,9 +83,9 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel, Contentful
   override func willSave() {
     super.willSave()
 
-    // Skip if already dirty, being deleted, or during a sync pull operation
+    // Skip if being deleted or during a sync pull operation
     // (changes from server should not mark objects as dirty)
-    guard !isDirty, !isDeleted, !SyncState.isPulling else { return }
+    guard !isDeleted, !SyncState.isPulling else { return }
 
     // Check if any non-metadata properties changed
     let changedKeys = Set(changedValues().keys)
@@ -93,8 +93,12 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel, Contentful
 
     if !contentKeys.isEmpty {
       // Use primitiveValue to avoid triggering another willSave
-      setPrimitiveValue(true, forKey: "isDirty")
+      // Always update updatedAt for accurate conflict resolution (latest-wins)
       setPrimitiveValue(Date(), forKey: "updatedAt")
+      // Only set isDirty if not already dirty (avoid redundant write)
+      if !isDirty {
+        setPrimitiveValue(true, forKey: "isDirty")
+      }
     }
   }
 
