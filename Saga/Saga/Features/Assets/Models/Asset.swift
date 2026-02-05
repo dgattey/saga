@@ -44,8 +44,9 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel, Contentfu
   override func willSave() {
     super.willSave()
 
-    // Skip if already dirty or being deleted
-    guard !isDirty, !isDeleted else { return }
+    // Skip if already dirty, being deleted, or during a sync pull operation
+    // (changes from server should not mark objects as dirty)
+    guard !isDirty, !isDeleted, !SyncState.isPulling else { return }
 
     // Check if any non-metadata properties changed
     let changedKeys = Set(changedValues().keys)
