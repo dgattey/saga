@@ -121,19 +121,27 @@ final class TwoWaySyncService: ObservableObject {
 
     await MainActor.run { isSyncing = true }
 
-    defer {
-      Task { @MainActor in
-        isSyncing = false
-        lastSyncDate = Date()
-        pendingPushCount = countDirtyObjects()
-      }
+    do {
+      // Step 1: ALWAYS sync down first to get latest state
+      try await pull()
+
+      // Step 2: Push any dirty local changes
+      try await pushDirtyObjects()
+
+      await finishSync()
+    } catch {
+      await finishSync()
+      throw error
     }
+  }
 
-    // Step 1: ALWAYS sync down first to get latest state
-    try await pull()
-
-    // Step 2: Push any dirty local changes
-    try await pushDirtyObjects()
+  /// Resets sync state after a sync operation completes (success or failure)
+  private func finishSync() async {
+    await MainActor.run {
+      isSyncing = false
+      lastSyncDate = Date()
+      pendingPushCount = countDirtyObjects()
+    }
   }
 
   /// Resets all local data and re-syncs from Contentful
@@ -493,6 +501,12 @@ final class TwoWaySyncService: ObservableObject {
     await container.viewContext.perform {
       guard let asset = try? self.container.viewContext.existingObject(with: objectID) as? Asset
       else { return }
+
+      // Set flag to prevent willSave() from treating URL update as user edit
+      // (urlString is not in syncMetadataKeys, so it would re-mark isDirty = true)
+      SyncState.setIsPulling(true)
+      defer { SyncState.setIsPulling(false) }
+
       asset.urlString = url
       asset.isDirty = false
       asset.contentfulVersion = version
