@@ -43,7 +43,9 @@ private struct NonSendableBox<T>: @unchecked Sendable {
 }
 
 @objc(Book)
-final class Book: NSManagedObject, EntryPersistable, SearchableModel {
+final class Book: NSManagedObject, EntryPersistable, SearchableModel, ContentfulSyncable,
+  ContentfulVersionTracking
+{
   static let contentTypeId = "book"
   private static let coverImageURLCache = CoverImageURLCache()
 
@@ -61,8 +63,43 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
   @NSManaged var rating: NSNumber?
   @NSManaged var reviewDescription: RichTextDocument?
 
+  /// Tracks whether this book has local changes not yet synced to Contentful
+  @NSManaged var isDirty: Bool
+
+  /// The Contentful version number for optimistic locking during two-way sync
+  @NSManaged var contentfulVersion: Int
+
+  /// Properties that should NOT trigger isDirty (sync metadata)
+  private static let syncMetadataKeys: Set<String> = [
+    "isDirty", "contentfulVersion", "updatedAt", "createdAt", "localeCode"
+  ]
+
   var readingStatus: ReadingStatus {
     .init(readDateStarted: readDateStarted, readDateFinished: readDateFinished)
+  }
+
+  // MARK: - Automatic Dirty Tracking
+
+  override func willSave() {
+    super.willSave()
+
+    // Skip if being deleted or during a sync pull operation
+    // (changes from server should not mark objects as dirty)
+    guard !isDeleted, !SyncState.isPulling else { return }
+
+    // Check if any non-metadata properties changed
+    let changedKeys = Set(changedValues().keys)
+    let contentKeys = changedKeys.subtracting(Self.syncMetadataKeys)
+
+    if !contentKeys.isEmpty {
+      // Use primitiveValue to avoid triggering another willSave
+      // Always update updatedAt for accurate conflict resolution (latest-wins)
+      setPrimitiveValue(Date(), forKey: "updatedAt")
+      // Only set isDirty if not already dirty (avoid redundant write)
+      if !isDirty {
+        setPrimitiveValue(true, forKey: "isDirty")
+      }
+    }
   }
 
   /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.

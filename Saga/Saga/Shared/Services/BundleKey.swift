@@ -11,6 +11,8 @@ import Foundation
 enum BundleKey: String {
   case spaceId = "ContentfulSpaceId"
   case accessToken = "ContentfulAccessToken"
+  /// Content Management API token - required for two-way sync (writing back to Contentful)
+  case managementToken = "ContentfulManagementToken"
 
   /// Use this to get the actual value from the app bundle
   var bundleValue: String {

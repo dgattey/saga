@@ -2,11 +2,13 @@
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23788.4" systemVersion="24F74" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
 <entity name="Asset" representedClassName="Asset" syncable="YES">
     <attribute name="assetDescription" optional="YES" attributeType="String"/>
+    <attribute name="contentfulVersion" optional="YES" attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
     <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
     <attribute name="fileName" optional="YES" attributeType="String"/>
     <attribute name="fileType" optional="YES" attributeType="String"/>
     <attribute name="height" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
     <attribute name="id" attributeType="String"/>
+    <attribute name="isDirty" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
     <attribute name="localeCode" optional="YES" attributeType="String"/>
     <attribute name="size" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
     <attribute name="title" optional="YES" attributeType="String"/>
@@ -17,8 +19,10 @@
 </entity>
 <entity name="Book" representedClassName="Book" syncable="YES">
     <attribute name="author" optional="YES" attributeType="String"/>
+    <attribute name="contentfulVersion" optional="YES" attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
     <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
     <attribute name="id" attributeType="String"/>
+    <attribute name="isDirty" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
     <attribute name="isbn" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
     <attribute name="localeCode" optional="YES" attributeType="String"/>
     <attribute name="rating" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
