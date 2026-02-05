@@ -37,6 +37,27 @@ struct TwoWaySyncConfig {
   }
 }
 
+/// Tracks whether a ContentfulPersistence pull is in progress.
+/// Models should check this in willSave() to avoid marking objects dirty
+/// when changes originate from the server rather than local user edits.
+enum SyncState {
+  /// Thread-safe flag indicating a pull operation is in progress
+  private static let lock = NSLock()
+  private static var _isPulling = false
+
+  static var isPulling: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return _isPulling
+  }
+
+  static func setIsPulling(_ value: Bool) {
+    lock.lock()
+    defer { lock.unlock() }
+    _isPulling = value
+  }
+}
+
 /// Service that coordinates bidirectional sync between CoreData and Contentful
 ///
 /// **IMPORTANT**: This service requires a Content Management API token.
@@ -146,6 +167,10 @@ final class TwoWaySyncService: ObservableObject {
 
   private func pull() async throws {
     LoggerService.log("Pulling from Contentful...", level: .debug, surface: .sync)
+
+    // Set flag to prevent willSave() from marking objects dirty during pull
+    SyncState.setIsPulling(true)
+    defer { SyncState.setIsPulling(false) }
 
     try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
       syncManager.sync { result in
@@ -338,6 +363,14 @@ final class TwoWaySyncService: ObservableObject {
         ]
       ]
     }
+    if let reviewDescription = data.reviewDescription {
+      // Serialize RichTextDocument to JSON for Contentful's rich text field format
+      if let jsonData = try? JSONEncoder().encode(reviewDescription),
+        let jsonObject = try? JSONSerialization.jsonObject(with: jsonData)
+      {
+        fields["reviewDescription"] = ["en-US": jsonObject]
+      }
+    }
 
     return fields
   }
@@ -361,10 +394,10 @@ final class TwoWaySyncService: ObservableObject {
       throw ContentfulManagementError.assetUploadFailed(reason: "Asset has no URL")
     }
 
-    // Check if asset already exists on server
+    // Check if asset already exists on server (use asset endpoint, not entry endpoint)
     let serverState: (version: Int, updatedAt: Date?)?
     do {
-      serverState = try await managementService.fetchEntryMetadata(id: assetData.id)
+      serverState = try await managementService.fetchAssetMetadata(id: assetData.id)
     } catch ContentfulManagementError.entryNotFound {
       serverState = nil
     }
@@ -392,7 +425,7 @@ final class TwoWaySyncService: ObservableObject {
       let fileName = assetData.fileName ?? "\(assetData.id).jpg"
       let contentType = assetData.fileType ?? "image/jpeg"
 
-      let (_, uploadedURL) = try await managementService.uploadAsset(
+      let (_, uploadedURL, finalVersion) = try await managementService.uploadAsset(
         id: assetData.id,
         title: assetData.title,
         description: assetData.assetDescription,
@@ -401,8 +434,8 @@ final class TwoWaySyncService: ObservableObject {
         contentType: contentType
       )
 
-      // Update local URL and mark clean
-      await updateAssetAndMarkClean(objectID: objectID, url: uploadedURL)
+      // Update local URL and mark clean with actual version
+      await updateAssetAndMarkClean(objectID: objectID, url: uploadedURL, version: finalVersion)
       LoggerService.log("Uploaded asset \(assetData.id)", level: .debug, surface: .sync)
     } else {
       // Existing asset - just update metadata if needed
@@ -455,13 +488,14 @@ final class TwoWaySyncService: ObservableObject {
     }
   }
 
-  private func updateAssetAndMarkClean(objectID: NSManagedObjectID, url: String) async {
+  private func updateAssetAndMarkClean(objectID: NSManagedObjectID, url: String, version: Int) async
+  {
     await container.viewContext.perform {
       guard let asset = try? self.container.viewContext.existingObject(with: objectID) as? Asset
       else { return }
       asset.urlString = url
       asset.isDirty = false
-      asset.contentfulVersion = 1
+      asset.contentfulVersion = version
       try? self.container.viewContext.save()
     }
   }

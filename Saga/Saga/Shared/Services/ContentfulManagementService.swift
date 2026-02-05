@@ -255,6 +255,42 @@ actor ContentfulManagementService {
     return (version: version, updatedAt: updatedAt)
   }
 
+  /// Fetches the current version of an asset
+  /// - Parameter id: The asset ID
+  /// - Returns: The current version and updatedAt timestamp
+  func fetchAssetMetadata(id: String) async throws -> (version: Int, updatedAt: Date?) {
+    let request = makeRequest(path: "/assets/\(id)", method: "GET")
+    let (data, response) = try await performRequest(request)
+
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw ContentfulManagementError.invalidResponse(statusCode: 0, body: nil)
+    }
+
+    if httpResponse.statusCode == 404 {
+      throw ContentfulManagementError.entryNotFound(id: id)
+    }
+
+    guard (200...299).contains(httpResponse.statusCode) else {
+      let bodyString = String(data: data, encoding: .utf8)
+      throw ContentfulManagementError.invalidResponse(
+        statusCode: httpResponse.statusCode, body: bodyString)
+    }
+
+    guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+      let sys = json["sys"] as? [String: Any],
+      let version = sys["version"] as? Int
+    else {
+      throw ContentfulManagementError.invalidResponse(statusCode: httpResponse.statusCode, body: nil)
+    }
+
+    var updatedAt: Date?
+    if let updatedAtString = sys["updatedAt"] as? String {
+      updatedAt = ISO8601DateFormatter().date(from: updatedAtString)
+    }
+
+    return (version: version, updatedAt: updatedAt)
+  }
+
   // MARK: - Asset Operations
 
   /// Uploads a new asset to Contentful
@@ -270,7 +306,7 @@ actor ContentfulManagementService {
   ///   - fileData: The raw file data
   ///   - fileName: The file name with extension
   ///   - contentType: The MIME type (e.g., "image/jpeg")
-  /// - Returns: The created asset's ID and URL
+  /// - Returns: The created asset's ID, URL, and final version
   func uploadAsset(
     id: String?,
     title: String?,
@@ -278,7 +314,7 @@ actor ContentfulManagementService {
     fileData: Data,
     fileName: String,
     contentType: String
-  ) async throws -> (id: String, url: String) {
+  ) async throws -> (id: String, url: String, version: Int) {
     let assetId = id ?? UUID().uuidString
 
     // Step 1: Upload the file to Contentful's upload endpoint
@@ -312,14 +348,14 @@ actor ContentfulManagementService {
     let processedVersion = try await processAsset(id: assetId, version: version)
 
     // Step 4: Publish the asset
-    try await publishAsset(id: assetId, version: processedVersion)
+    let finalVersion = try await publishAsset(id: assetId, version: processedVersion)
 
     // Fetch the final URL
     let assetURL = try await fetchAssetURL(id: assetId)
 
     LoggerService.log(
       "Uploaded and published asset \(assetId)", level: .debug, surface: .persistence)
-    return (id: assetId, url: assetURL)
+    return (id: assetId, url: assetURL, version: finalVersion)
   }
 
   /// Updates an existing asset's metadata
@@ -488,7 +524,7 @@ actor ContentfulManagementService {
     throw ContentfulManagementError.assetProcessingFailed(reason: "Timed out waiting for processing")
   }
 
-  private func publishAsset(id: String, version: Int) async throws {
+  private func publishAsset(id: String, version: Int) async throws -> Int {
     var request = makeRequest(path: "/assets/\(id)/published", method: "PUT")
     request.setValue(String(version), forHTTPHeaderField: "X-Contentful-Version")
 
@@ -500,6 +536,9 @@ actor ContentfulManagementService {
       throw ContentfulManagementError.assetUploadFailed(
         reason: "Publish failed: \(bodyString ?? "unknown")")
     }
+
+    return httpResponse.value(forHTTPHeaderField: "X-Contentful-Version").flatMap(Int.init)
+      ?? (version + 1)
   }
 
   private func unpublishAsset(id: String) async throws {
