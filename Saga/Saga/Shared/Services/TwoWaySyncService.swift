@@ -3,10 +3,15 @@
 //  Saga
 //
 //  Orchestrates two-way sync between CoreData and Contentful.
-//  - Pull: Uses ContentfulPersistence's SynchronizationManager (existing)
-//  - Push: Uses ContentfulManagementService to write changes back
 //
-//  Conflict resolution: Latest-wins based on updatedAt timestamps
+//  Workflow (per Contentful best practices):
+//  1. User edits CoreData → isDirty = true
+//  2. Sync down first via ContentfulPersistence (delta sync)
+//  3. For each dirty object, fetch current sys.version from CMA
+//  4. Resolve conflicts (latest-wins via updatedAt)
+//  5. Push changes via CMA
+//  6. Explicitly publish entries
+//  7. Mark isDirty = false, update contentfulVersion
 //
 
 import Combine
@@ -17,11 +22,8 @@ import Foundation
 
 /// Configuration for two-way sync behavior
 struct TwoWaySyncConfig {
-  /// Whether to automatically push local changes
-  var autoPushEnabled: Bool = true
-
-  /// Minimum interval between push operations (seconds)
-  var pushDebounceInterval: TimeInterval = 2.0
+  /// Minimum interval between sync operations (seconds)
+  var syncDebounceInterval: TimeInterval = 2.0
 
   /// Whether to auto-publish entries after creating/updating
   var autoPublish: Bool = true
@@ -30,201 +32,91 @@ struct TwoWaySyncConfig {
   var conflictResolution: ConflictResolution = .latestWins
 
   enum ConflictResolution {
-    case latestWins  // Compare updatedAt timestamps
-    case localWins  // Always prefer local changes
-    case serverWins  // Always prefer server changes
+    case latestWins  // Compare updatedAt timestamps, skip if server is newer
+    case localWins  // Always push local changes (overwrites server)
   }
 }
 
 /// Service that coordinates bidirectional sync between CoreData and Contentful
+///
+/// **IMPORTANT**: This service requires a Content Management API token.
+/// Configure `CONTENTFUL_MANAGEMENT_TOKEN` in Config.xcconfig.
 final class TwoWaySyncService: ObservableObject {
 
   // MARK: - Published State
 
-  @Published private(set) var isPulling = false
-  @Published private(set) var isPushing = false
-  @Published private(set) var lastPullDate: Date?
-  @Published private(set) var lastPushDate: Date?
+  @Published private(set) var isSyncing = false
+  @Published private(set) var lastSyncDate: Date?
   @Published private(set) var pendingPushCount: Int = 0
   @Published private(set) var lastError: Error?
-
-  var isSyncing: Bool { isPulling || isPushing }
 
   // MARK: - Dependencies
 
   private let container: NSPersistentContainer
   private let syncManager: SynchronizationManager
-  private let changeObserver: CoreDataChangeObserver
-  private var managementService: ContentfulManagementService?
+  private let managementService: ContentfulManagementService
   private let config: TwoWaySyncConfig
 
   // MARK: - Private State
 
   private var cancellables = Set<AnyCancellable>()
-  private var pushTask: Task<Void, Never>?
-  private var pushDebounceTask: Task<Void, Never>?
+  private var syncDebounceTask: Task<Void, Never>?
 
   // MARK: - Initialization
 
+  /// Creates a two-way sync service.
+  /// - Throws: `ContentfulManagementError.missingManagementToken` if not configured
   init(
     container: NSPersistentContainer,
     syncManager: SynchronizationManager,
     config: TwoWaySyncConfig = TwoWaySyncConfig()
-  ) {
+  ) throws {
     self.container = container
     self.syncManager = syncManager
     self.config = config
-    self.changeObserver = CoreDataChangeObserver(context: container.viewContext)
 
-    // Initialize management service if token is available
-    if BundleKey.hasManagementToken {
-      do {
-        self.managementService = try ContentfulManagementService()
-        LoggerService.log(
-          "Two-way sync enabled (management token configured)",
-          level: .notice,
-          surface: .sync
-        )
-      } catch {
-        LoggerService.log(
-          "Two-way sync disabled: \(error.localizedDescription)",
-          level: .warning,
-          surface: .sync
-        )
-      }
-    } else {
-      LoggerService.log(
-        "Two-way sync disabled (no management token)",
-        level: .notice,
-        surface: .sync
-      )
-    }
+    // LOUD FAILURE: Two-way sync requires management token
+    self.managementService = try ContentfulManagementService()
 
-    setupObservers()
+    LoggerService.log(
+      "Two-way sync service initialized",
+      level: .notice,
+      surface: .sync
+    )
+
+    setupChangeObserver()
   }
 
-  // MARK: - Public API: Pull (Contentful → CoreData)
+  // MARK: - Public API
 
-  /// Pulls changes from Contentful to CoreData
-  /// Uses ContentfulPersistence's delta sync via sync tokens
-  func pull() async throws {
-    guard !isPulling else {
-      LoggerService.log("Pull already in progress, skipping", level: .debug, surface: .sync)
-      return
-    }
-
-    await MainActor.run { isPulling = true }
-
-    // Pause change observer to avoid triggering push for incoming changes
-    changeObserver.pause()
-
-    defer {
-      Task { @MainActor in
-        isPulling = false
-        lastPullDate = Date()
-      }
-      changeObserver.resume()
-    }
-
-    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-      syncManager.sync { result in
-        switch result {
-        case .success:
-          LoggerService.log("Pull completed successfully", level: .debug, surface: .sync)
-          continuation.resume()
-        case .failure(let error):
-          LoggerService.log("Pull failed", error: error, surface: .sync)
-          continuation.resume(throwing: error)
-        }
-      }
-    }
-  }
-
-  // MARK: - Public API: Push (CoreData → Contentful)
-
-  /// Pushes local changes to Contentful
-  /// Only available if management token is configured
-  func push() async throws {
-    guard let managementService = managementService else {
-      throw ContentfulManagementError.missingManagementToken
-    }
-
-    guard !isPushing else {
-      LoggerService.log("Push already in progress, skipping", level: .debug, surface: .sync)
-      return
-    }
-
-    let changes = changeObserver.pendingChanges
-    guard !changes.isEmpty else {
-      LoggerService.log("No pending changes to push", level: .debug, surface: .sync)
-      return
-    }
-
-    await MainActor.run {
-      isPushing = true
-      pendingPushCount = changes.count
-    }
-
-    defer {
-      Task { @MainActor in
-        isPushing = false
-        lastPushDate = Date()
-        pendingPushCount = changeObserver.pendingChanges.count
-      }
-    }
-
-    LoggerService.log("Pushing \(changes.count) changes to Contentful", level: .notice, surface: .sync)
-
-    var successfulChanges: [LocalChange] = []
-    var errors: [Error] = []
-
-    for change in changes {
-      do {
-        try await pushChange(change, using: managementService)
-        successfulChanges.append(change)
-      } catch {
-        LoggerService.log(
-          "Failed to push change for \(change.entityName) \(change.contentfulId)",
-          error: error,
-          surface: .sync
-        )
-        errors.append(error)
-      }
-    }
-
-    // Remove successful changes from queue
-    changeObserver.removeChanges(successfulChanges)
-
-    if !errors.isEmpty {
-      LoggerService.log(
-        "Push completed with \(errors.count) errors",
-        level: .warning,
-        surface: .sync
-      )
-      await MainActor.run { lastError = errors.first }
-    } else {
-      LoggerService.log(
-        "Push completed successfully (\(successfulChanges.count) changes)",
-        level: .notice,
-        surface: .sync
-      )
-    }
-  }
-
-  /// Performs a full sync: pull then push
+  /// Performs a full sync cycle:
+  /// 1. Pull from Contentful (sync down)
+  /// 2. Push dirty local changes (sync up)
   func sync() async throws {
+    guard !isSyncing else {
+      LoggerService.log("Sync already in progress, skipping", level: .debug, surface: .sync)
+      return
+    }
+
+    await MainActor.run { isSyncing = true }
+
+    defer {
+      Task { @MainActor in
+        isSyncing = false
+        lastSyncDate = Date()
+        pendingPushCount = countDirtyObjects()
+      }
+    }
+
+    // Step 1: ALWAYS sync down first to get latest state
     try await pull()
 
-    if managementService != nil {
-      try await push()
-    }
+    // Step 2: Push any dirty local changes
+    try await pushDirtyObjects()
   }
 
   /// Resets all local data and re-syncs from Contentful
   func resetAndSync() async throws {
-    // Clear pending changes since we're resetting
-    changeObserver.clearPendingChanges()
-
     // Delete all local data
     let entityNames = container.managedObjectModel.entities.compactMap { $0.name }
     for entityName in entityNames {
@@ -244,168 +136,143 @@ final class TwoWaySyncService: ObservableObject {
       }
     }
 
+    LoggerService.log("Cleared all local data", level: .notice, surface: .sync)
+
     // Re-sync from Contentful
-    try await pull()
+    try await sync()
   }
 
-  // MARK: - Push Individual Changes
+  // MARK: - Pull (Contentful → CoreData)
 
-  private func pushChange(
-    _ change: LocalChange,
-    using service: ContentfulManagementService
-  ) async throws {
-    switch change.changeType {
-    case .insert:
-      try await pushInsert(change, using: service)
-    case .update:
-      try await pushUpdate(change, using: service)
-    case .delete:
-      try await pushDelete(change, using: service)
+  private func pull() async throws {
+    LoggerService.log("Pulling from Contentful...", level: .debug, surface: .sync)
+
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+      syncManager.sync { result in
+        switch result {
+        case .success:
+          LoggerService.log("Pull completed", level: .debug, surface: .sync)
+          continuation.resume()
+        case .failure(let error):
+          LoggerService.log("Pull failed", error: error, surface: .sync)
+          continuation.resume(throwing: error)
+        }
+      }
     }
   }
 
-  private func pushInsert(
-    _ change: LocalChange,
-    using service: ContentfulManagementService
-  ) async throws {
-    switch change.entityName {
-    case "Book":
-      try await pushBookInsert(change, using: service)
-    case "Asset":
-      try await pushAssetInsert(change, using: service)
-    default:
-      LoggerService.log(
-        "Unknown entity type for insert: \(change.entityName)",
-        level: .warning,
-        surface: .sync
-      )
+  // MARK: - Push (CoreData → Contentful)
+
+  private func pushDirtyObjects() async throws {
+    let dirtyBooks = try await fetchDirtyBooks()
+    let dirtyAssets = try await fetchDirtyAssets()
+
+    let totalDirty = dirtyBooks.count + dirtyAssets.count
+    guard totalDirty > 0 else {
+      LoggerService.log("No dirty objects to push", level: .debug, surface: .sync)
+      return
     }
-  }
 
-  private func pushUpdate(
-    _ change: LocalChange,
-    using service: ContentfulManagementService
-  ) async throws {
-    switch change.entityName {
-    case "Book":
-      try await pushBookUpdate(change, using: service)
-    case "Asset":
-      // Asset updates are handled differently - typically metadata only
-      LoggerService.log("Asset update skipped (metadata only)", level: .debug, surface: .sync)
-    default:
-      LoggerService.log(
-        "Unknown entity type for update: \(change.entityName)",
-        level: .warning,
-        surface: .sync
-      )
-    }
-  }
-
-  private func pushDelete(
-    _ change: LocalChange,
-    using service: ContentfulManagementService
-  ) async throws {
-    switch change.entityName {
-    case "Book":
-      try await service.deleteEntry(id: change.contentfulId)
-    case "Asset":
-      try await service.deleteAsset(id: change.contentfulId)
-    default:
-      LoggerService.log(
-        "Unknown entity type for delete: \(change.entityName)",
-        level: .warning,
-        surface: .sync
-      )
-    }
-  }
-
-  // MARK: - Book Sync
-
-  private func pushBookInsert(
-    _ change: LocalChange,
-    using service: ContentfulManagementService
-  ) async throws {
-    let bookData = try await fetchBookData(objectID: change.objectID)
-
-    let fields = buildBookFields(from: bookData)
-
-    let (entryId, version) = try await service.createEntry(
-      contentTypeId: Book.contentTypeId,
-      id: change.contentfulId,
-      fields: fields
+    LoggerService.log(
+      "Pushing \(totalDirty) dirty objects (\(dirtyBooks.count) books, \(dirtyAssets.count) assets)",
+      level: .notice,
+      surface: .sync
     )
 
-    if config.autoPublish {
-      try await service.publishEntry(id: entryId, version: version)
+    // Push assets first (books may reference them)
+    for assetID in dirtyAssets {
+      try await pushAsset(objectID: assetID)
     }
 
-    // Update local object with Contentful version
-    await updateLocalBookVersion(objectID: change.objectID, version: version)
+    // Push books
+    for bookID in dirtyBooks {
+      try await pushBook(objectID: bookID)
+    }
   }
 
-  private func pushBookUpdate(
-    _ change: LocalChange,
-    using service: ContentfulManagementService
-  ) async throws {
-    let bookData = try await fetchBookData(objectID: change.objectID)
+  private func fetchDirtyBooks() async throws -> [NSManagedObjectID] {
+    try await container.viewContext.perform {
+      let request = NSFetchRequest<Book>(entityName: "Book")
+      request.predicate = NSPredicate(format: "isDirty == YES")
+      let books = try self.container.viewContext.fetch(request)
+      return books.map { $0.objectID }
+    }
+  }
 
-    // Check for conflicts using latest-wins
-    if config.conflictResolution == .latestWins {
-      do {
-        let serverMeta = try await service.fetchEntryMetadata(id: change.contentfulId)
-        if let serverUpdatedAt = serverMeta.updatedAt,
-          let localUpdatedAt = bookData.updatedAt,
-          serverUpdatedAt > localUpdatedAt
-        {
-          LoggerService.log(
-            "Server version is newer, skipping push for \(change.contentfulId)",
-            level: .debug,
-            surface: .sync
-          )
-          return
-        }
-      } catch ContentfulManagementError.entryNotFound {
-        // Entry doesn't exist on server, treat as insert
-        try await pushBookInsert(change, using: service)
-        return
-      }
+  private func fetchDirtyAssets() async throws -> [NSManagedObjectID] {
+    try await container.viewContext.perform {
+      let request = NSFetchRequest<Asset>(entityName: "Asset")
+      request.predicate = NSPredicate(format: "isDirty == YES")
+      let assets = try self.container.viewContext.fetch(request)
+      return assets.map { $0.objectID }
+    }
+  }
+
+  // MARK: - Push Book
+
+  private func pushBook(objectID: NSManagedObjectID) async throws {
+    let bookData = try await fetchBookData(objectID: objectID)
+
+    // Step 1: Fetch current server state to get sys.version
+    let serverState: (version: Int, updatedAt: Date?)?
+    do {
+      serverState = try await managementService.fetchEntryMetadata(id: bookData.id)
+    } catch ContentfulManagementError.entryNotFound {
+      serverState = nil  // New entry, will create
     }
 
+    // Step 2: Conflict resolution
+    if let serverState = serverState,
+      config.conflictResolution == .latestWins,
+      let serverUpdatedAt = serverState.updatedAt,
+      let localUpdatedAt = bookData.updatedAt,
+      serverUpdatedAt > localUpdatedAt
+    {
+      LoggerService.log(
+        "Skipping book \(bookData.id): server is newer (server: \(serverUpdatedAt), local: \(localUpdatedAt))",
+        level: .notice,
+        surface: .sync
+      )
+      // Mark as clean since server has newer data
+      await markBookClean(objectID: objectID, version: serverState.version)
+      return
+    }
+
+    // Step 3: Build fields and push
     let fields = buildBookFields(from: bookData)
 
-    do {
-      let newVersion = try await service.updateEntry(
-        id: change.contentfulId,
-        version: bookData.contentfulVersion,
+    let newVersion: Int
+    if let serverState = serverState {
+      // Update existing entry
+      newVersion = try await managementService.updateEntry(
+        id: bookData.id,
+        version: serverState.version,
         fields: fields
       )
-
-      if config.autoPublish {
-        try await service.publishEntry(id: change.contentfulId, version: newVersion)
-      }
-
-      await updateLocalBookVersion(objectID: change.objectID, version: newVersion)
-    } catch ContentfulManagementError.versionConflict(let serverVersion) {
-      // Retry with server version (latest-wins means we overwrite)
-      if config.conflictResolution == .latestWins || config.conflictResolution == .localWins {
-        let newVersion = try await service.updateEntry(
-          id: change.contentfulId,
-          version: serverVersion,
-          fields: fields
-        )
-
-        if config.autoPublish {
-          try await service.publishEntry(id: change.contentfulId, version: newVersion)
-        }
-
-        await updateLocalBookVersion(objectID: change.objectID, version: newVersion)
-      } else {
-        throw ContentfulManagementError.versionConflict(serverVersion: serverVersion)
-      }
+      LoggerService.log("Updated book \(bookData.id) to version \(newVersion)", level: .debug, surface: .sync)
+    } else {
+      // Create new entry
+      let (_, version) = try await managementService.createEntry(
+        contentTypeId: Book.contentTypeId,
+        id: bookData.id,
+        fields: fields
+      )
+      newVersion = version
+      LoggerService.log("Created book \(bookData.id) at version \(newVersion)", level: .debug, surface: .sync)
     }
+
+    // Step 4: Publish
+    if config.autoPublish {
+      try await managementService.publishEntry(id: bookData.id, version: newVersion)
+      LoggerService.log("Published book \(bookData.id)", level: .debug, surface: .sync)
+    }
+
+    // Step 5: Mark clean and update version
+    await markBookClean(objectID: objectID, version: newVersion + 1)  // Version increments on publish
   }
 
   private struct BookData {
+    let id: String
     let title: String?
     let author: String?
     let isbn: NSNumber?
@@ -415,7 +282,6 @@ final class TwoWaySyncService: ObservableObject {
     let reviewDescription: RichTextDocument?
     let coverImageId: String?
     let updatedAt: Date?
-    let contentfulVersion: Int
   }
 
   private func fetchBookData(objectID: NSManagedObjectID) async throws -> BookData {
@@ -426,6 +292,7 @@ final class TwoWaySyncService: ObservableObject {
       }
 
       return BookData(
+        id: book.id,
         title: book.title,
         author: book.author,
         isbn: book.isbn,
@@ -434,8 +301,7 @@ final class TwoWaySyncService: ObservableObject {
         readDateFinished: book.readDateFinished,
         reviewDescription: book.reviewDescription,
         coverImageId: book.coverImage?.id,
-        updatedAt: book.updatedAt,
-        contentfulVersion: (book as? ContentfulVersionTracking)?.contentfulVersion ?? 1
+        updatedAt: book.updatedAt
       )
     }
   }
@@ -472,76 +338,92 @@ final class TwoWaySyncService: ObservableObject {
         ]
       ]
     }
-    // Note: Rich text requires special handling - simplified for now
-    // Full implementation would convert RichTextDocument back to Contentful format
 
     return fields
   }
 
-  private func updateLocalBookVersion(objectID: NSManagedObjectID, version: Int) async {
+  private func markBookClean(objectID: NSManagedObjectID, version: Int) async {
     await container.viewContext.perform {
       guard let book = try? self.container.viewContext.existingObject(with: objectID) as? Book
       else { return }
-      if var versionTracking = book as? ContentfulVersionTracking {
-        versionTracking.contentfulVersion = version
-      }
-      book.updatedAt = Date()
+      book.isDirty = false
+      book.contentfulVersion = version
       try? self.container.viewContext.save()
     }
   }
 
-  // MARK: - Asset Sync
+  // MARK: - Push Asset
 
-  private func pushAssetInsert(
-    _ change: LocalChange,
-    using service: ContentfulManagementService
-  ) async throws {
-    // For assets, we need the actual image data
-    // This is more complex - typically assets are created from URLs or local files
+  private func pushAsset(objectID: NSManagedObjectID) async throws {
+    let assetData = try await fetchAssetData(objectID: objectID)
 
-    let assetData = try await fetchAssetData(objectID: change.objectID)
-
-    // If we have a URL, we might need to download and re-upload
-    // For now, log that this requires special handling
-    LoggerService.log(
-      "Asset insert requires image data - URL: \(assetData.urlString ?? "none")",
-      level: .notice,
-      surface: .sync
-    )
-
-    // If the asset has a URL from an external source, we can create it with that URL
-    // Otherwise, we'd need the raw image data
-    guard let urlString = assetData.urlString,
-      let url = URL(string: urlString)
-    else {
-      throw ContentfulManagementError.assetUploadFailed(reason: "No URL available for asset")
+    guard let urlString = assetData.urlString, let url = URL(string: urlString) else {
+      throw ContentfulManagementError.assetUploadFailed(reason: "Asset has no URL")
     }
 
-    // Download image data
-    let (imageData, _) = try await URLSession.shared.data(from: url)
+    // Check if asset already exists on server
+    let serverState: (version: Int, updatedAt: Date?)?
+    do {
+      serverState = try await managementService.fetchEntryMetadata(id: assetData.id)
+    } catch ContentfulManagementError.entryNotFound {
+      serverState = nil
+    }
 
-    let fileName = assetData.fileName ?? "\(change.contentfulId).jpg"
-    let contentType = assetData.fileType ?? "image/jpeg"
+    // Skip if server is newer (for existing assets)
+    if let serverState = serverState,
+      config.conflictResolution == .latestWins,
+      let serverUpdatedAt = serverState.updatedAt,
+      let localUpdatedAt = assetData.updatedAt,
+      serverUpdatedAt > localUpdatedAt
+    {
+      LoggerService.log(
+        "Skipping asset \(assetData.id): server is newer",
+        level: .notice,
+        surface: .sync
+      )
+      await markAssetClean(objectID: objectID, version: serverState.version)
+      return
+    }
 
-    let (_, uploadedURL) = try await service.uploadAsset(
-      id: change.contentfulId,
-      title: assetData.title,
-      description: assetData.assetDescription,
-      fileData: imageData,
-      fileName: fileName,
-      contentType: contentType
-    )
+    // For new assets, download and upload
+    if serverState == nil {
+      let (imageData, _) = try await URLSession.shared.data(from: url)
 
-    // Update local asset with new URL
-    await updateLocalAssetURL(objectID: change.objectID, url: uploadedURL)
+      let fileName = assetData.fileName ?? "\(assetData.id).jpg"
+      let contentType = assetData.fileType ?? "image/jpeg"
+
+      let (_, uploadedURL) = try await managementService.uploadAsset(
+        id: assetData.id,
+        title: assetData.title,
+        description: assetData.assetDescription,
+        fileData: imageData,
+        fileName: fileName,
+        contentType: contentType
+      )
+
+      // Update local URL and mark clean
+      await updateAssetAndMarkClean(objectID: objectID, url: uploadedURL)
+      LoggerService.log("Uploaded asset \(assetData.id)", level: .debug, surface: .sync)
+    } else {
+      // Existing asset - just update metadata if needed
+      let newVersion = try await managementService.updateAsset(
+        id: assetData.id,
+        version: serverState!.version,
+        title: assetData.title,
+        description: assetData.assetDescription
+      )
+      await markAssetClean(objectID: objectID, version: newVersion)
+    }
   }
 
   private struct AssetData {
+    let id: String
     let title: String?
     let assetDescription: String?
     let urlString: String?
     let fileName: String?
     let fileType: String?
+    let updatedAt: Date?
   }
 
   private func fetchAssetData(objectID: NSManagedObjectID) async throws -> AssetData {
@@ -552,57 +434,84 @@ final class TwoWaySyncService: ObservableObject {
       }
 
       return AssetData(
+        id: asset.id,
         title: asset.title,
         assetDescription: asset.assetDescription,
         urlString: asset.urlString,
         fileName: asset.fileName,
-        fileType: asset.fileType
+        fileType: asset.fileType,
+        updatedAt: asset.updatedAt
       )
     }
   }
 
-  private func updateLocalAssetURL(objectID: NSManagedObjectID, url: String) async {
+  private func markAssetClean(objectID: NSManagedObjectID, version: Int) async {
     await container.viewContext.perform {
       guard let asset = try? self.container.viewContext.existingObject(with: objectID) as? Asset
       else { return }
-      asset.urlString = url
-      asset.updatedAt = Date()
+      asset.isDirty = false
+      asset.contentfulVersion = version
       try? self.container.viewContext.save()
     }
   }
 
-  // MARK: - Auto Push Setup
-
-  private func setupObservers() {
-    guard config.autoPushEnabled, managementService != nil else { return }
-
-    // Listen for local changes
-    NotificationCenter.default.publisher(for: .localChangesAvailable)
-      .sink { [weak self] _ in
-        self?.scheduleAutoPush()
-      }
-      .store(in: &cancellables)
-
-    // Track pending change count
-    changeObserver.$pendingChanges
-      .map { $0.count }
-      .receive(on: DispatchQueue.main)
-      .assign(to: &$pendingPushCount)
+  private func updateAssetAndMarkClean(objectID: NSManagedObjectID, url: String) async {
+    await container.viewContext.perform {
+      guard let asset = try? self.container.viewContext.existingObject(with: objectID) as? Asset
+      else { return }
+      asset.urlString = url
+      asset.isDirty = false
+      asset.contentfulVersion = 1
+      try? self.container.viewContext.save()
+    }
   }
 
-  private func scheduleAutoPush() {
-    pushDebounceTask?.cancel()
-    pushDebounceTask = Task {
-      try? await Task.sleep(nanoseconds: UInt64(config.pushDebounceInterval * 1_000_000_000))
+  // MARK: - Change Observer
 
+  private func setupChangeObserver() {
+    // Observe CoreData saves to track dirty count
+    NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave, object: container.viewContext)
+      .sink { [weak self] _ in
+        self?.scheduleSyncIfNeeded()
+      }
+      .store(in: &cancellables)
+  }
+
+  private func scheduleSyncIfNeeded() {
+    let dirtyCount = countDirtyObjects()
+    Task { @MainActor in
+      pendingPushCount = dirtyCount
+    }
+
+    guard dirtyCount > 0 else { return }
+
+    // Debounce auto-sync
+    syncDebounceTask?.cancel()
+    syncDebounceTask = Task {
+      try? await Task.sleep(nanoseconds: UInt64(config.syncDebounceInterval * 1_000_000_000))
       guard !Task.isCancelled else { return }
 
       do {
-        try await push()
+        try await sync()
       } catch {
-        LoggerService.log("Auto-push failed", error: error, surface: .sync)
+        LoggerService.log("Auto-sync failed", error: error, surface: .sync)
+        await MainActor.run { lastError = error }
       }
     }
+  }
+
+  private func countDirtyObjects() -> Int {
+    var count = 0
+    container.viewContext.performAndWait {
+      let bookRequest = NSFetchRequest<Book>(entityName: "Book")
+      bookRequest.predicate = NSPredicate(format: "isDirty == YES")
+      count += (try? container.viewContext.count(for: bookRequest)) ?? 0
+
+      let assetRequest = NSFetchRequest<Asset>(entityName: "Asset")
+      assetRequest.predicate = NSPredicate(format: "isDirty == YES")
+      count += (try? container.viewContext.count(for: assetRequest)) ?? 0
+    }
+    return count
   }
 }
 
@@ -611,4 +520,14 @@ final class TwoWaySyncService: ObservableObject {
 /// Protocol for tracking Contentful version numbers on local objects
 protocol ContentfulVersionTracking {
   var contentfulVersion: Int { get set }
+}
+
+/// Protocol for objects that can be synced to Contentful
+protocol ContentfulSyncable {
+  /// The Contentful entry/asset ID
+  var id: String { get }
+  /// When the object was last updated locally
+  var updatedAt: Date? { get }
+  /// Whether this object has local changes not yet synced
+  var isDirty: Bool { get set }
 }

@@ -9,35 +9,22 @@ import Contentful
 import ContentfulPersistence
 import CoreData
 
-/// Handles syncing with Contentful – register new entry types in `PersistenceModel.swift` and ensure your `Config.xcconfig` is set up properly via directions in readme
+/// Handles two-way sync with Contentful.
 ///
-/// ## Two-Way Sync
-/// This service now supports bidirectional sync:
-/// - **Pull** (Contentful → CoreData): Uses ContentfulPersistence's SynchronizationManager with delta sync tokens
-/// - **Push** (CoreData → Contentful): Uses the Content Management API via TwoWaySyncService
+/// **REQUIRED**: Configure `CONTENTFUL_MANAGEMENT_TOKEN` in Config.xcconfig.
+/// The app will crash at startup if this is missing.
 ///
-/// To enable push (two-way sync), add `ContentfulManagementToken` to your Config.xcconfig.
-/// Without this token, only pull (one-way sync) is available.
-///
-/// ### How It Works
-/// 1. CoreData changes are automatically detected via `NSManagedObjectContextDidSaveNotification`
-/// 2. Changes are debounced and batched for efficiency
-/// 3. Conflicts are resolved using "latest-wins" based on `updatedAt` timestamps
-/// 4. Assets are uploaded to Contentful and their URLs are updated locally
+/// ## Sync Workflow
+/// 1. User edits CoreData object → `isDirty = true` (automatic via `willSave()`)
+/// 2. On sync: Pull from Contentful first (delta sync)
+/// 3. Fetch `sys.version` from CMA for each dirty object
+/// 4. Resolve conflicts (latest-wins via `updatedAt`)
+/// 5. Push changes via CMA
+/// 6. Explicitly publish entries
+/// 7. Mark `isDirty = false`, update `contentfulVersion`
 struct PersistenceService {
   let container: NSPersistentContainer
-
-  /// The two-way sync service (handles both pull and push)
   let twoWaySyncService: TwoWaySyncService
-
-  /// Legacy access to sync manager for compatibility
-  private var syncManager: SynchronizationManager
-  private var client: Client
-
-  /// Whether two-way sync (push to Contentful) is available
-  var isTwoWaySyncEnabled: Bool {
-    BundleKey.hasManagementToken
-  }
 
   init() {
     container = NSPersistentContainer(name: "Saga")
@@ -48,60 +35,58 @@ struct PersistenceService {
     }
     container.viewContext.automaticallyMergesChangesFromParent = true
 
-    // --- Contentful setup ---
-    client = Client(
+    // --- Contentful CDA setup (for pull) ---
+    let client = Client(
       spaceId: BundleKey.spaceId.bundleValue,
       environmentId: "master",
       accessToken: BundleKey.accessToken.bundleValue
     )
-    syncManager = SynchronizationManager(
+    let syncManager = SynchronizationManager(
       client: client,
       localizationScheme: .default,
       persistenceStore: CoreDataStore(context: container.newBackgroundContext()),
       persistenceModel: PersistenceModel.shared
     )
 
-    // --- Initialize two-way sync service ---
-    twoWaySyncService = TwoWaySyncService(
-      container: container,
-      syncManager: syncManager,
-      config: TwoWaySyncConfig(
-        autoPushEnabled: true,
-        pushDebounceInterval: 2.0,
-        autoPublish: true,
-        conflictResolution: .latestWins
+    // --- Two-way sync service (REQUIRED - will crash if token missing) ---
+    do {
+      twoWaySyncService = try TwoWaySyncService(
+        container: container,
+        syncManager: syncManager,
+        config: TwoWaySyncConfig(
+          syncDebounceInterval: 2.0,
+          autoPublish: true,
+          conflictResolution: .latestWins
+        )
       )
-    )
+    } catch {
+      fatalError("""
+        Two-way sync requires CONTENTFUL_MANAGEMENT_TOKEN in Config.xcconfig.
 
-    // --- Creation kicks off an initial sync ---
+        Get your token from: Contentful → Settings → API keys → Content management tokens
+
+        Add to Saga/Config/Config.xcconfig:
+        CONTENTFUL_MANAGEMENT_TOKEN = your_token_here
+        """)
+    }
+
+    // --- Initial sync on launch ---
     Task { [self] in
       do {
-        try await syncWithApi()
+        try await sync()
       } catch {
         LoggerService.log("Initial sync failed", error: error, surface: .persistence)
       }
     }
   }
 
-  /// Pulls changes from Contentful to CoreData (one-way sync)
-  /// This is the original sync behavior using ContentfulPersistence
-  func syncWithApi() async throws {
-    try await twoWaySyncService.pull()
-  }
-
-  /// Pushes local changes to Contentful (requires management token)
-  /// Call this to manually trigger a push, or rely on automatic push
-  func pushToContentful() async throws {
-    try await twoWaySyncService.push()
-  }
-
-  /// Performs a full bidirectional sync: pull then push
-  func fullSync() async throws {
+  /// Performs a full bidirectional sync: pull from Contentful, then push dirty local changes
+  func sync() async throws {
     try await twoWaySyncService.sync()
   }
 
-  /// Resets all local data and resyncs from server, if needed
-  func resetAndSyncWithApi() async throws {
+  /// Resets all local data and resyncs from Contentful
+  func resetAndSync() async throws {
     try await twoWaySyncService.resetAndSync()
   }
 }

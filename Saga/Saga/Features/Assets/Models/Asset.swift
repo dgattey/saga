@@ -34,6 +34,30 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel, Contentfu
   /// The Contentful version number for optimistic locking during two-way sync
   @NSManaged var contentfulVersion: Int
 
+  /// Properties that should NOT trigger isDirty (sync metadata)
+  private static let syncMetadataKeys: Set<String> = [
+    "isDirty", "contentfulVersion", "updatedAt", "createdAt", "localeCode"
+  ]
+
+  // MARK: - Automatic Dirty Tracking
+
+  override func willSave() {
+    super.willSave()
+
+    // Skip if already dirty or being deleted
+    guard !isDirty, !isDeleted else { return }
+
+    // Check if any non-metadata properties changed
+    let changedKeys = Set(changedValues().keys)
+    let contentKeys = changedKeys.subtracting(Self.syncMetadataKeys)
+
+    if !contentKeys.isEmpty {
+      // Use primitiveValue to avoid triggering another willSave
+      setPrimitiveValue(true, forKey: "isDirty")
+      setPrimitiveValue(Date(), forKey: "updatedAt")
+    }
+  }
+
   /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.
   static func add(
     to context: NSManagedObjectContext,
