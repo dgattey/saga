@@ -18,9 +18,4 @@ enum BundleKey: String {
   var bundleValue: String {
     return Bundle.main.object(forInfoDictionaryKey: self.rawValue) as? String ?? ""
   }
-
-  /// Returns true if the management token is configured
-  static var hasManagementToken: Bool {
-    !managementToken.bundleValue.isEmpty
-  }
 }

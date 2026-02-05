@@ -20,17 +20,17 @@ Bootstrap handles all one-time setup:
 
 After setup, use `run` (with tab completion) instead of `./run`. Re-run bootstrap any time to refresh credentials.
 
-### Enabling Two-Way Sync
+### Content Management Token (Required)
 
-To enable pushing local changes back to Contentful (two-way sync), add your Content Management API token to `Config.xcconfig`:
+Two-way sync requires a Content Management API token. Add it to `Config.xcconfig`:
 
 ```
 CONTENTFUL_MANAGEMENT_TOKEN = your_cma_token_here
 ```
 
-You can get a CMA token from the Contentful web app under Settings → API keys → Content management tokens.
+Get your token from: Contentful → Settings → API keys → Content management tokens
 
-Without this token, only one-way sync (pull from Contentful) is available.
+**The app will crash at startup if this token is missing.**
 
 ## App architecture
 
