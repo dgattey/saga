@@ -90,7 +90,9 @@ func buildCacheKey(repoRoot: String) -> String {
   return "unknown"
 }
 
-func buildApp(projectPath: String, derivedDataPath: String, arch: String, verbose: Bool) throws {
+func buildApp(
+  projectPath: String, derivedDataPath: String, arch: String, verbose: Bool, skipSigning: Bool
+) throws {
   print("Building Saga (Debug)...")
   var args = [
     "-project", projectPath,
@@ -102,6 +104,14 @@ func buildApp(projectPath: String, derivedDataPath: String, arch: String, verbos
   ]
   if !verbose {
     args.insert("-quiet", at: 0)
+  }
+  // Skip code signing for CI environments without certificates
+  if skipSigning {
+    args.append(contentsOf: [
+      "CODE_SIGN_IDENTITY=-",
+      "CODE_SIGNING_REQUIRED=NO",
+      "CODE_SIGNING_ALLOWED=NO",
+    ])
   }
   try runCommand("xcodebuild", args)
 }

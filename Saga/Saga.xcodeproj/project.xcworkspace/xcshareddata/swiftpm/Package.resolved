@@ -1,5 +1,5 @@
 {
-  "originHash" : "7e84527564978fb14c64360d6b8dce201e313746b7f55322f2749496e167ddfd",
+  "originHash" : "1d0544883dbbec1a52a8f91f531545e030b896f0110ee27e61b6f96d51a2778b",
   "pins" : [
     {
       "identity" : "contentful-persistence.swift",
@@ -26,6 +26,15 @@
       "state" : {
         "revision" : "9b9556e14cee24ad16b19d0eb099283cf79a7d94",
         "version" : "3.0.0"
+      }
+    },
+    {
+      "identity" : "inject",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/krzysztofzablocki/Inject",
+      "state" : {
+        "revision" : "728c56639ecb3df441d51d5bc6747329afabcfc9",
+        "version" : "1.5.2"
       }
     },
     {

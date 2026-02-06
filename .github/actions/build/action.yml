@@ -1,0 +1,30 @@
+name: Build
+description: Build the macOS app with xcodebuild (without code signing)
+
+outputs:
+  result:
+    description: "'pass' if build succeeds, 'fail' otherwise"
+    value: ${{ steps.build_result.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - name: Build app
+      id: run_build
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./run app --build-only --skip-signing
+
+    - name: Record build result
+      id: build_result
+      if: always()
+      shell: bash
+      run: |
+        if [[ "${{ steps.run_build.outcome }}" == "success" ]]; then
+          echo "result=pass" >> "$GITHUB_OUTPUT"
+        else
+          echo "result=fail" >> "$GITHUB_OUTPUT"
+          echo "::error::Build failed. Run './run app --build-only' locally to debug."
+          exit 1
+        fi

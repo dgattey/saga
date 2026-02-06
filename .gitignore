@@ -2,4 +2,4 @@ xcuserdata
 *.xcconfig
 *.swp
 scripts/.build/
-build
+/build/
