@@ -22,6 +22,17 @@ struct SagaApp: App {
     // Register our transformers
     RichTextDocumentTransformer.register()
 
+    #if DEBUG
+      // Load InjectionIII bundle for hot reload support
+      #if os(macOS)
+        Bundle(path: "/Applications/InjectionIII.app/Contents/Resources/macOSInjection.bundle")?.load()
+      #elseif os(tvOS)
+        Bundle(path: "/Applications/InjectionIII.app/Contents/Resources/tvOSInjection.bundle")?.load()
+      #else
+        Bundle(path: "/Applications/InjectionIII.app/Contents/Resources/iOSInjection.bundle")?.load()
+      #endif
+    #endif
+
     #if os(macOS)
       // Close any restored settings window after app finishes launching
       NotificationCenter.default.addObserver(
