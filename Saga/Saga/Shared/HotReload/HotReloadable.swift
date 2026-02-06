@@ -7,36 +7,15 @@
 //  hot reload for the entire view hierarchy.
 //
 
-import Combine
 import Inject
 import SwiftUI
-
-// MARK: - Injection Observer
-
-/// Observes injection notifications and provides a changing ID to force view recreation.
-final class InjectionObserver: ObservableObject {
-  @Published private(set) var injectionCount = 0
-
-  private var cancellable: AnyCancellable?
-
-  init() {
-    // Listen for InjectionIII bundle notifications
-    cancellable = NotificationCenter.default
-      .publisher(for: Notification.Name("INJECTION_BUNDLE_NOTIFICATION"))
-      .receive(on: DispatchQueue.main)
-      .sink { [weak self] _ in
-        self?.injectionCount += 1
-      }
-  }
-}
 
 // MARK: - Hot Reloadable View Wrapper
 
 /// A wrapper view that enables hot reload for its content and all descendants.
-/// Uses injection notifications to force full view hierarchy recreation on code changes.
+/// Uses the Inject library's built-in observer to trigger view updates on code changes.
 struct HotReloadableView<Content: View>: View {
   @ObserveInjection private var inject
-  @StateObject private var observer = InjectionObserver()
   let content: () -> Content
 
   init(@ViewBuilder content: @escaping () -> Content) {
@@ -45,7 +24,6 @@ struct HotReloadableView<Content: View>: View {
 
   var body: some View {
     content()
-      .id(observer.injectionCount)
       .enableInjection()
   }
 }
