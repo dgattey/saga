@@ -18,6 +18,8 @@ enum LogSurface: String {
   case network = "Network"
   /// Rich text parsing and rendering.
   case richText = "RichText"
+  /// Hot reload / InjectionIII diagnostics (Debug only).
+  case hotReload = "HotReload"
 }
 
 enum LogLevel {

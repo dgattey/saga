@@ -77,7 +77,8 @@ func findXcodeDerivedData(projectName: String) -> [String] {
     return []
   }
 
-  return contents
+  return
+    contents
     .filter { $0.hasPrefix("\(projectName)-") }
     .map { "\(derivedDataPath)/\($0)" }
 }

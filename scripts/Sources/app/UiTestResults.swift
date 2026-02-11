@@ -3,7 +3,6 @@ import Foundation
 
 func runUiTests(
   projectPath: String,
-  derivedDataPath: String,
   arch: String,
   verbose: Bool,
   resultBundlePath: String,
@@ -21,12 +20,12 @@ func runUiTests(
   }
 
   print("Running Saga UI tests...")
+  // Uses standard DerivedData location for hot reload compatibility
   var args = [
     "-project", projectPath,
     "-scheme", "Saga",
     "-configuration", "Debug",
     "-destination", "platform=macOS,arch=\(arch)",
-    "-derivedDataPath", derivedDataPath,
     "-resultBundlePath", resultBundlePath,
     "test",
   ]

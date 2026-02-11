@@ -93,7 +93,6 @@ runMain(usage: cli.usage()) {
   if config.runUiTests {
     try runUiTests(
       projectPath: projectPath,
-      derivedDataPath: paths.derivedDataPath,
       arch: arch,
       verbose: config.verbose,
       resultBundlePath: paths.resultBundlePath,
@@ -102,7 +101,6 @@ runMain(usage: cli.usage()) {
   } else {
     try buildApp(
       projectPath: projectPath,
-      derivedDataPath: paths.derivedDataPath,
       arch: arch,
       verbose: config.verbose,
       skipSigning: config.skipSigning

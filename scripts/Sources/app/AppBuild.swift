@@ -91,15 +91,15 @@ func buildCacheKey(repoRoot: String) -> String {
 }
 
 func buildApp(
-  projectPath: String, derivedDataPath: String, arch: String, verbose: Bool, skipSigning: Bool
+  projectPath: String, arch: String, verbose: Bool, skipSigning: Bool
 ) throws {
   print("Building Saga (Debug)...")
+  // Uses standard DerivedData location for hot reload compatibility
   var args = [
     "-project", projectPath,
     "-scheme", "Saga",
     "-configuration", "Debug",
     "-destination", "platform=macOS,arch=\(arch)",
-    "-derivedDataPath", derivedDataPath,
     "build",
   ]
   if !verbose {
@@ -113,5 +113,6 @@ func buildApp(
       "CODE_SIGNING_ALLOWED=NO",
     ])
   }
+
   try runCommand("xcodebuild", args)
 }
