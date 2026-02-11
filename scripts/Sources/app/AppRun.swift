@@ -4,10 +4,21 @@ import Foundation
 struct AppPaths {
   let resultBundlePath: String
   let screenshotsPath: String
-  let appPath: String
 
   /// Standard Xcode DerivedData location (for hot reload compatibility)
   static let xcodeDerivedData = NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData"
+
+  private let configuration: String
+  private let appName: String
+
+  /// Computed property to resolve the app path after the build completes.
+  /// This must be accessed after `buildApp` runs so the DerivedData folder exists.
+  var appPath: String {
+    let derivedDataPath = Self.findDerivedData(projectName: appName)
+    return URL(fileURLWithPath: derivedDataPath)
+      .appendingPathComponent("Build/Products/\(configuration)/\(appName).app")
+      .path
+  }
 
   init(
     repoRoot: String,
@@ -15,6 +26,9 @@ struct AppPaths {
     configuration: String = "Debug",
     appName: String = "Saga"
   ) {
+    self.configuration = configuration
+    self.appName = appName
+
     let buildRoot = URL(fileURLWithPath: repoRoot).appendingPathComponent("build")
 
     resultBundlePath =
@@ -26,13 +40,6 @@ struct AppPaths {
       buildRoot
       .appendingPathComponent("UITestScreenshots")
       .appendingPathComponent(cacheKey)
-      .path
-
-    // Find existing DerivedData folder for app path
-    let derivedDataPath = Self.findDerivedData(projectName: appName)
-    appPath =
-      URL(fileURLWithPath: derivedDataPath)
-      .appendingPathComponent("Build/Products/\(configuration)/\(appName).app")
       .path
   }
 
