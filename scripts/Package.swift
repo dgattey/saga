@@ -11,5 +11,6 @@ let package = Package(
     .executableTarget(name: "drop-bot-commits", dependencies: ["Common"]),
     .executableTarget(name: "version-and-release", dependencies: ["Common"]),
     .executableTarget(name: "app", dependencies: ["Common"]),
+    .executableTarget(name: "clean", dependencies: ["Common"]),
   ]
 )

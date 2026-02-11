@@ -2,10 +2,12 @@ import Common
 import Foundation
 
 struct AppPaths {
-  let derivedDataPath: String
   let resultBundlePath: String
   let screenshotsPath: String
   let appPath: String
+
+  /// Standard Xcode DerivedData location (for hot reload compatibility)
+  static let xcodeDerivedData = NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData"
 
   init(
     repoRoot: String,
@@ -14,7 +16,7 @@ struct AppPaths {
     appName: String = "Saga"
   ) {
     let buildRoot = URL(fileURLWithPath: repoRoot).appendingPathComponent("build")
-    derivedDataPath = buildRoot.appendingPathComponent(cacheKey).path
+
     resultBundlePath =
       buildRoot
       .appendingPathComponent("UITestResults")
@@ -25,10 +27,24 @@ struct AppPaths {
       .appendingPathComponent("UITestScreenshots")
       .appendingPathComponent(cacheKey)
       .path
+
+    // Find existing DerivedData folder for app path
+    let derivedDataPath = Self.findDerivedData(projectName: appName)
     appPath =
       URL(fileURLWithPath: derivedDataPath)
       .appendingPathComponent("Build/Products/\(configuration)/\(appName).app")
       .path
+  }
+
+  static func findDerivedData(projectName: String) -> String {
+    let fileManager = FileManager.default
+    if let contents = try? fileManager.contentsOfDirectory(atPath: xcodeDerivedData) {
+      if let match = contents.first(where: { $0.hasPrefix("\(projectName)-") }) {
+        return "\(xcodeDerivedData)/\(match)"
+      }
+    }
+    // Return expected path even if it doesn't exist yet
+    return "\(xcodeDerivedData)/\(projectName)"
   }
 }
 

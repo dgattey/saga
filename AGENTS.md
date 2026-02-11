@@ -61,6 +61,25 @@ entities in both when adding models
 - Ask for clarification when requirements are ambiguous; surface 2–3 options when trade-offs matter
 - Update documentation and related rules when introducing new patterns or services
 
+## Hot Reload
+Hot reload is supported via InjectionNext for rapid iteration without rebuilding.
+
+**Setup (one-time)**:
+1. Install [InjectionNext](https://github.com/johnno1962/InjectionNext/releases) to `/Applications`
+2. Open InjectionNext → uncheck "Launch Xcode" → click "...or Watch Project" → select `Saga/` folder
+3. Build once in Xcode GUI (creates build logs InjectionNext needs)
+4. After that, use `run app` — hot reload works when you save files
+
+**How it works**: InjectionNext watches for file saves, recompiles changed files, injects
+new code into the running app, and triggers view recreation via `.hotReloadable()`.
+
+**Caveats**:
+- Requires one Xcode GUI build first (or after adding new files)
+- Can only change function bodies, not add/remove properties or change signatures
+- Icon should be orange when connected; yellow means compile error
+
+See `Saga/Saga/Shared/HotReload/HotReloadable.swift` for full documentation.
+
 ## Testing
 No test targets found. Use `run checks` and a build (`run app -b` or Xcode) as
 the standard verification loop.

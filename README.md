@@ -63,6 +63,17 @@ macOS requires granting Accessibility and Screen Recording permissions to the te
 (Xcode or `xcodebuild`). These permissions cannot be limited to a single target app, but the
 tests only interact with Saga and capture Saga's window content.
 
+### Hot Reload (Development)
+
+Hot reload is enabled via the [Inject](https://github.com/krzysztofzablocki/Inject) library. To use it:
+
+1. **Install InjectionIII** from the [Mac App Store](https://apps.apple.com/us/app/injectioniii/id1380446739) or build from [source](https://github.com/johnno1962/InjectionIII)
+2. **Run the app** in Xcode (Debug build)
+3. **Launch InjectionIII** and select the Saga project folder when prompted
+4. **Edit any Swift file** and save - the UI will automatically refresh
+
+Hot reload is applied universally via `.hotReloadable()` at the WindowGroup level, so all views automatically get hot reload support without individual modifications. No per-view setup required.
+
 ### Formatting and linting
 
 All Swift code is formatted and linted using `swift-format` with the repo config in `.swift-format`.
