@@ -586,3 +586,33 @@ protocol ContentfulSyncable {
   /// Whether this object has local changes not yet synced
   var isDirty: Bool { get set }
 }
+
+// MARK: - Shared Dirty Tracking
+
+/// Properties that should NOT trigger isDirty (sync metadata)
+private let contentfulSyncMetadataKeys: Set<String> = [
+  "isDirty", "contentfulVersion", "updatedAt", "createdAt", "localeCode"
+]
+
+extension ContentfulSyncable where Self: NSManagedObject {
+  /// Handles dirty tracking in willSave(). Call this from your willSave() override.
+  func handleDirtyTracking() {
+    // Skip if being deleted or during a sync pull operation
+    // (changes from server should not mark objects as dirty)
+    guard !isDeleted, !SyncState.isPulling else { return }
+
+    // Check if any non-metadata properties changed
+    let changedKeys = Set(changedValues().keys)
+    let contentKeys = changedKeys.subtracting(contentfulSyncMetadataKeys)
+
+    if !contentKeys.isEmpty {
+      // Use primitiveValue to avoid triggering another willSave
+      // Always update updatedAt for accurate conflict resolution (latest-wins)
+      setPrimitiveValue(Date(), forKey: "updatedAt")
+      // Only set isDirty if not already dirty (avoid redundant write)
+      if !isDirty {
+        setPrimitiveValue(true, forKey: "isDirty")
+      }
+    }
+  }
+}
