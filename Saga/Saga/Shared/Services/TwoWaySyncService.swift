@@ -79,6 +79,11 @@ final class TwoWaySyncService: ObservableObject {
     setupChangeObserver()
   }
 
+  deinit {
+    // Cancel debounce task to prevent it from running after mode switch
+    syncDebounceTask?.cancel()
+  }
+
   // MARK: - Public API
 
   /// Performs a full sync cycle:
@@ -480,16 +485,18 @@ final class TwoWaySyncService: ObservableObject {
     guard dirtyCount > 0 else { return }
 
     // Debounce auto-sync
+    // Use [weak self] to allow deallocation if mode switches before debounce fires
     syncDebounceTask?.cancel()
-    syncDebounceTask = Task {
-      try? await Task.sleep(nanoseconds: UInt64(config.syncDebounceInterval * 1_000_000_000))
+    let debounceInterval = config.syncDebounceInterval
+    syncDebounceTask = Task { [weak self] in
+      try? await Task.sleep(nanoseconds: UInt64(debounceInterval * 1_000_000_000))
       guard !Task.isCancelled else { return }
 
       do {
-        try await sync()
+        try await self?.sync()
       } catch {
         LoggerService.log("Auto-sync failed", error: error, surface: .sync)
-        await MainActor.run { lastError = error }
+        await MainActor.run { self?.lastError = error }
       }
     }
   }
