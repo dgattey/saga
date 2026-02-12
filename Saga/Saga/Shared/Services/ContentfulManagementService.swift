@@ -87,7 +87,32 @@ actor ContentfulManagementService {
     // Configure encoder/decoder
     self.encoder = JSONEncoder()
     self.decoder = JSONDecoder()
-    self.decoder.dateDecodingStrategy = .iso8601
+
+    // Custom date decoding to handle Contentful's fractional-second timestamps
+    // (e.g., "2024-01-15T10:30:00.123Z"). The standard .iso8601 strategy doesn't
+    // support fractional seconds.
+    self.decoder.dateDecodingStrategy = .custom { decoder in
+      let container = try decoder.singleValueContainer()
+      let dateString = try container.decode(String.self)
+
+      // Try with fractional seconds first (Contentful CMA format)
+      let formatterWithFractional = ISO8601DateFormatter()
+      formatterWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+      if let date = formatterWithFractional.date(from: dateString) {
+        return date
+      }
+
+      // Fallback to standard ISO8601 without fractional seconds
+      let formatter = ISO8601DateFormatter()
+      if let date = formatter.date(from: dateString) {
+        return date
+      }
+
+      throw DecodingError.dataCorruptedError(
+        in: container,
+        debugDescription: "Cannot decode date: \(dateString)"
+      )
+    }
   }
 
   // MARK: - Generic Resource Operations
