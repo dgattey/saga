@@ -57,12 +57,18 @@ extension Asset {
 
     if let size = contentfulAsset.file?.details?.size {
       asset.size = NSNumber(value: size)
+    } else {
+      asset.size = nil
     }
     if let width = contentfulAsset.file?.details?.imageInfo?.width {
       asset.width = NSNumber(value: width)
+    } else {
+      asset.width = nil
     }
     if let height = contentfulAsset.file?.details?.imageInfo?.height {
       asset.height = NSNumber(value: height)
+    } else {
+      asset.height = nil
     }
   }
 }
