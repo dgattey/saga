@@ -64,22 +64,32 @@ extension Book {
 
     if let isbnValue = fields["isbn"] as? Int {
       book.isbn = NSNumber(value: isbnValue)
+    } else {
+      book.isbn = nil
     }
     if let ratingValue = fields["rating"] as? Int {
       book.rating = NSNumber(value: ratingValue)
+    } else {
+      book.rating = nil
     }
 
     let iso = ISO8601DateFormatter()
     if let str = fields["readDateStarted"] as? String {
       book.readDateStarted = iso.date(from: str)
+    } else {
+      book.readDateStarted = nil
     }
     if let str = fields["readDateFinished"] as? String {
       book.readDateFinished = iso.date(from: str)
+    } else {
+      book.readDateFinished = nil
     }
 
     // Rich text: Contentful may decode it directly to RichTextDocument
     if let richText = fields["reviewDescription"] as? RichTextDocument {
       book.reviewDescription = richText
+    } else {
+      book.reviewDescription = nil
     }
 
     // Cover image: field contains a Link object, not an Asset
@@ -89,6 +99,8 @@ extension Book {
       assetRequest.predicate = NSPredicate(format: "id == %@", link.id)
       assetRequest.fetchLimit = 1
       book.coverImage = (try? context.fetch(assetRequest))?.first
+    } else {
+      book.coverImage = nil
     }
   }
 }
