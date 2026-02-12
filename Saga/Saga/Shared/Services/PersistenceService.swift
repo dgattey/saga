@@ -142,41 +142,106 @@ struct PersistenceService {
     client: Client, container: NSPersistentContainer
   ) -> () async throws -> Void {
     return {
-      // Fetch all assets first (books reference them)
-      let assets: HomogeneousArrayResponse<Contentful.Asset> =
+      // Fetch all assets first (books reference them) - with pagination
+      let allAssets = try await fetchAllAssets(client: client)
+
+      // Fetch all book entries - with pagination
+      let allEntries = try await fetchAllBooks(client: client)
+
+      // Collect IDs for orphan detection
+      let fetchedAssetIds = Set(allAssets.map { $0.id })
+      let fetchedBookIds = Set(allEntries.map { $0.id })
+
+      // Upsert into Core Data and delete orphans
+      let bgContext = container.newBackgroundContext()
+      try await bgContext.perform {
+        // Upsert assets
+        for contentfulAsset in allAssets {
+          Asset.upsert(from: contentfulAsset, in: bgContext)
+        }
+        // Upsert books
+        for entry in allEntries {
+          Book.upsert(from: entry, in: bgContext)
+        }
+
+        // Delete orphaned assets (exist locally but not on server, and not dirty)
+        let assetRequest = NSFetchRequest<Asset>(entityName: "Asset")
+        let localAssets = try bgContext.fetch(assetRequest)
+        for asset in localAssets where !fetchedAssetIds.contains(asset.id) && !asset.isDirty {
+          bgContext.delete(asset)
+        }
+
+        // Delete orphaned books (exist locally but not on server, and not dirty)
+        let bookRequest = NSFetchRequest<Book>(entityName: "Book")
+        let localBooks = try bgContext.fetch(bookRequest)
+        for book in localBooks where !fetchedBookIds.contains(book.id) && !book.isDirty {
+          bgContext.delete(book)
+        }
+
+        try bgContext.save()
+      }
+
+      LoggerService.log(
+        "Preview pull completed: \(allEntries.count) books, \(allAssets.count) assets",
+        level: .debug,
+        surface: .sync
+      )
+    }
+  }
+
+  /// Fetches all assets from Contentful with pagination (API defaults to 100 per page)
+  private static func fetchAllAssets(client: Client) async throws -> [Contentful.Asset] {
+    var allItems: [Contentful.Asset] = []
+    var skip = 0
+    let limit = 100
+
+    while true {
+      let query = AssetQuery().limit(to: UInt(limit)).skip(theFirst: UInt(skip))
+      let response: HomogeneousArrayResponse<Contentful.Asset> =
         try await withCheckedThrowingContinuation { continuation in
-          client.fetchArray(of: Contentful.Asset.self) { result in
+          client.fetchArray(of: Contentful.Asset.self, matching: query) { result in
             continuation.resume(with: result)
           }
         }
 
-      // Fetch all book entries
+      allItems.append(contentsOf: response.items)
+      skip += response.items.count
+
+      if skip >= response.total {
+        break
+      }
+    }
+
+    return allItems
+  }
+
+  /// Fetches all book entries from Contentful with pagination (API defaults to 100 per page)
+  private static func fetchAllBooks(client: Client) async throws -> [Entry] {
+    var allItems: [Entry] = []
+    var skip = 0
+    let limit = 100
+
+    while true {
       let bookQuery = Query.where(contentTypeId: Book.contentTypeId)
-      let entries: HomogeneousArrayResponse<Entry> =
+        .limit(to: UInt(limit))
+        .skip(theFirst: UInt(skip))
+
+      let response: HomogeneousArrayResponse<Entry> =
         try await withCheckedThrowingContinuation { continuation in
           client.fetchArray(of: Entry.self, matching: bookQuery) { result in
             continuation.resume(with: result)
           }
         }
 
-      // Upsert into Core Data (each model owns its own upsert logic)
-      let bgContext = container.newBackgroundContext()
-      try await bgContext.perform {
-        for contentfulAsset in assets.items {
-          Asset.upsert(from: contentfulAsset, in: bgContext)
-        }
-        for entry in entries.items {
-          Book.upsert(from: entry, in: bgContext)
-        }
-        try bgContext.save()
-      }
+      allItems.append(contentsOf: response.items)
+      skip += response.items.count
 
-      LoggerService.log(
-        "Preview pull completed: \(entries.items.count) books, \(assets.items.count) assets",
-        level: .debug,
-        surface: .sync
-      )
+      if skip >= response.total {
+        break
+      }
     }
+
+    return allItems
   }
 
 }
