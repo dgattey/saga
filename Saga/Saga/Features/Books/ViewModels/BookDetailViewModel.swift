@@ -253,8 +253,15 @@ final class BookDetailViewModel: ObservableObject {
   private func observeBookChanges() {
     cancellables.removeAll()
     book.objectWillChange
+      .receive(on: DispatchQueue.main)
       .sink { [weak self] _ in
-        self?.objectWillChange.send()
+        guard let self else { return }
+        self.objectWillChange.send()
+        // Refresh drafts from the book when no field is focused (external change from sync).
+        // If the user is actively editing, skip to avoid overwriting their in-progress edits.
+        if self.lastFocusedField == nil {
+          self.refreshDraftsFromBook()
+        }
       }
       .store(in: &cancellables)
   }

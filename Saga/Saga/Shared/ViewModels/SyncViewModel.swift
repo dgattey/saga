@@ -17,8 +17,12 @@ import SwiftUI
 ///
 /// Local CoreData changes automatically set `isDirty = true` and trigger sync.
 /// Conflicts are resolved using "latest-wins" based on `updatedAt` timestamps.
+///
+/// ## Preview Mode
+/// When `usePreviewContent` is toggled in Settings, the view model recreates
+/// `PersistenceService` with the new mode and performs a fresh sync.
 final class SyncViewModel: ObservableObject {
-  private var controller = PersistenceService()
+  private var controller: PersistenceService
   private var cancellables = Set<AnyCancellable>()
   private var syncTask: Task<Void, Never>?
 
@@ -34,7 +38,15 @@ final class SyncViewModel: ObservableObject {
   }
 
   init() {
+    let usePreview = UserDefaults.standard.bool(forKey: SettingsView.usePreviewContentKey)
+    controller = PersistenceService(usePreviewContent: usePreview)
     setupObservers()
+    observePreviewModeChanges()
+
+    // Initial sync on launch
+    Task { [weak self] in
+      await self?.sync()
+    }
   }
 
   private func setupObservers() {
@@ -45,6 +57,43 @@ final class SyncViewModel: ObservableObject {
     controller.twoWaySyncService.$pendingPushCount
       .receive(on: DispatchQueue.main)
       .assign(to: &$pendingPushCount)
+  }
+
+  private func observePreviewModeChanges() {
+    NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+      .compactMap { _ in
+        UserDefaults.standard.bool(forKey: SettingsView.usePreviewContentKey)
+      }
+      .removeDuplicates()
+      .dropFirst()  // Skip initial value (already handled in init)
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] usePreview in
+        self?.switchToPreviewMode(usePreview)
+      }
+      .store(in: &cancellables)
+  }
+
+  private func switchToPreviewMode(_ usePreview: Bool) {
+    guard controller.usePreviewContent != usePreview else { return }
+
+    LoggerService.log(
+      "Switching to \(usePreview ? "preview" : "delivery") mode — resetting data",
+      level: .notice,
+      surface: .sync
+    )
+
+    // Cancel any in-flight sync
+    syncTask?.cancel()
+    syncTask = nil
+
+    // Recreate controller with new mode
+    controller = PersistenceService(usePreviewContent: usePreview)
+    setupObservers()
+
+    // Reset and sync: wipe local data since preview/delivery content differs
+    Task {
+      await resetAndSync()
+    }
   }
 
   // MARK: - Sync Operations

@@ -36,7 +36,7 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel, Contentfu
 
   /// Properties that should NOT trigger isDirty (sync metadata)
   private static let syncMetadataKeys: Set<String> = [
-    "isDirty", "contentfulVersion", "updatedAt", "createdAt", "localeCode"
+    "isDirty", "contentfulVersion", "updatedAt", "createdAt", "localeCode",
   ]
 
   // MARK: - Automatic Dirty Tracking
@@ -44,9 +44,13 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel, Contentfu
   override func willSave() {
     super.willSave()
 
-    // Skip if being deleted or during a sync pull operation
-    // (changes from server should not mark objects as dirty)
-    guard !isDeleted, !SyncState.isPulling else { return }
+    // Skip if being deleted
+    guard !isDeleted else { return }
+
+    // Only mark dirty for user edits on the main queue context.
+    // ContentfulPersistence writes to background contexts, and markClean operations
+    // also use background contexts -- those should not trigger dirty marking.
+    guard managedObjectContext?.concurrencyType == .mainQueueConcurrencyType else { return }
 
     // Check if any non-metadata properties changed
     let changedKeys = Set(changedValues().keys)

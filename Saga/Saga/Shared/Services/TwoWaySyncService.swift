@@ -15,53 +15,15 @@
 //
 
 import Combine
-import Contentful
-import ContentfulPersistence
 import CoreData
 import Foundation
 
-/// Configuration for two-way sync behavior
-struct TwoWaySyncConfig {
-  /// Minimum interval between sync operations (seconds)
-  var syncDebounceInterval: TimeInterval = 2.0
-
-  /// Whether to auto-publish entries after creating/updating
-  var autoPublish: Bool = true
-
-  /// Conflict resolution strategy
-  var conflictResolution: ConflictResolution = .latestWins
-
-  enum ConflictResolution {
-    case latestWins  // Compare updatedAt timestamps, skip if server is newer
-    case localWins  // Always push local changes (overwrites server)
-  }
-}
-
-/// Tracks whether a ContentfulPersistence pull is in progress.
-/// Models should check this in willSave() to avoid marking objects dirty
-/// when changes originate from the server rather than local user edits.
-enum SyncState {
-  /// Thread-safe flag indicating a pull operation is in progress
-  private static let lock = NSLock()
-  private static var _isPulling = false
-
-  static var isPulling: Bool {
-    lock.lock()
-    defer { lock.unlock() }
-    return _isPulling
-  }
-
-  static func setIsPulling(_ value: Bool) {
-    lock.lock()
-    defer { lock.unlock() }
-    _isPulling = value
-  }
-}
+// MARK: - TwoWaySyncService
 
 /// Service that coordinates bidirectional sync between CoreData and Contentful
 ///
 /// **IMPORTANT**: This service requires a Content Management API token.
-/// Configure `CONTENTFUL_MANAGEMENT_TOKEN` in Config.xcconfig.
+/// Configure `CONTENTFUL_MANAGEMENT_ACCESS_TOKEN` in Config.xcconfig.
 final class TwoWaySyncService: ObservableObject {
 
   // MARK: - Published State
@@ -70,12 +32,14 @@ final class TwoWaySyncService: ObservableObject {
   @Published private(set) var lastSyncDate: Date?
   @Published private(set) var pendingPushCount: Int = 0
   @Published private(set) var lastError: Error?
+  @Published private(set) var skippedConflicts: [ConflictInfo] = []
 
   // MARK: - Dependencies
 
   private let container: NSPersistentContainer
-  private let syncManager: SynchronizationManager
+  private let pullFunction: () async throws -> Void
   private let managementService: ContentfulManagementService
+  private let pushableTypes: [any ContentfulPushable.Type]
   private let config: TwoWaySyncConfig
 
   // MARK: - Private State
@@ -86,14 +50,21 @@ final class TwoWaySyncService: ObservableObject {
   // MARK: - Initialization
 
   /// Creates a two-way sync service.
+  /// - Parameters:
+  ///   - container: The Core Data persistent container
+  ///   - pull: Closure that fetches content from Contentful and writes it to Core Data
+  ///   - pushableTypes: The entity types that can be pushed to Contentful
+  ///   - config: Sync configuration (debounce, autoPublish, conflict resolution)
   /// - Throws: `ContentfulManagementError.missingManagementToken` if not configured
   init(
     container: NSPersistentContainer,
-    syncManager: SynchronizationManager,
+    pull: @escaping () async throws -> Void,
+    pushableTypes: [any ContentfulPushable.Type],
     config: TwoWaySyncConfig = TwoWaySyncConfig()
   ) throws {
     self.container = container
-    self.syncManager = syncManager
+    self.pullFunction = pull
+    self.pushableTypes = pushableTypes
     self.config = config
 
     // LOUD FAILURE: Two-way sync requires management token
@@ -120,6 +91,7 @@ final class TwoWaySyncService: ObservableObject {
         return false
       }
       isSyncing = true
+      skippedConflicts = []  // Clear conflicts at start of sync
       return true
     }
 
@@ -133,7 +105,7 @@ final class TwoWaySyncService: ObservableObject {
       try await pull()
 
       // Step 2: Push any dirty local changes
-      try await pushDirtyObjects()
+      try await pushAllDirtyObjects()
 
       await finishSync()
     } catch {
@@ -182,265 +154,104 @@ final class TwoWaySyncService: ObservableObject {
 
   private func pull() async throws {
     LoggerService.log("Pulling from Contentful...", level: .debug, surface: .sync)
-
-    // Set flag to prevent willSave() from marking objects dirty during pull
-    SyncState.setIsPulling(true)
-    defer { SyncState.setIsPulling(false) }
-
-    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-      syncManager.sync { result in
-        switch result {
-        case .success:
-          LoggerService.log("Pull completed", level: .debug, surface: .sync)
-          continuation.resume()
-        case .failure(let error):
-          LoggerService.log("Pull failed", error: error, surface: .sync)
-          continuation.resume(throwing: error)
-        }
-      }
-    }
+    try await pullFunction()
+    LoggerService.log("Pull completed", level: .debug, surface: .sync)
   }
 
   // MARK: - Push (CoreData → Contentful)
 
-  private func pushDirtyObjects() async throws {
-    let dirtyBooks = try await fetchDirtyBooks()
-    let dirtyAssets = try await fetchDirtyAssets()
+  private func pushAllDirtyObjects() async throws {
+    // Push assets first (entries may reference them)
+    // Assets have special handling because new assets require file upload
+    try await pushDirtyAssets()
 
-    let totalDirty = dirtyBooks.count + dirtyAssets.count
-    guard totalDirty > 0 else {
-      LoggerService.log("No dirty objects to push", level: .debug, surface: .sync)
-      return
-    }
-
-    LoggerService.log(
-      "Pushing \(totalDirty) dirty objects (\(dirtyBooks.count) books, \(dirtyAssets.count) assets)",
-      level: .notice,
-      surface: .sync
-    )
-
-    // Push assets first (books may reference them)
-    for assetID in dirtyAssets {
-      try await pushAsset(objectID: assetID)
-    }
-
-    // Push books
-    for bookID in dirtyBooks {
-      try await pushBook(objectID: bookID)
+    // Push all registered pushable types using the generic flow
+    for type in pushableTypes {
+      // Skip assets -- already handled above with special upload logic
+      guard type.resourceType != .asset else { continue }
+      try await pushDirtyObjects(ofType: type)
     }
   }
 
-  private func fetchDirtyBooks() async throws -> [NSManagedObjectID] {
-    try await container.viewContext.perform {
-      let request = NSFetchRequest<Book>(entityName: "Book")
-      request.predicate = NSPredicate(format: "isDirty == YES")
-      let books = try self.container.viewContext.fetch(request)
-      return books.map { $0.objectID }
-    }
-  }
+  // MARK: - Asset Push (Special Handling)
 
-  private func fetchDirtyAssets() async throws -> [NSManagedObjectID] {
-    try await container.viewContext.perform {
-      let request = NSFetchRequest<Asset>(entityName: "Asset")
-      request.predicate = NSPredicate(format: "isDirty == YES")
-      let assets = try self.container.viewContext.fetch(request)
-      return assets.map { $0.objectID }
-    }
-  }
+  /// Assets require special handling because new assets need file upload
+  private func pushDirtyAssets() async throws {
+    // Find all asset types in the registry
+    let assetTypes = pushableTypes.filter { $0.resourceType == .asset }
+    guard !assetTypes.isEmpty else { return }
 
-  // MARK: - Push Book
+    for assetType in assetTypes {
+      let dirtyAssetIDs = try await fetchDirtyObjectIDs(entityName: assetType.entityName)
 
-  private func pushBook(objectID: NSManagedObjectID) async throws {
-    let bookData = try await fetchBookData(objectID: objectID)
+      guard !dirtyAssetIDs.isEmpty else { continue }
 
-    // Step 1: Fetch current server state to get sys.version
-    let serverState: (version: Int, updatedAt: Date?)?
-    do {
-      serverState = try await managementService.fetchEntryMetadata(id: bookData.id)
-    } catch ContentfulManagementError.entryNotFound {
-      serverState = nil  // New entry, will create
-    }
-
-    // Step 2: Conflict resolution
-    if let serverState = serverState,
-      config.conflictResolution == .latestWins,
-      let serverUpdatedAt = serverState.updatedAt,
-      let localUpdatedAt = bookData.updatedAt,
-      serverUpdatedAt > localUpdatedAt
-    {
       LoggerService.log(
-        "Skipping book \(bookData.id): server is newer (server: \(serverUpdatedAt), local: \(localUpdatedAt))",
+        "Pushing \(dirtyAssetIDs.count) dirty asset(s)",
         level: .notice,
         surface: .sync
       )
-      // Mark as clean since server has newer data
-      await markBookClean(objectID: objectID, version: serverState.version)
-      return
-    }
 
-    // Step 3: Build fields and push
-    let fields = buildBookFields(from: bookData)
-
-    let newVersion: Int
-    if let serverState = serverState {
-      // Update existing entry
-      newVersion = try await managementService.updateEntry(
-        id: bookData.id,
-        version: serverState.version,
-        fields: fields
-      )
-      LoggerService.log("Updated book \(bookData.id) to version \(newVersion)", level: .debug, surface: .sync)
-    } else {
-      // Create new entry
-      let (_, version) = try await managementService.createEntry(
-        contentTypeId: Book.contentTypeId,
-        id: bookData.id,
-        fields: fields
-      )
-      newVersion = version
-      LoggerService.log("Created book \(bookData.id) at version \(newVersion)", level: .debug, surface: .sync)
-    }
-
-    // Step 4: Publish
-    if config.autoPublish {
-      try await managementService.publishEntry(id: bookData.id, version: newVersion)
-      LoggerService.log("Published book \(bookData.id)", level: .debug, surface: .sync)
-    }
-
-    // Step 5: Mark clean and update version
-    await markBookClean(objectID: objectID, version: newVersion + 1)  // Version increments on publish
-  }
-
-  private struct BookData {
-    let id: String
-    let title: String?
-    let author: String?
-    let isbn: NSNumber?
-    let rating: NSNumber?
-    let readDateStarted: Date?
-    let readDateFinished: Date?
-    let reviewDescription: RichTextDocument?
-    let coverImageId: String?
-    let updatedAt: Date?
-  }
-
-  private func fetchBookData(objectID: NSManagedObjectID) async throws -> BookData {
-    try await container.viewContext.perform {
-      guard let book = try? self.container.viewContext.existingObject(with: objectID) as? Book
-      else {
-        throw ContentfulManagementError.entryNotFound(id: objectID.uriRepresentation().absoluteString)
-      }
-
-      return BookData(
-        id: book.id,
-        title: book.title,
-        author: book.author,
-        isbn: book.isbn,
-        rating: book.rating,
-        readDateStarted: book.readDateStarted,
-        readDateFinished: book.readDateFinished,
-        reviewDescription: book.reviewDescription,
-        coverImageId: book.coverImage?.id,
-        updatedAt: book.updatedAt
-      )
-    }
-  }
-
-  private func buildBookFields(from data: BookData) -> [String: Any] {
-    var fields: [String: Any] = [:]
-
-    if let title = data.title {
-      fields["title"] = ["en-US": title]
-    }
-    if let author = data.author {
-      fields["author"] = ["en-US": author]
-    }
-    if let isbn = data.isbn {
-      fields["isbn"] = ["en-US": isbn.intValue]
-    }
-    if let rating = data.rating {
-      fields["rating"] = ["en-US": rating.intValue]
-    }
-    if let readDateStarted = data.readDateStarted {
-      fields["readDateStarted"] = ["en-US": ISO8601DateFormatter().string(from: readDateStarted)]
-    }
-    if let readDateFinished = data.readDateFinished {
-      fields["readDateFinished"] = ["en-US": ISO8601DateFormatter().string(from: readDateFinished)]
-    }
-    if let coverImageId = data.coverImageId {
-      fields["coverImage"] = [
-        "en-US": [
-          "sys": [
-            "type": "Link",
-            "linkType": "Asset",
-            "id": coverImageId,
-          ]
-        ]
-      ]
-    }
-    if let reviewDescription = data.reviewDescription {
-      // Serialize RichTextDocument to JSON for Contentful's rich text field format
-      if let jsonData = try? JSONEncoder().encode(reviewDescription),
-        let jsonObject = try? JSONSerialization.jsonObject(with: jsonData)
-      {
-        fields["reviewDescription"] = ["en-US": jsonObject]
+      for objectID in dirtyAssetIDs {
+        try await pushAsset(objectID: objectID, entityName: assetType.entityName)
       }
     }
-
-    return fields
   }
 
-  private func markBookClean(objectID: NSManagedObjectID, version: Int) async {
-    await container.viewContext.perform {
-      guard let book = try? self.container.viewContext.existingObject(with: objectID) as? Book
-      else { return }
-      book.isDirty = false
-      book.contentfulVersion = version
-      try? self.container.viewContext.save()
-    }
-  }
+  /// Pushes a single asset to Contentful
+  /// New assets require file upload; existing assets just update metadata
+  private func pushAsset(objectID: NSManagedObjectID, entityName: String) async throws {
+    let assetData = try await Asset.fetchPushData(
+      objectID: objectID, in: container.viewContext)
 
-  // MARK: - Push Asset
-
-  private func pushAsset(objectID: NSManagedObjectID) async throws {
-    let assetData = try await fetchAssetData(objectID: objectID)
-
-    guard let urlString = assetData.urlString, let url = URL(string: urlString) else {
-      throw ContentfulManagementError.assetUploadFailed(reason: "Asset has no URL")
-    }
-
-    // Check if asset already exists on server (use asset endpoint, not entry endpoint)
-    let serverState: (version: Int, updatedAt: Date?)?
+    // Fetch current server state
+    let serverSys: ContentfulSys?
     do {
-      serverState = try await managementService.fetchAssetMetadata(id: assetData.id)
-    } catch ContentfulManagementError.entryNotFound {
-      serverState = nil
+      serverSys = try await managementService.fetchMetadata(.asset, id: assetData.id)
+    } catch ContentfulManagementError.resourceNotFound {
+      serverSys = nil  // New asset, will upload
     }
 
-    // Skip if server is newer (for existing assets)
-    if let serverState = serverState,
+    // Conflict resolution
+    if let serverSys = serverSys,
       config.conflictResolution == .latestWins,
-      let serverUpdatedAt = serverState.updatedAt,
+      let serverUpdatedAt = serverSys.updatedAt,
       let localUpdatedAt = assetData.updatedAt,
       serverUpdatedAt > localUpdatedAt
     {
+      // Record and log the conflict
+      let conflict = ConflictInfo(
+        entityType: entityName,
+        entityId: assetData.id,
+        entityTitle: assetData.title,
+        serverDate: serverUpdatedAt,
+        localDate: localUpdatedAt
+      )
+      await MainActor.run {
+        skippedConflicts.append(conflict)
+      }
+
       LoggerService.log(
-        "Skipping asset \(assetData.id): server is newer",
+        "Conflict: skipping asset '\(assetData.title ?? assetData.id)' - server newer",
         level: .notice,
         surface: .sync
       )
-      await markAssetClean(objectID: objectID, version: serverState.version)
+
+      await markClean(objectID: objectID, version: serverSys.version)
       return
     }
 
-    // For new assets, download and upload
-    if serverState == nil {
-      let (imageData, _) = try await URLSession.shared.data(from: url)
+    if serverSys == nil {
+      // NEW ASSET: Download file and upload to Contentful
+      guard let urlString = assetData.urlString, let url = URL(string: urlString) else {
+        throw ContentfulManagementError.assetUploadFailed(reason: "Asset has no URL")
+      }
 
+      let (imageData, _) = try await URLSession.shared.data(from: url)
       let fileName = assetData.fileName ?? "\(assetData.id).jpg"
       let contentType = assetData.fileType ?? "image/jpeg"
 
-      let (_, uploadedURL, finalVersion) = try await managementService.uploadAsset(
+      let (uploadedSys, uploadedURL) = try await managementService.uploadAsset(
         id: assetData.id,
         title: assetData.title,
         description: assetData.assetDescription,
@@ -449,75 +260,201 @@ final class TwoWaySyncService: ObservableObject {
         contentType: contentType
       )
 
-      // Update local URL and mark clean with actual version
-      await updateAssetAndMarkClean(objectID: objectID, url: uploadedURL, version: finalVersion)
-      LoggerService.log("Uploaded asset \(assetData.id)", level: .debug, surface: .sync)
+      // Update local URL and mark clean
+      await Asset.updateURLAndMarkClean(
+        objectID: objectID, url: uploadedURL, version: uploadedSys.version, in: container)
+      LoggerService.log(
+        "Uploaded asset '\(assetData.title ?? assetData.id)'",
+        level: .debug,
+        surface: .sync
+      )
     } else {
-      // Existing asset - just update metadata if needed
-      let newVersion = try await managementService.updateAsset(
-        id: assetData.id,
-        version: serverState!.version,
+      // EXISTING ASSET: Just update metadata
+      let fields = AssetFieldsPayload.metadata(
         title: assetData.title,
         description: assetData.assetDescription
       )
-      await markAssetClean(objectID: objectID, version: newVersion)
-    }
-  }
+      let updatedSys = try await managementService.update(
+        .asset,
+        id: assetData.id,
+        version: serverSys!.version,
+        fields: fields
+      )
 
-  private struct AssetData {
-    let id: String
-    let title: String?
-    let assetDescription: String?
-    let urlString: String?
-    let fileName: String?
-    let fileType: String?
-    let updatedAt: Date?
-  }
-
-  private func fetchAssetData(objectID: NSManagedObjectID) async throws -> AssetData {
-    try await container.viewContext.perform {
-      guard let asset = try? self.container.viewContext.existingObject(with: objectID) as? Asset
-      else {
-        throw ContentfulManagementError.entryNotFound(id: objectID.uriRepresentation().absoluteString)
+      // Publish if configured
+      var finalVersion = updatedSys.version
+      if config.autoPublish {
+        let publishedSys = try await managementService.publish(
+          .asset, id: assetData.id, version: updatedSys.version)
+        finalVersion = publishedSys.version
       }
 
-      return AssetData(
-        id: asset.id,
-        title: asset.title,
-        assetDescription: asset.assetDescription,
-        urlString: asset.urlString,
-        fileName: asset.fileName,
-        fileType: asset.fileType,
-        updatedAt: asset.updatedAt
+      await markClean(objectID: objectID, version: finalVersion)
+      LoggerService.log(
+        "Updated asset '\(assetData.title ?? assetData.id)'",
+        level: .debug,
+        surface: .sync
       )
     }
   }
 
-  private func markAssetClean(objectID: NSManagedObjectID, version: Int) async {
-    await container.viewContext.perform {
-      guard let asset = try? self.container.viewContext.existingObject(with: objectID) as? Asset
-      else { return }
-      asset.isDirty = false
-      asset.contentfulVersion = version
-      try? self.container.viewContext.save()
+  // MARK: - Generic Entry Push
+
+  /// Generic method to push all dirty objects of a given type
+  private func pushDirtyObjects(ofType type: any ContentfulPushable.Type) async throws {
+    let dirtyObjectIDs = try await fetchDirtyObjectIDs(entityName: type.entityName)
+
+    guard !dirtyObjectIDs.isEmpty else {
+      return
+    }
+
+    LoggerService.log(
+      "Pushing \(dirtyObjectIDs.count) dirty \(type.entityName)(s)",
+      level: .notice,
+      surface: .sync
+    )
+
+    for objectID in dirtyObjectIDs {
+      try await pushObject(ofType: type, objectID: objectID)
     }
   }
 
-  private func updateAssetAndMarkClean(objectID: NSManagedObjectID, url: String, version: Int) async
+  /// Fetches IDs of all dirty objects with a given entity name
+  private func fetchDirtyObjectIDs(entityName: String) async throws -> [NSManagedObjectID] {
+    let viewContext = container.viewContext
+    return try await viewContext.perform {
+      let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+      request.predicate = NSPredicate(format: "isDirty == YES")
+      let objects = try viewContext.fetch(request)
+      return objects.map { $0.objectID }
+    }
+  }
+
+  /// Pushes a single object to Contentful
+  private func pushObject(ofType type: any ContentfulPushable.Type, objectID: NSManagedObjectID)
+    async throws
   {
-    await container.viewContext.perform {
-      guard let asset = try? self.container.viewContext.existingObject(with: objectID) as? Asset
+    // Fetch object data from CoreData
+    let viewContext = container.viewContext
+    let (id, updatedAt, displayTitle, fieldsPayload) = try await viewContext.perform {
+      guard let object = try? viewContext.existingObject(with: objectID)
+      else {
+        throw ContentfulManagementError.resourceNotFound(
+          type: type.resourceType, id: objectID.uriRepresentation().absoluteString)
+      }
+
+      guard let syncable = object as? (any ContentfulPushable) else {
+        throw ContentfulManagementError.resourceNotFound(
+          type: type.resourceType, id: objectID.uriRepresentation().absoluteString)
+      }
+
+      // Use the protocol extension to encode -- this resolves the concrete type
+      let fieldsData = try syncable.encodeFieldsEnvelope()
+      return (
+        id: syncable.id,
+        updatedAt: syncable.updatedAt,
+        displayTitle: syncable.displayTitle,
+        fields: fieldsData
+      )
+    }
+
+    // Fetch current server state
+    let serverSys: ContentfulSys?
+    do {
+      serverSys = try await managementService.fetchMetadata(type.resourceType, id: id)
+    } catch ContentfulManagementError.resourceNotFound {
+      serverSys = nil  // New resource, will create
+    }
+
+    // Conflict resolution
+    if let serverSys = serverSys,
+      config.conflictResolution == .latestWins,
+      let serverUpdatedAt = serverSys.updatedAt,
+      let localUpdatedAt = updatedAt,
+      serverUpdatedAt > localUpdatedAt
+    {
+      // Record and log the conflict
+      let conflict = ConflictInfo(
+        entityType: type.entityName,
+        entityId: id,
+        entityTitle: displayTitle,
+        serverDate: serverUpdatedAt,
+        localDate: localUpdatedAt
+      )
+      await MainActor.run {
+        skippedConflicts.append(conflict)
+      }
+
+      LoggerService.log(
+        "Conflict: skipping \(type.entityName) '\(displayTitle ?? id)' - server newer (server: \(serverUpdatedAt), local: \(localUpdatedAt))",
+        level: .notice,
+        surface: .sync
+      )
+
+      // Mark as clean since server has newer data
+      await markClean(objectID: objectID, version: serverSys.version)
+      return
+    }
+
+    // Create or update
+    let sys: ContentfulSys
+    if let serverSys = serverSys {
+      // Update existing -- send pre-encoded fields data
+      sys = try await managementService.updateRaw(
+        type.resourceType,
+        id: id,
+        version: serverSys.version,
+        fieldsData: fieldsPayload
+      )
+      LoggerService.log(
+        "Updated \(type.entityName) '\(displayTitle ?? id)' to version \(sys.version)",
+        level: .debug,
+        surface: .sync
+      )
+    } else {
+      // Create new -- send pre-encoded fields data
+      sys = try await managementService.createRaw(
+        type.resourceType,
+        id: id,
+        fieldsData: fieldsPayload,
+        contentTypeId: type.cmaContentTypeId
+      )
+      LoggerService.log(
+        "Created \(type.entityName) '\(displayTitle ?? id)' at version \(sys.version)",
+        level: .debug,
+        surface: .sync
+      )
+    }
+
+    // Publish
+    var finalVersion = sys.version
+    if config.autoPublish {
+      let publishedSys = try await managementService.publish(
+        type.resourceType, id: id, version: sys.version)
+      finalVersion = publishedSys.version
+      LoggerService.log(
+        "Published \(type.entityName) '\(displayTitle ?? id)'",
+        level: .debug,
+        surface: .sync
+      )
+    }
+
+    // Mark clean with the actual version from the response
+    await markClean(objectID: objectID, version: finalVersion)
+  }
+
+  /// Marks an object as clean (not dirty) with the given version
+  private func markClean(objectID: NSManagedObjectID, version: Int) async {
+    // Use a background context so willSave() doesn't mark the object dirty again
+    // (willSave only marks dirty for mainQueueConcurrencyType contexts)
+    let bgContext = container.newBackgroundContext()
+    await bgContext.perform {
+      guard let object = try? bgContext.existingObject(with: objectID)
       else { return }
-
-      // Set flag to prevent willSave() from treating URL update as user edit
-      // (urlString is not in syncMetadataKeys, so it would re-mark isDirty = true)
-      SyncState.setIsPulling(true)
-      defer { SyncState.setIsPulling(false) }
-
-      asset.urlString = url
-      asset.isDirty = false
-      asset.contentfulVersion = version
-      try? self.container.viewContext.save()
+      // Use KVC to set properties generically
+      object.setValue(false, forKey: "isDirty")
+      object.setValue(version, forKey: "contentfulVersion")
+      try? bgContext.save()
     }
   }
 
@@ -525,11 +462,13 @@ final class TwoWaySyncService: ObservableObject {
 
   private func setupChangeObserver() {
     // Observe CoreData saves to track dirty count
-    NotificationCenter.default.publisher(for: .NSManagedObjectContextDidSave, object: container.viewContext)
-      .sink { [weak self] _ in
-        self?.scheduleSyncIfNeeded()
-      }
-      .store(in: &cancellables)
+    NotificationCenter.default.publisher(
+      for: .NSManagedObjectContextDidSave, object: container.viewContext
+    )
+    .sink { [weak self] _ in
+      self?.scheduleSyncIfNeeded()
+    }
+    .store(in: &cancellables)
   }
 
   private func scheduleSyncIfNeeded() {
@@ -558,31 +497,12 @@ final class TwoWaySyncService: ObservableObject {
   private func countDirtyObjects() -> Int {
     var count = 0
     container.viewContext.performAndWait {
-      let bookRequest = NSFetchRequest<Book>(entityName: "Book")
-      bookRequest.predicate = NSPredicate(format: "isDirty == YES")
-      count += (try? container.viewContext.count(for: bookRequest)) ?? 0
-
-      let assetRequest = NSFetchRequest<Asset>(entityName: "Asset")
-      assetRequest.predicate = NSPredicate(format: "isDirty == YES")
-      count += (try? container.viewContext.count(for: assetRequest)) ?? 0
+      for type in pushableTypes {
+        let request = NSFetchRequest<NSFetchRequestResult>(entityName: type.entityName)
+        request.predicate = NSPredicate(format: "isDirty == YES")
+        count += (try? container.viewContext.count(for: request)) ?? 0
+      }
     }
     return count
   }
-}
-
-// MARK: - Version Tracking Protocol
-
-/// Protocol for tracking Contentful version numbers on local objects
-protocol ContentfulVersionTracking {
-  var contentfulVersion: Int { get set }
-}
-
-/// Protocol for objects that can be synced to Contentful
-protocol ContentfulSyncable {
-  /// The Contentful entry/asset ID
-  var id: String { get }
-  /// When the object was last updated locally
-  var updatedAt: Date? { get }
-  /// Whether this object has local changes not yet synced
-  var isDirty: Bool { get set }
 }

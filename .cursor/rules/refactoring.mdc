@@ -38,7 +38,7 @@ if hasToken {
 
 // GOOD: Loud failure
 guard hasToken else {
-    fatalError("Two-way sync requires CONTENTFUL_MANAGEMENT_TOKEN in Config.xcconfig")
+    fatalError("Two-way sync requires CONTENTFUL_MANAGEMENT_ACCESS_TOKEN in Config.xcconfig")
 }
 twoWaySync()
 ```
