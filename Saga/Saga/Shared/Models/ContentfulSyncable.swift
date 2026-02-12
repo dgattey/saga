@@ -29,6 +29,41 @@ protocol ContentfulSyncable {
   var isDirty: Bool { get set }
 }
 
+// MARK: - Dirty Tracking Helper
+
+/// Properties that should NOT trigger isDirty (sync metadata).
+/// Shared by Book and Asset willSave() implementations.
+let contentfulSyncMetadataKeys: Set<String> = [
+  "isDirty", "contentfulVersion", "updatedAt", "createdAt", "localeCode",
+]
+
+/// Helper for willSave() dirty-tracking logic.
+/// Call from NSManagedObject.willSave() after super.willSave() and guard !isDeleted.
+/// Marks the object dirty and updates updatedAt when non-metadata properties change.
+func applyDirtyTrackingIfNeeded(
+  on object: NSManagedObject,
+  isDirty: Bool,
+  changedKeys: Set<String>
+) {
+  // Only mark dirty for user edits on the main queue context.
+  // ContentfulPersistence writes to background contexts, and markClean operations
+  // also use background contexts -- those should not trigger dirty marking.
+  guard object.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType else { return }
+
+  // Check if any non-metadata properties changed
+  let contentKeys = changedKeys.subtracting(contentfulSyncMetadataKeys)
+
+  if !contentKeys.isEmpty {
+    // Use primitiveValue to avoid triggering another willSave
+    // Always update updatedAt for accurate conflict resolution (latest-wins)
+    object.setPrimitiveValue(Date(), forKey: "updatedAt")
+    // Only set isDirty if not already dirty (avoid redundant write)
+    if !isDirty {
+      object.setPrimitiveValue(true, forKey: "isDirty")
+    }
+  }
+}
+
 // MARK: - ContentfulPushable
 
 /// Protocol for entities that can be pushed to Contentful via CMA

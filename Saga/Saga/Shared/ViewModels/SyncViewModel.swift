@@ -91,6 +91,12 @@ final class SyncViewModel: ObservableObject {
     syncTask?.cancel()
     syncTask = nil
 
+    // Explicitly reset sync state flags before resync.
+    // The cancelled task's finish() closure may not have run yet, leaving
+    // isSyncing/isResetting true and causing orchestrateSync to bail out.
+    isSyncing = false
+    isResetting = false
+
     // Recreate controller with new mode
     controller = PersistenceService(usePreviewContent: usePreview)
     setupObservers()
