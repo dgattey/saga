@@ -24,6 +24,7 @@ import SwiftUI
 final class SyncViewModel: ObservableObject {
   private var controller: PersistenceService
   private var cancellables = Set<AnyCancellable>()
+  private var observerCancellables = Set<AnyCancellable>()
   private var syncTask: Task<Void, Never>?
 
   // MARK: - Published State
@@ -50,13 +51,18 @@ final class SyncViewModel: ObservableObject {
   }
 
   private func setupObservers() {
+    // Clear old subscriptions to prevent leaks when switching preview modes
+    observerCancellables.removeAll()
+
     controller.twoWaySyncService.$isSyncing
       .receive(on: DispatchQueue.main)
-      .assign(to: &$isSyncing)
+      .sink { [weak self] value in self?.isSyncing = value }
+      .store(in: &observerCancellables)
 
     controller.twoWaySyncService.$pendingPushCount
       .receive(on: DispatchQueue.main)
-      .assign(to: &$pendingPushCount)
+      .sink { [weak self] value in self?.pendingPushCount = value }
+      .store(in: &observerCancellables)
   }
 
   private func observePreviewModeChanges() {
@@ -65,7 +71,6 @@ final class SyncViewModel: ObservableObject {
         UserDefaults.standard.bool(forKey: SettingsView.usePreviewContentKey)
       }
       .removeDuplicates()
-      .dropFirst()  // Skip initial value (already handled in init)
       .receive(on: DispatchQueue.main)
       .sink { [weak self] usePreview in
         self?.switchToPreviewMode(usePreview)
