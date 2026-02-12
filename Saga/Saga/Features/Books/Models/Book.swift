@@ -69,11 +69,6 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel, Contentful
   /// The Contentful version number for optimistic locking during two-way sync
   @NSManaged var contentfulVersion: Int
 
-  /// Properties that should NOT trigger isDirty (sync metadata)
-  private static let syncMetadataKeys: Set<String> = [
-    "isDirty", "contentfulVersion", "updatedAt", "createdAt", "localeCode",
-  ]
-
   var readingStatus: ReadingStatus {
     .init(readDateStarted: readDateStarted, readDateFinished: readDateFinished)
   }
@@ -82,28 +77,9 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel, Contentful
 
   override func willSave() {
     super.willSave()
-
-    // Skip if being deleted
     guard !isDeleted else { return }
-
-    // Only mark dirty for user edits on the main queue context.
-    // ContentfulPersistence writes to background contexts, and markClean operations
-    // also use background contexts -- those should not trigger dirty marking.
-    guard managedObjectContext?.concurrencyType == .mainQueueConcurrencyType else { return }
-
-    // Check if any non-metadata properties changed
-    let changedKeys = Set(changedValues().keys)
-    let contentKeys = changedKeys.subtracting(Self.syncMetadataKeys)
-
-    if !contentKeys.isEmpty {
-      // Use primitiveValue to avoid triggering another willSave
-      // Always update updatedAt for accurate conflict resolution (latest-wins)
-      setPrimitiveValue(Date(), forKey: "updatedAt")
-      // Only set isDirty if not already dirty (avoid redundant write)
-      if !isDirty {
-        setPrimitiveValue(true, forKey: "isDirty")
-      }
-    }
+    applyDirtyTrackingIfNeeded(
+      on: self, isDirty: isDirty, changedKeys: Set(changedValues().keys))
   }
 
   /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.

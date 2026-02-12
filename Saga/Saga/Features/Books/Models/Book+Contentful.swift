@@ -92,11 +92,20 @@ extension Book {
       book.reviewDescription = nil
     }
 
-    // Cover image: field contains a Link object, not an Asset
-    // Extract the asset ID from the link to look up our Core Data Asset
+    // Cover image: extract asset ID to look up our Core Data Asset.
+    // The field may be a Link (unresolved) or a Contentful.Asset (resolved when include depth >= 1).
+    let coverImageAssetId: String?
     if let link = fields["coverImage"] as? Link {
+      coverImageAssetId = link.id
+    } else if let resolvedAsset = fields["coverImage"] as? Contentful.Asset {
+      coverImageAssetId = resolvedAsset.id
+    } else {
+      coverImageAssetId = nil
+    }
+
+    if let assetId = coverImageAssetId {
       let assetRequest = NSFetchRequest<Asset>(entityName: "Asset")
-      assetRequest.predicate = NSPredicate(format: "id == %@", link.id)
+      assetRequest.predicate = NSPredicate(format: "id == %@", assetId)
       assetRequest.fetchLimit = 1
       book.coverImage = (try? context.fetch(assetRequest))?.first
     } else {
