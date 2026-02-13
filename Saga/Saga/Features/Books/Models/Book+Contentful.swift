@@ -23,7 +23,7 @@ extension Book: ContentfulPushable {
     BookFieldsPayload(
       title: title,
       author: author,
-      isbn: isbn?.intValue,
+      isbn: isbn?.int64Value,
       rating: rating?.intValue,
       readDateStarted: readDateStarted,
       readDateFinished: readDateFinished,
@@ -38,7 +38,15 @@ extension Book: ContentfulPushable {
 extension Book {
   /// Upserts a Book from a raw Contentful Entry (used by preview pull)
   /// Skips objects that have local dirty changes to avoid overwriting unpushed edits.
+  /// Skips entries missing required fields (common for draft content in preview mode).
   static func upsert(from entry: Entry, in context: NSManagedObjectContext) {
+    let fields = entry.fields
+
+    // Skip entries missing required fields (common for draft content in preview mode)
+    guard let title = fields["title"] as? String else {
+      return
+    }
+
     let request = NSFetchRequest<Book>(entityName: "Book")
     request.predicate = NSPredicate(format: "id == %@", entry.id)
     request.fetchLimit = 1
@@ -57,9 +65,7 @@ extension Book {
     book.updatedAt = entry.sys.updatedAt
     book.createdAt = entry.sys.createdAt
 
-    let fields = entry.fields
-
-    book.title = fields["title"] as? String
+    book.title = title
     book.author = fields["author"] as? String
 
     if let isbnValue = fields["isbn"] as? Int {
@@ -128,7 +134,7 @@ extension Book {
 struct BookFieldsPayload: Codable {
   var title: Localized<String>?
   var author: Localized<String>?
-  var isbn: Localized<Int>?
+  var isbn: Localized<Int64>?
   var rating: Localized<Int>?
   var readDateStarted: Localized<String>?
   var readDateFinished: Localized<String>?
@@ -138,7 +144,7 @@ struct BookFieldsPayload: Codable {
   init(
     title: String? = nil,
     author: String? = nil,
-    isbn: Int? = nil,
+    isbn: Int64? = nil,
     rating: Int? = nil,
     readDateStarted: Date? = nil,
     readDateFinished: Date? = nil,
