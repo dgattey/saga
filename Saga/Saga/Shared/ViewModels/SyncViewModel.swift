@@ -54,10 +54,9 @@ final class SyncViewModel: ObservableObject {
     // Clear old subscriptions to prevent leaks when switching preview modes
     observerCancellables.removeAll()
 
-    controller.twoWaySyncService.$isSyncing
-      .receive(on: DispatchQueue.main)
-      .sink { [weak self] value in self?.isSyncing = value }
-      .store(in: &observerCancellables)
+    // Note: isSyncing is managed solely by orchestrateSync's start/finish closures
+    // to avoid race conditions from competing sources (the service's isSyncing may
+    // reset before orchestrateSync's finish closure runs).
 
     controller.twoWaySyncService.$pendingPushCount
       .receive(on: DispatchQueue.main)

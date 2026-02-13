@@ -85,12 +85,20 @@ extension Book {
       book.readDateFinished = nil
     }
 
-    // Rich text: Contentful may decode it directly to RichTextDocument
+    // Rich text: For generic Entry objects, the SDK may store Rich Text as a raw
+    // [String: Any] dictionary rather than a RichTextDocument. Try both.
     if let richText = fields["reviewDescription"] as? RichTextDocument {
       book.reviewDescription = richText
-    } else {
+    } else if let rawDict = fields["reviewDescription"] as? [String: Any],
+      let jsonData = try? JSONSerialization.data(withJSONObject: rawDict),
+      let richText = try? JSONDecoder().decode(RichTextDocument.self, from: jsonData)
+    {
+      book.reviewDescription = richText
+    } else if fields["reviewDescription"] == nil {
+      // Field is explicitly absent - clear it
       book.reviewDescription = nil
     }
+    // If field exists but couldn't be decoded, preserve existing value to avoid data loss
 
     // Cover image: extract asset ID to look up our Core Data Asset.
     // The field may be a Link (unresolved) or a Contentful.Asset (resolved when include depth >= 1).
