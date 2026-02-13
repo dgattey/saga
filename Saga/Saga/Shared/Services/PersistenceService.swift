@@ -207,7 +207,8 @@ struct PersistenceService {
       allItems.append(contentsOf: response.items)
       skip += response.items.count
 
-      if skip >= response.total {
+      // Break if no more items or we've fetched all (empty page guard prevents infinite loop)
+      if response.items.isEmpty || skip >= response.total {
         break
       }
     }
@@ -236,7 +237,8 @@ struct PersistenceService {
       allItems.append(contentsOf: response.items)
       skip += response.items.count
 
-      if skip >= response.total {
+      // Break if no more items or we've fetched all (empty page guard prevents infinite loop)
+      if response.items.isEmpty || skip >= response.total {
         break
       }
     }
