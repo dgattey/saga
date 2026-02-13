@@ -141,10 +141,16 @@ final class SyncViewModel: ObservableObject {
       await MainActor.run { start() }
       do {
         try await syncFunction()
-        await MainActor.run { finish() }
+        // Only call finish if task wasn't cancelled (avoids race when switching preview modes)
+        if !Task.isCancelled {
+          await MainActor.run { finish() }
+        }
       } catch {
-        await MainActor.run { finish() }
-        LoggerService.log("Sync failed", error: error, surface: .sync)
+        // Only call finish and log error if task wasn't cancelled
+        if !Task.isCancelled {
+          await MainActor.run { finish() }
+          LoggerService.log("Sync failed", error: error, surface: .sync)
+        }
       }
     }
   }

@@ -94,8 +94,8 @@ extension Book {
       let richText = try? JSONDecoder().decode(RichTextDocument.self, from: jsonData)
     {
       book.reviewDescription = richText
-    } else if fields["reviewDescription"] == nil {
-      // Field is explicitly absent - clear it
+    } else if fields["reviewDescription"] == nil || fields["reviewDescription"] is NSNull {
+      // Field is explicitly absent or null - clear it
       book.reviewDescription = nil
     }
     // If field exists but couldn't be decoded, preserve existing value to avoid data loss
