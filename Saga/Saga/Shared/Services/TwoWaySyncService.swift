@@ -124,12 +124,15 @@ final class TwoWaySyncService: ObservableObject {
     await MainActor.run {
       isSyncing = false
       lastSyncDate = Date()
-      pendingPushCount = countDirtyObjects()
+      pendingPushCount = countDirtyObjects() + PendingDeletionStore.shared.count
     }
   }
 
   /// Resets all local data and re-syncs from Contentful
   func resetAndSync() async throws {
+    // Clear pending deletions since we're wiping everything and re-syncing from scratch
+    PendingDeletionStore.shared.clear()
+
     // Delete all local data
     let entityNames = container.managedObjectModel.entities.compactMap { $0.name }
     for entityName in entityNames {
@@ -176,6 +179,9 @@ final class TwoWaySyncService: ObservableObject {
       guard type.resourceType != .asset else { continue }
       try await pushDirtyObjects(ofType: type)
     }
+
+    // Process any pending deletions (objects deleted locally that need upstream removal)
+    try await processPendingDeletions()
   }
 
   // MARK: - Asset Push (Special Handling)
@@ -321,6 +327,44 @@ final class TwoWaySyncService: ObservableObject {
 
     for objectID in dirtyObjectIDs {
       try await pushObject(ofType: type, objectID: objectID)
+    }
+  }
+
+  // MARK: - Deletion Push
+
+  /// Processes pending deletions: removes locally-deleted objects from Contentful.
+  /// Deletions that fail are restored to the store for retry on the next sync.
+  private func processPendingDeletions() async throws {
+    let deletions = PendingDeletionStore.shared.drainAll()
+    guard !deletions.isEmpty else { return }
+
+    LoggerService.log(
+      "Processing \(deletions.count) pending deletion(s)",
+      level: .notice,
+      surface: .sync
+    )
+
+    var failedDeletions: [PendingDeletionStore.Deletion] = []
+    for deletion in deletions {
+      do {
+        try await managementService.delete(deletion.resourceType, id: deletion.id)
+        LoggerService.log(
+          "Deleted \(deletion.resourceType.rawValue.dropLast()) '\(deletion.id)' from Contentful",
+          level: .debug,
+          surface: .sync
+        )
+      } catch {
+        LoggerService.log(
+          "Failed to delete \(deletion.resourceType.rawValue.dropLast()) '\(deletion.id)'",
+          error: error,
+          surface: .sync
+        )
+        failedDeletions.append(deletion)
+      }
+    }
+
+    if !failedDeletions.isEmpty {
+      PendingDeletionStore.shared.restore(failedDeletions)
     }
   }
 
@@ -478,11 +522,13 @@ final class TwoWaySyncService: ObservableObject {
 
   private func scheduleSyncIfNeeded() {
     let dirtyCount = countDirtyObjects()
+    let pendingDeletionCount = PendingDeletionStore.shared.count
+    let totalPending = dirtyCount + pendingDeletionCount
     Task { @MainActor in
-      pendingPushCount = dirtyCount
+      pendingPushCount = totalPending
     }
 
-    guard dirtyCount > 0 else { return }
+    guard totalPending > 0 else { return }
 
     // Debounce auto-sync
     // Use [weak self] to allow deallocation if mode switches before debounce fires

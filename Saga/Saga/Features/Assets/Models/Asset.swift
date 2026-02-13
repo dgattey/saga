@@ -38,7 +38,10 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel, Contentfu
 
   override func willSave() {
     super.willSave()
-    guard !isDeleted else { return }
+    if isDeleted {
+      recordPendingDeletionIfNeeded(on: self, resourceType: .asset, id: id)
+      return
+    }
     applyDirtyTrackingIfNeeded(
       on: self, isDirty: isDirty, changedKeys: Set(changedValues().keys))
   }

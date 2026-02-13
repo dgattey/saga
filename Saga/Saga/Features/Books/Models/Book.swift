@@ -77,7 +77,10 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel, Contentful
 
   override func willSave() {
     super.willSave()
-    guard !isDeleted else { return }
+    if isDeleted {
+      recordPendingDeletionIfNeeded(on: self, resourceType: .entry, id: id)
+      return
+    }
     applyDirtyTrackingIfNeeded(
       on: self, isDirty: isDirty, changedKeys: Set(changedValues().keys))
   }

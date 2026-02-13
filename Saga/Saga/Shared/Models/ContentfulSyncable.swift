@@ -64,6 +64,75 @@ func applyDirtyTrackingIfNeeded(
   }
 }
 
+// MARK: - Pending Deletion Tracking
+
+/// Records a pending deletion for upstream sync when a syncable object is deleted.
+/// Call from NSManagedObject.willSave() when isDeleted is true.
+/// Only records deletions from the main queue context (user-initiated).
+func recordPendingDeletionIfNeeded(
+  on object: NSManagedObject,
+  resourceType: ContentfulResourceType,
+  id: String
+) {
+  guard object.managedObjectContext?.concurrencyType == .mainQueueConcurrencyType else { return }
+  PendingDeletionStore.shared.add(resourceType: resourceType, id: id)
+}
+
+/// Thread-safe store for tracking local deletions that need to be synced upstream.
+/// Populated from willSave() (synchronous) and drained during push in TwoWaySyncService.
+final class PendingDeletionStore {
+  static let shared = PendingDeletionStore()
+
+  struct Deletion {
+    let resourceType: ContentfulResourceType
+    let id: String
+  }
+
+  private var deletions: [Deletion] = []
+  private let lock = NSLock()
+
+  private init() {}
+
+  /// Records a deletion to be pushed upstream on next sync.
+  func add(resourceType: ContentfulResourceType, id: String) {
+    lock.lock()
+    defer { lock.unlock() }
+    if !deletions.contains(where: { $0.resourceType == resourceType && $0.id == id }) {
+      deletions.append(Deletion(resourceType: resourceType, id: id))
+    }
+  }
+
+  /// Returns and removes all pending deletions.
+  func drainAll() -> [Deletion] {
+    lock.lock()
+    defer { lock.unlock() }
+    let result = deletions
+    deletions.removeAll()
+    return result
+  }
+
+  /// Re-adds deletions that failed to sync (for retry on next sync).
+  func restore(_ items: [Deletion]) {
+    lock.lock()
+    defer { lock.unlock() }
+    deletions.append(contentsOf: items)
+  }
+
+  /// The number of pending deletions.
+  var count: Int {
+    lock.lock()
+    defer { lock.unlock() }
+    return deletions.count
+  }
+
+  /// Removes all pending deletions without processing them (used during reset).
+  func clear() {
+    lock.lock()
+    defer { lock.unlock() }
+    deletions.removeAll()
+  }
+}
+
 // MARK: - ContentfulPushable
 
 /// Protocol for entities that can be pushed to Contentful via CMA

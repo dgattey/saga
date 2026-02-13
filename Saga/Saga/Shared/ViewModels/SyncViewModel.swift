@@ -138,6 +138,9 @@ final class SyncViewModel: ObservableObject {
   ) async {
     guard !isSyncing, !isResetting else { return }
     syncTask = Task(priority: .background) {
+      // Guard against running after cancellation (e.g., preview mode switch cancelled
+      // this task before start() could set state flags that finish() would need to clear)
+      guard !Task.isCancelled else { return }
       await MainActor.run { start() }
       do {
         try await syncFunction()
