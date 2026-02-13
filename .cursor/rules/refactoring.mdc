@@ -1,0 +1,44 @@
+---
+alwaysApply: true
+description: Guidelines for refactoring and API changes
+---
+# Refactoring Guidelines
+
+## No Backwards Compatibility
+
+This app is the **only consumer** of its own code. When refactoring:
+
+- **Make wholesale changes** - don't preserve old patterns alongside new ones
+- **One source of truth** - never have multiple ways to do the same thing
+- **Fail loudly** - if a feature requires configuration, crash or error clearly; don't gracefully degrade
+- **Remove legacy code** - delete old implementations entirely when replacing them
+
+## Anti-Patterns to Avoid
+
+❌ Graceful fallback to old behavior  
+❌ Optional features that silently disable  
+❌ Multiple code paths for the same functionality  
+❌ "Legacy" or "compat" wrappers  
+❌ Feature flags for internal-only code  
+
+## Preferred Patterns
+
+✓ Clear errors with actionable messages when misconfigured  
+✓ Single implementation per concern  
+✓ Required configuration checked at startup  
+✓ Preconditions and assertions for invariants  
+
+```swift
+// BAD: Silent fallback
+if hasToken {
+    twoWaySync()
+} else {
+    oneWaySync() // silently degraded
+}
+
+// GOOD: Loud failure
+guard hasToken else {
+    fatalError("Two-way sync requires CONTENTFUL_MANAGEMENT_ACCESS_TOKEN in Config.xcconfig")
+}
+twoWaySync()
+```

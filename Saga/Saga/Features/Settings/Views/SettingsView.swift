@@ -8,9 +8,14 @@
 import SwiftUI
 
 struct SettingsView: View {
+  static let usePreviewContentKey = "usePreviewContent"
+
   @EnvironmentObject var syncViewModel: SyncViewModel
   @EnvironmentObject var cachesViewModel: CachesViewModel
   @EnvironmentObject var animationSettings: AnimationSettings
+
+  // Content settings
+  @AppStorage(Self.usePreviewContentKey) private var usePreviewContent = false
 
   // Image cache settings
   @AppStorage(ImageCache.cacheLimitKey) private var imageCacheLimitGB: Double = 5
@@ -24,6 +29,16 @@ struct SettingsView: View {
 
   var body: some View {
     Form {
+      Section {
+        previewContentToggle
+      } header: {
+        Text("Content")
+          .font(.headline)
+      } footer: {
+        Text("Shows draft and unpublished entries from Contentful")
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+      }
       Section {
         animationSpringResponseSlider
         animationSpringDampingSlider
@@ -131,6 +146,12 @@ struct SettingsView: View {
       }
     }
     .disabled(syncViewModel.isSyncing || syncViewModel.isResetting)
+  }
+
+  // MARK: - Content Settings
+
+  private var previewContentToggle: some View {
+    Toggle("Show preview content", isOn: $usePreviewContent)
   }
 
   // MARK: - Animation Settings

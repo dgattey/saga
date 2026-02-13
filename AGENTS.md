@@ -87,7 +87,7 @@ the standard verification loop.
 ## Environment
 - Requires Xcode + SwiftUI/Combine
 - `run bootstrap` writes `Saga/Config/Config.xcconfig` from env vars; set
-  `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` before running
+  `CONTENTFUL_DELIVERY_API_KEY`, `CONTENTFUL_DELIVERY_PREVIEW_API_KEY`, `CONTENTFUL_MANAGEMENT_ACCESS_TOKEN`, `CONTENTFUL_SPACE_ID` (from `run bootstrap`) before running
 - `swift-format` is listed in the repo `Brewfile` (install with `brew bundle`)
 - Validate formatting and linting before final review, and build the app too.
 

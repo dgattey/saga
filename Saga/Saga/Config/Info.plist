@@ -3,8 +3,12 @@
 <plist version="1.0">
 <dict>
 	<key>ContentfulAccessToken</key>
-	<string>$(CONTENTFUL_ACCESS_TOKEN)</string>
+	<string>$(CONTENTFUL_DELIVERY_API_KEY)</string>
 	<key>ContentfulSpaceId</key>
 	<string>$(CONTENTFUL_SPACE_ID)</string>
+	<key>ContentfulManagementToken</key>
+	<string>$(CONTENTFUL_MANAGEMENT_ACCESS_TOKEN)</string>
+	<key>ContentfulPreviewAccessToken</key>
+	<string>$(CONTENTFUL_DELIVERY_PREVIEW_API_KEY)</string>
 </dict>
 </plist>

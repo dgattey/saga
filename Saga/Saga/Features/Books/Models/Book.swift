@@ -43,7 +43,9 @@ private struct NonSendableBox<T>: @unchecked Sendable {
 }
 
 @objc(Book)
-final class Book: NSManagedObject, EntryPersistable, SearchableModel {
+final class Book: NSManagedObject, EntryPersistable, SearchableModel, ContentfulSyncable,
+  ContentfulVersionTracking
+{
   static let contentTypeId = "book"
   private static let coverImageURLCache = CoverImageURLCache()
 
@@ -61,8 +63,26 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
   @NSManaged var rating: NSNumber?
   @NSManaged var reviewDescription: RichTextDocument?
 
+  /// Tracks whether this book has local changes not yet synced to Contentful
+  @NSManaged var isDirty: Bool
+
+  /// The Contentful version number for optimistic locking during two-way sync
+  @NSManaged var contentfulVersion: Int
+
   var readingStatus: ReadingStatus {
     .init(readDateStarted: readDateStarted, readDateFinished: readDateFinished)
+  }
+
+  // MARK: - Automatic Dirty Tracking
+
+  override func willSave() {
+    super.willSave()
+    if isDeleted {
+      recordPendingDeletionIfNeeded(on: self, resourceType: .entry, id: id)
+      return
+    }
+    applyDirtyTrackingIfNeeded(
+      on: self, isDirty: isDirty, changedKeys: Set(changedValues().keys))
   }
 
   /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.

@@ -15,10 +15,16 @@ Bootstrap handles all one-time setup:
 
 1. **Installs Brewfile dependencies** (`brew bundle`: 1Password CLI, swift-format)
 2. **Authenticates with 1Password** (prompts if needed)
-3. **Writes `Saga/Config/Config.xcconfig`** with Contentful credentials from the `saga` vault (`CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` items)
+3. **Writes `Saga/Config/Config.xcconfig`** with Contentful credentials from the `saga` vault: `CONTENTFUL_DELIVERY_API_KEY`, `CONTENTFUL_DELIVERY_PREVIEW_API_KEY`, `CONTENTFUL_MANAGEMENT_ACCESS_TOKEN`, `CONTENTFUL_SPACE_ID` (item names AS IS)
 4. **Adds shell completions** to your `.zshrc` for the `run` command
 
 After setup, use `run` (with tab completion) instead of `./run`. Re-run bootstrap any time to refresh credentials.
+
+### Content Management Token
+
+Two-way sync requires a Content Management API token. Bootstrap pulls it from the `saga` vault item `CONTENTFUL_MANAGEMENT_ACCESS_TOKEN`. Add that item (value = your CMA token from Contentful → Settings → API keys → Content management tokens) and re-run `run bootstrap` if needed.
+
+**The app will crash at startup if this token is missing when two-way sync is used.**
 
 ## App architecture
 
@@ -28,6 +34,24 @@ Saga follows an MVVM architecture with SwiftUI views:
 - **Shared/**: Reusable components, extensions, and utilities
 - **Services/**: Core services like persistence (Core Data) and syncing (Contentful)
 - Navigation is managed via `NavigationHistory` with a home-based sidebar layout
+
+### Contentful Sync Architecture
+
+Saga uses a bidirectional sync architecture with Contentful:
+
+**Pull (Contentful → CoreData)**
+- Uses [ContentfulPersistence.swift](https://github.com/contentful/contentful-persistence.swift) with delta sync tokens
+- Only fetches changes since last sync (efficient)
+- Automatically maps Contentful entries/assets to CoreData entities
+
+**Push (CoreData → Contentful)** *(requires management token)*
+- Uses the [Content Management API](https://www.contentful.com/developers/docs/references/content-management-api/)
+- Automatically detects local CoreData changes via `NSManagedObjectContextDidSaveNotification`
+- Debounces and batches changes for efficiency
+- Uploads assets (images) with full lifecycle: upload → process → publish
+- Uses "latest-wins" conflict resolution based on `updatedAt` timestamps
+
+Saving to CoreData automatically triggers sync when two-way sync is enabled.
 
 ## Development process
 

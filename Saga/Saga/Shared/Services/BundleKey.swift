@@ -10,7 +10,12 @@ import Foundation
 /// Documents all keys for the bundle and offers a convenience getter for fetching them, with string fallback to empty if missing
 enum BundleKey: String {
   case spaceId = "ContentfulSpaceId"
+  /// Content Delivery API token - for reading published content
   case accessToken = "ContentfulAccessToken"
+  /// Content Preview API token - for reading draft and unpublished content
+  case previewAccessToken = "ContentfulPreviewAccessToken"
+  /// Content Management API token - required for two-way sync (writing back to Contentful)
+  case managementToken = "ContentfulManagementToken"
 
   /// Use this to get the actual value from the app bundle
   var bundleValue: String {

@@ -5,57 +5,132 @@
 //  Created by Dylan Gattey on 7/11/25.
 //
 
+import Combine
 import CoreData
 import SwiftUI
 
-/// Handles syncing data across the full app, delegating to service functions as needed
+/// Handles two-way sync with Contentful.
+///
+/// Sync is bidirectional:
+/// - Pull: Fetches changes from Contentful (delta sync via tokens)
+/// - Push: Sends dirty local changes to Contentful (via CMA)
+///
+/// Local CoreData changes automatically set `isDirty = true` and trigger sync.
+/// Conflicts are resolved using "latest-wins" based on `updatedAt` timestamps.
+///
+/// ## Preview Mode
+/// When `usePreviewContent` is toggled in Settings, the view model recreates
+/// `PersistenceService` with the new mode and performs a fresh sync.
 final class SyncViewModel: ObservableObject {
-  private var controller = PersistenceService()
+  private var controller: PersistenceService
+  private var cancellables = Set<AnyCancellable>()
+  private var observerCancellables = Set<AnyCancellable>()
+  private var syncTask: Task<Void, Never>?
+
+  // MARK: - Published State
+
   @Published var isSyncing = false
   @Published var isResetting = false
   @Published var resetToken = UUID()
-  private var syncTask: Task<Void, Never>?
+  @Published var pendingPushCount = 0
 
   var viewContext: NSManagedObjectContext {
-    return controller.container.viewContext
+    controller.container.viewContext
+  }
+
+  init() {
+    let usePreview = UserDefaults.standard.bool(forKey: SettingsView.usePreviewContentKey)
+    controller = PersistenceService(usePreviewContent: usePreview)
+    setupObservers()
+    observePreviewModeChanges()
+
+    // Initial sync on launch
+    Task { [weak self] in
+      await self?.sync()
+    }
+  }
+
+  private func setupObservers() {
+    // Clear old subscriptions to prevent leaks when switching preview modes
+    observerCancellables.removeAll()
+
+    // Note: isSyncing is managed solely by orchestrateSync's start/finish closures
+    // to avoid race conditions from competing sources (the service's isSyncing may
+    // reset before orchestrateSync's finish closure runs).
+
+    controller.twoWaySyncService.$pendingPushCount
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] value in self?.pendingPushCount = value }
+      .store(in: &observerCancellables)
+  }
+
+  private func observePreviewModeChanges() {
+    NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+      .compactMap { _ in
+        UserDefaults.standard.bool(forKey: SettingsView.usePreviewContentKey)
+      }
+      .removeDuplicates()
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] usePreview in
+        self?.switchToPreviewMode(usePreview)
+      }
+      .store(in: &cancellables)
+  }
+
+  private func switchToPreviewMode(_ usePreview: Bool) {
+    guard controller.usePreviewContent != usePreview else { return }
+
+    LoggerService.log(
+      "Switching to \(usePreview ? "preview" : "delivery") mode — resetting data",
+      level: .notice,
+      surface: .sync
+    )
+
+    // Cancel any in-flight sync
+    syncTask?.cancel()
+    syncTask = nil
+
+    // Explicitly reset sync state flags before resync.
+    // The cancelled task's finish() closure may not have run yet, leaving
+    // isSyncing/isResetting true and causing orchestrateSync to bail out.
+    isSyncing = false
+    isResetting = false
+
+    // Recreate controller with new mode
+    controller = PersistenceService(usePreviewContent: usePreview)
+    setupObservers()
+
+    // Reset and sync: wipe local data since preview/delivery content differs
+    Task {
+      await resetAndSync()
+    }
   }
 
   // MARK: - Sync Operations
 
-  /// Syncs if there's no sync running already
+  /// Performs a full bidirectional sync: pull from Contentful, then push dirty local changes
   func sync() async {
-    LoggerService.log("Sync starting refresh", level: .notice, surface: .sync)
+    LoggerService.log("Starting sync", level: .notice, surface: .sync)
     await orchestrateSync(
-      start: { [weak self] in
-        self?.isSyncing = true
-      },
-      finish: { [weak self] in
-        self?.isSyncing = false
-      },
-      { [weak self] in
-        try await self?.controller.syncWithApi()
-      }
+      start: { [weak self] in self?.isSyncing = true },
+      finish: { [weak self] in self?.isSyncing = false },
+      { [weak self] in try await self?.controller.sync() }
     )
   }
 
-  /// Resets all data, then syncs as long as there's no sync running already
+  /// Resets all local data and resyncs from Contentful
   func resetAndSync() async {
-    LoggerService.log("Sync starting reset + refresh", level: .notice, surface: .sync)
+    LoggerService.log("Starting reset + sync", level: .notice, surface: .sync)
     await orchestrateSync(
       start: { [weak self] in
         self?.isResetting = true
         self?.resetToken = UUID()
       },
-      finish: { [weak self] in
-        self?.isResetting = false
-      },
-      { [weak self] in
-        try await self?.controller.resetAndSyncWithApi()
-      }
+      finish: { [weak self] in self?.isResetting = false },
+      { [weak self] in try await self?.controller.resetAndSync() }
     )
   }
 
-  /// Helper to orchestrate some sync function, managing state as it does so
   private func orchestrateSync(
     start: @escaping () -> Void,
     finish: @escaping () -> Void,
@@ -63,19 +138,22 @@ final class SyncViewModel: ObservableObject {
   ) async {
     guard !isSyncing, !isResetting else { return }
     syncTask = Task(priority: .background) {
-      await MainActor.run {
-        start()
-      }
+      // Guard against running after cancellation (e.g., preview mode switch cancelled
+      // this task before start() could set state flags that finish() would need to clear)
+      guard !Task.isCancelled else { return }
+      await MainActor.run { start() }
       do {
         try await syncFunction()
-        await MainActor.run {
-          finish()
+        // Only call finish if task wasn't cancelled (avoids race when switching preview modes)
+        if !Task.isCancelled {
+          await MainActor.run { finish() }
         }
       } catch {
-        await MainActor.run {
-          finish()
+        // Only call finish and log error if task wasn't cancelled
+        if !Task.isCancelled {
+          await MainActor.run { finish() }
+          LoggerService.log("Sync failed", error: error, surface: .sync)
         }
-        LoggerService.log("Sync failed", error: error, surface: .sync)
       }
     }
   }
