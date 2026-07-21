@@ -24,6 +24,7 @@ shared UI/utilities.
 - `run app` (build + launch, macOS only), `run app -b` (build only), `run app -v` (verbose)
 - `run checks` (format + lint), `run checks --format`, `run checks --lint`
 - `run bootstrap` to set up shell completions for `run`
+- `run config` to write `Config.xcconfig` (`--placeholder` for build-only environments)
 - `run drop-bot-commits` for version bump conflicts
 - `run version-and-release` for manual release tooling
 
@@ -86,8 +87,10 @@ the standard verification loop.
 
 ## Environment
 - Requires Xcode + SwiftUI/Combine
-- `run bootstrap` writes `Saga/Config/Config.xcconfig` from env vars; set
-  `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` before running
+- `run bootstrap` writes `Saga/Saga/Config/Config.xcconfig` from 1Password; `run config`
+ writes the same file from `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN`
+- The file is gitignored and Xcode errors if it is missing, so any build needs it first
+ (CI uses `run config --placeholder --if-missing`)
 - `swift-format` is listed in the repo `Brewfile` (install with `brew bundle`)
 - Validate formatting and linting before final review, and build the app too.
 
