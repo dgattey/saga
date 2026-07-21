@@ -9,6 +9,14 @@ outputs:
 runs:
   using: composite
   steps:
+    # Config.xcconfig is gitignored, and Xcode treats a missing base configuration
+    # file as a hard error. Compiling never contacts Contentful, so stand-ins are enough.
+    - name: Write placeholder Config.xcconfig
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./run config --placeholder --if-missing
+
     - name: Build app
       id: run_build
       shell: bash

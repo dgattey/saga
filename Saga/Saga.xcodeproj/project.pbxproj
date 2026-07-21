@@ -397,7 +397,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Saga/Config/Saga-Debug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10557;
+				CURRENT_PROJECT_VERSION = 18214;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = KCH4HBZ68M;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
@@ -424,7 +424,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 1.1.16;
+				MARKETING_VERSION = 1.1.17;
 				OTHER_LDFLAGS = (
 					"-Xlinker",
 					"-interposable",
@@ -450,7 +450,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Saga/Config/Saga.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10557;
+				CURRENT_PROJECT_VERSION = 18214;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = KCH4HBZ68M;
 				ENABLE_APP_SANDBOX = YES;
@@ -476,7 +476,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.5;
-				MARKETING_VERSION = 1.1.16;
+				MARKETING_VERSION = 1.1.17;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dylangattey.Saga;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -557,7 +557,7 @@
 			repositoryURL = "https://github.com/ukushu/Ifrit";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 3.0.0;
+				minimumVersion = 4.0.0;
 			};
 		};
 		7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */ = {
@@ -565,7 +565,7 @@
 			repositoryURL = "https://github.com/contentful/contentful-persistence.swift";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.18.1;
+				minimumVersion = 0.18.2;
 			};
 		};
 		758F7A292E1E2D58007CDCC8 /* XCRemoteSwiftPackageReference "SwiftCSV" */ = {

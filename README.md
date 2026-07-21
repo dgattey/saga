@@ -15,7 +15,7 @@ Bootstrap handles all one-time setup:
 
 1. **Installs Brewfile dependencies** (`brew bundle`: 1Password CLI, swift-format)
 2. **Authenticates with 1Password** (prompts if needed)
-3. **Writes `Saga/Config/Config.xcconfig`** with Contentful credentials from the `saga` vault (`CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` items)
+3. **Writes `Saga/Saga/Config/Config.xcconfig`** with Contentful credentials from the `saga` vault (`CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` items)
 4. **Adds shell completions** to your `.zshrc` for the `run` command
 
 After setup, use `run` (with tab completion) instead of `./run`. Re-run bootstrap any time to refresh credentials.
@@ -39,8 +39,10 @@ Swift-based scripts live in `scripts/Sources/` and are run via the `run` wrapper
 |--------|-------------|
 | `app` | Build, launch, or run UI tests |
 | `bootstrap` | Set up shell completions and pull secrets from 1Password |
+| `config` | Write `Saga/Saga/Config/Config.xcconfig` from the environment (or placeholders) |
 | `drop-bot-commits` | Drop version bump commits on branch and rebase onto main |
 | `checks` | Run Swift format and/or lint checks |
+| `clean` | Remove build artifacts and derived data |
 | `version-and-release` | Manage version tags and Github releases |
 
 ### Building and running
