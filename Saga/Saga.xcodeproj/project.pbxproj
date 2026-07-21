@@ -557,7 +557,7 @@
 			repositoryURL = "https://github.com/ukushu/Ifrit";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 3.0.0;
+				minimumVersion = 4.0.0;
 			};
 		};
 		7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */ = {
@@ -565,7 +565,7 @@
 			repositoryURL = "https://github.com/contentful/contentful-persistence.swift";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.18.1;
+				minimumVersion = 0.18.2;
 			};
 		};
 		758F7A292E1E2D58007CDCC8 /* XCRemoteSwiftPackageReference "SwiftCSV" */ = {
