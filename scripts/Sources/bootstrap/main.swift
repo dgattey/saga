@@ -11,7 +11,8 @@ let cli = SimpleCLI(
     "Only adds completions if not already present",
     "Writes Saga/Saga/Config/Config.xcconfig (overwrites)",
     "Runs 'brew bundle' from repo root (Brewfile: 1password-cli, swift-format)",
-    "Ensures 1Password CLI is authenticated; pulls Contentful credentials from the saga vault",
+    "Ensures 1Password CLI is authenticated; reads CONTENTFUL_SPACE_ID and "
+      + "CONTENTFUL_DELIVERY_API_KEY from the saga vault",
     "Restart your shell or run 'source ~/.zshrc' to activate",
   ]
 )
@@ -25,16 +26,23 @@ func parseArguments(_ args: [String]) throws {
 private enum ConfigDefaults {
   static let opAccount = "my.1password.com"
   static let opVault = "saga"
+
+  // Vault items are named after Contentful's APIs, not after the build settings they
+  // feed, so these are deliberately not AppConfig's key names. `PersistenceService`
+  // builds a `Client` with the default delivery host (cdn.contentful.com), so it needs
+  // the delivery key rather than the preview or management token also in the vault.
+  static let spaceIDItem = "CONTENTFUL_SPACE_ID"
+  static let accessTokenItem = "CONTENTFUL_DELIVERY_API_KEY"
 }
 
 private func resolveConfigValues() throws -> AppConfigValues {
   let spaceID = try readOnePasswordSecret(
     vault: ConfigDefaults.opVault,
-    item: AppConfig.spaceIDKey
+    item: ConfigDefaults.spaceIDItem
   )
   let accessToken = try readOnePasswordSecret(
     vault: ConfigDefaults.opVault,
-    item: AppConfig.accessTokenKey
+    item: ConfigDefaults.accessTokenItem
   )
   return AppConfigValues(spaceID: spaceID, accessToken: accessToken)
 }
