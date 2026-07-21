@@ -17,7 +17,7 @@ jobs:
       head-sha: ${{ steps.head.outputs.sha }}
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
@@ -90,7 +90,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.bump.outputs.head-sha }}
           fetch-depth: 0
@@ -104,7 +104,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.bump.outputs.head-sha }}
           fetch-depth: 0
@@ -118,7 +118,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.bump.outputs.head-sha }}
           fetch-depth: 0
