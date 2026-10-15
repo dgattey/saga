@@ -216,22 +216,24 @@ import SwiftUI
 
 // MARK: - Universal Hot Reload
 
-/// A wrapper view that forces full view hierarchy recreation on injection.
-/// Uses the injection counter as a SwiftUI `.id()` so that when InjectionIII
-/// injects new code, the entire content tree is destroyed and recreated.
-struct HotReloadableView<Content: View>: View {
-  @ObservedObject private var observer = injectionObserver
-  let content: () -> Content
+#if DEBUG
+  /// A wrapper view that forces full view hierarchy recreation on injection.
+  /// Uses the injection counter as a SwiftUI `.id()` so that when InjectionIII
+  /// injects new code, the entire content tree is destroyed and recreated.
+  struct HotReloadableView<Content: View>: View {
+    @ObservedObject private var observer = injectionObserver
+    let content: () -> Content
 
-  init(@ViewBuilder content: @escaping () -> Content) {
-    self.content = content
-  }
+    init(@ViewBuilder content: @escaping () -> Content) {
+      self.content = content
+    }
 
-  var body: some View {
-    content()
-      .id(observer.injectionNumber)
+    var body: some View {
+      content()
+        .id(observer.injectionNumber)
+    }
   }
-}
+#endif
 
 extension View {
   /// Enables universal hot reload for this view and all its descendants.
@@ -245,6 +247,10 @@ extension View {
   /// - `-Xlinker -interposable` in OTHER_LDFLAGS (already configured)
   /// - App sandbox disabled in Debug (already configured)
   func hotReloadable() -> some View {
-    HotReloadableView { self }
+    #if DEBUG
+      HotReloadableView { self }
+    #else
+      self
+    #endif
   }
 }
