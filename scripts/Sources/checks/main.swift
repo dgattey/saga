@@ -3,8 +3,8 @@
 import Common
 import Foundation
 
-/// Directories to check (relative to repo root). Excludes build/, .build/, etc.
-let targetDirectories = ["Saga", "scripts"]
+/// Paths to check (relative to repo root). Excludes build/, scripts/.build/, etc.
+let targetPaths = ["Saga", "scripts/Sources", "scripts/Package.swift"]
 
 // MARK: - CLI
 
@@ -26,7 +26,7 @@ let cli = CLI(
   notes: [
     "Uses swift-format with repo config (.swift-format)",
     "Defaults to running both format and lint when no options are provided",
-    "Checks only: \(targetDirectories.joined(separator: ", "))",
+    "Checks only: \(targetPaths.joined(separator: ", "))",
   ]
 )
 
@@ -65,30 +65,37 @@ func findConfigurationPath(repoRoot: String) -> String? {
 }
 
 func findSwiftFormat() -> (command: String, args: [String]) {
-  // Check if swift-format is in PATH (e.g., installed via Homebrew)
-  let whichResult = try? runCommand("which", ["swift-format"], emitOutput: false)
-  if let path = whichResult, !path.isEmpty {
-    return ("swift-format", [])
+  let envPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
+  let searchDirs =
+    envPath.split(separator: ":").map(String.init) + [
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+    ]
+  for dir in searchDirs where !dir.isEmpty {
+    let candidate = URL(fileURLWithPath: dir).appendingPathComponent("swift-format").path
+    if FileManager.default.isExecutableFile(atPath: candidate) {
+      return (candidate, [])
+    }
   }
   // Fall back to xcrun (e.g., bundled with Xcode)
   return ("xcrun", ["swift-format"])
 }
 
 func runSwiftFormat(
+  tool: (command: String, args: [String]),
   subcommand: String,
-  targetPath: String,
+  targetPaths: [String],
   configPath: String?,
   extraArgs: [String],
   cwd: URL,
   description: String
 ) throws {
   print(description)
-  let (command, commandPrefix) = findSwiftFormat()
-  var args = commandPrefix + [subcommand, "--recursive", "--parallel"]
+  var args = tool.args + [subcommand, "--recursive", "--parallel"]
   if let configPath { args.append(contentsOf: ["--configuration", configPath]) }
   args.append(contentsOf: extraArgs)
-  args.append(targetPath)
-  try runCommand(command, args, cwd: cwd, failOnStderr: true)
+  args.append(contentsOf: targetPaths)
+  try runCommand(tool.command, args, cwd: cwd, failOnStderr: true)
 }
 
 @main
@@ -107,32 +114,38 @@ struct ChecksCommand {
       }
 
       let configPath = findConfigurationPath(repoRoot: repoRoot)
+      let existingTargets = targetPaths.compactMap {
+        relativePath -> (label: String, path: String)? in
+        let fullPath = repoURL.appendingPathComponent(relativePath).path
+        return FileManager.default.fileExists(atPath: fullPath) ? (relativePath, fullPath) : nil
+      }
+      guard !existingTargets.isEmpty else { return }
 
-      for directory in targetDirectories {
-        let targetPath = repoURL.appendingPathComponent(directory).path
-        guard FileManager.default.fileExists(atPath: targetPath) else {
-          continue
-        }
-        if selection.runFormat {
-          try runSwiftFormat(
-            subcommand: "format",
-            targetPath: targetPath,
-            configPath: configPath,
-            extraArgs: ["--in-place"],
-            cwd: repoURL,
-            description: "Formatting \(directory)/..."
-          )
-        }
-        if selection.runLint {
-          try runSwiftFormat(
-            subcommand: "lint",
-            targetPath: targetPath,
-            configPath: configPath,
-            extraArgs: ["--strict"],
-            cwd: repoURL,
-            description: "Linting \(directory)/..."
-          )
-        }
+      let tool = findSwiftFormat()
+      let labels = existingTargets.map(\.label).joined(separator: ", ")
+      let paths = existingTargets.map(\.path)
+
+      if selection.runFormat {
+        try runSwiftFormat(
+          tool: tool,
+          subcommand: "format",
+          targetPaths: paths,
+          configPath: configPath,
+          extraArgs: ["--in-place"],
+          cwd: repoURL,
+          description: "Formatting \(labels)..."
+        )
+      }
+      if selection.runLint {
+        try runSwiftFormat(
+          tool: tool,
+          subcommand: "lint",
+          targetPaths: paths,
+          configPath: configPath,
+          extraArgs: ["--strict"],
+          cwd: repoURL,
+          description: "Linting \(labels)..."
+        )
       }
     }
   }

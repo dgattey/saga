@@ -52,12 +52,25 @@ public func readOnePasswordSecret(
 
 /// Returns the current machine architecture (e.g. arm64, x86_64).
 public func currentArchitecture() throws -> String {
-  try runCommand("uname", ["-m"], emitOutput: false)
+  #if arch(arm64)
+    return "arm64"
+  #elseif arch(x86_64)
+    return "x86_64"
+  #else
+    return try runCommand("uname", ["-m"], emitOutput: false)
+  #endif
 }
 
 /// Terminates a running process by exact name (no-op if not running).
-public func terminateProcess(named processName: String) {
-  _ = try? runCommand("pkill", ["-x", processName], allowFailure: true, emitOutput: false)
+/// Returns true if a running process was found and signaled.
+@discardableResult
+public func terminateProcess(named processName: String) -> Bool {
+  do {
+    _ = try runCommand("pkill", ["-x", processName], emitOutput: false)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /// Opens an app bundle at the given path.
@@ -70,7 +83,7 @@ public func openApp(at path: String) throws {
 
 /// Waits for a process to appear, returning its PID or throwing on timeout.
 public func waitForProcessID(
-  named processName: String, retries: Int = 20, delaySeconds: TimeInterval = 0.25
+  named processName: String, retries: Int = 100, delaySeconds: TimeInterval = 0.05
 )
   throws -> Int
 {
@@ -112,7 +125,9 @@ public func waitForProcessExit(processID: Int) {
 }
 
 /// Installs SIGINT/SIGTERM handlers that run cleanup before exiting.
-public func installSignalHandlers(onTerminate: @escaping () -> Void) -> [DispatchSourceSignal] {
+public func installSignalHandlers(
+  onTerminate: @escaping @Sendable () -> Void
+) -> [DispatchSourceSignal] {
   let signals: [Int32] = [SIGINT, SIGTERM]
   var sources: [DispatchSourceSignal] = []
   for signalValue in signals {

@@ -3,13 +3,15 @@ import Foundation
 
 func runUiTests(
   projectPath: String,
+  derivedDataPath: String,
   arch: String,
   verbose: Bool,
   resultBundlePath: String,
   screenshotsPath: String
 ) throws {
-  terminateProcess(named: "Saga")
-  try waitForProcessToExit(named: "Saga")
+  if terminateProcess(named: "Saga") {
+    try waitForProcessToExit(named: "Saga")
+  }
 
   try FileManager.default.createDirectory(
     at: URL(fileURLWithPath: resultBundlePath).deletingLastPathComponent(),
@@ -27,8 +29,11 @@ func runUiTests(
     "-configuration", "Debug",
     "-destination", "platform=macOS,arch=\(arch)",
     "-resultBundlePath", resultBundlePath,
-    "test",
   ]
+  if hasUpToDateResolvedPackages(projectPath: projectPath, derivedDataPath: derivedDataPath) {
+    args.append("-disableAutomaticPackageResolution")
+  }
+  args.append("test")
   if !verbose {
     args.insert("-quiet", at: 0)
   }

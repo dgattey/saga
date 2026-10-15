@@ -25,15 +25,24 @@ SOURCES="$ROOT/scripts/Sources"
 # List all script names (directories under Sources/, excluding Common)
 scripts() {
     for dir in "$SOURCES"/*/; do
-        local name="$(basename "$dir")"
+        local name="${dir%/}"
+        name="${name##*/}"
         [[ "$name" != "Common" ]] && echo "$name"
-    done | sort
+    done
 }
 
 # Get description from "// DESCRIPTION: ..." in main.swift
 description() {
-    grep -m1 '^// DESCRIPTION:' "$SOURCES/$1/main.swift" 2>/dev/null \
-        | sed 's|^// DESCRIPTION: *||' || true
+    local file="$SOURCES/$1/main.swift"
+    [[ -f "$file" ]] || return 0
+    local line
+    while IFS= read -r line; do
+        if [[ "$line" == "// DESCRIPTION:"* ]]; then
+            line="${line#// DESCRIPTION:}"
+            echo "${line#"${line%%[![:space:]]*}"}"
+            return 0
+        fi
+    done < "$file"
 }
 
 # Handle --completions (for shell tab completion)
@@ -53,5 +62,22 @@ if [[ $# -lt 1 || "$1" == "-h" || "$1" == "--help" ]]; then
     exit 0
 fi
 
-# Run the requested script via Swift Package Manager
-exec swift run -q --package-path "$ROOT/scripts" "$@"
+SCRIPT="$1"
+shift
+
+if [[ ! -d "$SOURCES/$SCRIPT" || "$SCRIPT" == "Common" ]]; then
+    echo "Unknown script: $SCRIPT" >&2
+    echo "Run 'run --help' to list available scripts." >&2
+    exit 1
+fi
+
+BIN="$ROOT/scripts/.build/debug/$SCRIPT"
+
+# Rebuild only when the binary is missing or older than Package.swift / script sources
+if [[ ! -x "$BIN" ]] || [[ "$ROOT/scripts/Package.swift" -nt "$BIN" ]] \
+    || [[ -n "$(find -L "$SOURCES/Common" "$SOURCES/$SCRIPT" -newer "$BIN" -print -quit 2>/dev/null)" ]]; then
+    swift build -q --package-path "$ROOT/scripts" --product "$SCRIPT"
+    touch -c "$BIN"
+fi
+
+exec "$BIN" "$@"

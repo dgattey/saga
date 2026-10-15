@@ -73,6 +73,9 @@ enum ImageCache {
   /// Semaphore-like gate limiting concurrent downloads
   private static let downloadGate = DownloadGate(maxConcurrent: maxConcurrentDownloads)
 
+  /// Coalesces disk cache limit enforcement so concurrent saves don't repeatedly walk the cache directory
+  private static let diskLimitGate = DiskLimitGate()
+
   /// Directory for disk-cached PNG files (falls back to temp directory if Caches unavailable)
   private static let diskCacheDirectory = CacheConfig.cacheDirectory(
     named: diskCacheDirectoryName,
@@ -270,7 +273,7 @@ enum ImageCache {
     imageCache.setObject(image, forKey: key)
     urlImageCache.setObject(image, forKey: urlKey)
     Task.detached(priority: .utility) {
-      saveDiskCachedImage(image, for: key)
+      await saveDiskCachedImage(image, for: key)
     }
   }
 
@@ -301,8 +304,8 @@ enum ImageCache {
     return CGImageSourceCreateImageAtIndex(source, 0, nil)
   }
 
-  /// Saves an image to disk cache as PNG, then enforces size limit.
-  private static func saveDiskCachedImage(_ image: CGImage, for key: NSString) {
+  /// Saves an image to disk cache as PNG, then schedules coalesced size limit enforcement.
+  private static func saveDiskCachedImage(_ image: CGImage, for key: NSString) async {
     let url = cacheFileURL(for: key)
     guard
       let destination = CGImageDestinationCreateWithURL(
@@ -316,7 +319,9 @@ enum ImageCache {
     }
     CGImageDestinationAddImage(destination, image, nil)
     CGImageDestinationFinalize(destination)
-    enforceDiskCacheLimit()
+    if await diskLimitGate.shouldEnforceAfterWrite() {
+      enforceDiskCacheLimit()
+    }
   }
 
   // MARK: - Image Processing (Private)
@@ -473,5 +478,28 @@ private actor ActiveRequests {
     }
     active[key] = set
     return false
+  }
+}
+
+/// Throttles automatic disk cache limit sweeps after image writes so bursts of downloads
+/// do not walk the entire cache directory on every single file save.
+private actor DiskLimitGate {
+  private let minimumInterval: TimeInterval = 10
+  private let writeThreshold = 25
+  private var writesSinceLastSweep = 0
+  private var lastSweepTime: Date = .distantPast
+
+  func shouldEnforceAfterWrite() -> Bool {
+    writesSinceLastSweep += 1
+    let now = Date()
+    guard
+      writesSinceLastSweep >= writeThreshold
+        || now.timeIntervalSince(lastSweepTime) >= minimumInterval
+    else {
+      return false
+    }
+    writesSinceLastSweep = 0
+    lastSweepTime = now
+    return true
   }
 }

@@ -36,10 +36,23 @@ public func runCommand(
   process.standardError = stderr
 
   try process.run()
-  process.waitUntilExit()
+
+  // Drain stdout and stderr concurrently while the child runs so commands that emit
+  // >64 KB of output (such as `run app -v`) never deadlock on a full pipe buffer.
+  try? stdout.fileHandleForWriting.close()
+  try? stderr.fileHandleForWriting.close()
+
+  nonisolated(unsafe) var stderrData = Data()
+  let stderrGroup = DispatchGroup()
+  stderrGroup.enter()
+  DispatchQueue.global(qos: .userInitiated).async {
+    stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
+    stderrGroup.leave()
+  }
 
   let stdoutData = stdout.fileHandleForReading.readDataToEndOfFile()
-  let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
+  stderrGroup.wait()
+  process.waitUntilExit()
   let stdoutText = String(data: stdoutData, encoding: .utf8) ?? ""
   let stderrText = String(data: stderrData, encoding: .utf8) ?? ""
   let trimmedStdout = stdoutText.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -1,16 +1,6 @@
 import Common
+import CryptoKit
 import Foundation
-
-func findProjectPath(repoRoot: String) throws -> String {
-  let path = URL(fileURLWithPath: repoRoot)
-    .appendingPathComponent("Saga")
-    .appendingPathComponent("Saga.xcodeproj")
-    .path
-  guard FileManager.default.fileExists(atPath: path) else {
-    throw ScriptError("Xcode project not found at \(path)")
-  }
-  return path
-}
 
 func currentBranchName(repoRoot: String) -> String? {
   let output =
@@ -37,52 +27,14 @@ func currentShortCommit(repoRoot: String) -> String? {
   return trimmed.isEmpty ? nil : trimmed
 }
 
-func sha256Hex(_ value: String) -> String? {
-  let process = Process()
-  process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-  process.arguments = ["shasum", "-a", "256"]
-
-  let stdin = Pipe()
-  let stdout = Pipe()
-  let stderr = Pipe()
-  process.standardInput = stdin
-  process.standardOutput = stdout
-  process.standardError = stderr
-
-  do {
-    try process.run()
-  } catch {
-    return nil
-  }
-
-  if let data = value.data(using: .utf8) {
-    stdin.fileHandleForWriting.write(data)
-  }
-  stdin.fileHandleForWriting.closeFile()
-
-  process.waitUntilExit()
-
-  let stdoutData = stdout.fileHandleForReading.readDataToEndOfFile()
-  let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
-  let stdoutText = String(data: stdoutData, encoding: .utf8) ?? ""
-  let stderrText = String(data: stderrData, encoding: .utf8) ?? ""
-
-  guard process.terminationStatus == 0 else {
-    if !stderrText.isEmpty {
-      FileHandle.standardError.write(stderrData)
-    }
-    return nil
-  }
-
-  let trimmed = stdoutText.trimmingCharacters(in: .whitespacesAndNewlines)
-  return trimmed.split(separator: " ").first.map(String.init)
+func sha256Hex(_ value: String) -> String {
+  let digest = SHA256.hash(data: Data(value.utf8))
+  return digest.map { String(format: "%02x", $0) }.joined()
 }
 
 func buildCacheKey(repoRoot: String) -> String {
   if let branch = currentBranchName(repoRoot: repoRoot) {
-    if let hash = sha256Hex(branch) {
-      return hash
-    }
+    return sha256Hex(branch)
   }
   if let shortCommit = currentShortCommit(repoRoot: repoRoot) {
     return shortCommit
@@ -90,18 +42,100 @@ func buildCacheKey(repoRoot: String) -> String {
   return "unknown"
 }
 
+private struct ResolvedPackagesFile: Decodable {
+  struct Pin: Decodable {
+    struct State: Decodable {
+      let revision: String
+    }
+    let identity: String
+    let state: State
+  }
+  let pins: [Pin]
+}
+
+private struct WorkspaceStateFile: Decodable {
+  struct ObjectPayload: Decodable {
+    struct Dependency: Decodable {
+      struct PackageRef: Decodable {
+        let identity: String
+      }
+      struct State: Decodable {
+        struct CheckoutState: Decodable {
+          let revision: String
+        }
+        let checkoutState: CheckoutState?
+      }
+      let packageRef: PackageRef
+      let state: State
+      let subpath: String
+    }
+    let dependencies: [Dependency]
+  }
+  let object: ObjectPayload
+}
+
+func hasUpToDateResolvedPackages(projectPath: String, derivedDataPath: String) -> Bool {
+  let fileManager = FileManager.default
+  let resolvedURL = URL(fileURLWithPath: projectPath)
+    .appendingPathComponent("project.xcworkspace/xcshareddata/swiftpm/Package.resolved")
+  let sourcePackagesURL = URL(fileURLWithPath: derivedDataPath)
+    .appendingPathComponent("SourcePackages")
+  let workspaceStateURL = sourcePackagesURL.appendingPathComponent("workspace-state.json")
+  let checkoutsURL = sourcePackagesURL.appendingPathComponent("checkouts")
+
+  guard
+    let resolvedData = try? Data(contentsOf: resolvedURL),
+    let workspaceData = try? Data(contentsOf: workspaceStateURL),
+    let resolved = try? JSONDecoder().decode(ResolvedPackagesFile.self, from: resolvedData),
+    let workspace = try? JSONDecoder().decode(WorkspaceStateFile.self, from: workspaceData),
+    !resolved.pins.isEmpty
+  else {
+    return false
+  }
+
+  var checkedOutRevisions: [String: (revision: String, subpath: String)] = [:]
+  for dependency in workspace.object.dependencies {
+    guard let revision = dependency.state.checkoutState?.revision else { continue }
+    checkedOutRevisions[dependency.packageRef.identity.lowercased()] = (
+      revision, dependency.subpath
+    )
+  }
+
+  for pin in resolved.pins {
+    guard let match = checkedOutRevisions[pin.identity.lowercased()],
+      match.revision == pin.state.revision
+    else {
+      return false
+    }
+    let checkoutPath = checkoutsURL.appendingPathComponent(match.subpath).path
+    if !fileManager.fileExists(atPath: checkoutPath) {
+      return false
+    }
+  }
+
+  return true
+}
+
 func buildApp(
-  projectPath: String, arch: String, verbose: Bool, skipSigning: Bool
+  projectPath: String,
+  derivedDataPath: String,
+  arch: String,
+  configuration: String = "Debug",
+  verbose: Bool,
+  skipSigning: Bool
 ) throws {
-  print("Building Saga (Debug)...")
+  print("Building Saga (\(configuration))...")
   // Uses standard DerivedData location for hot reload compatibility
   var args = [
     "-project", projectPath,
     "-scheme", "Saga",
-    "-configuration", "Debug",
+    "-configuration", configuration,
     "-destination", "platform=macOS,arch=\(arch)",
-    "build",
   ]
+  if hasUpToDateResolvedPackages(projectPath: projectPath, derivedDataPath: derivedDataPath) {
+    args.append("-disableAutomaticPackageResolution")
+  }
+  args.append("build")
   if !verbose {
     args.insert("-quiet", at: 0)
   }

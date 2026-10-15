@@ -4,7 +4,7 @@ import Foundation
 
 /// Protocol for CLI options that enables type-safe switching while supporting auto-generated usage.
 /// Conform your enum to this protocol to define options with metadata.
-public protocol CLIOptionType: RawRepresentable, CaseIterable where RawValue == String {
+public protocol CLIOptionType: RawRepresentable, CaseIterable, Sendable where RawValue == String {
   /// Optional single-character short form (e.g. "v" for -v).
   var shortName: String? { get }
   /// Help text for this option.
@@ -46,7 +46,8 @@ extension CLIOptionType {
 // MARK: - CLI Subcommand Protocol
 
 /// Protocol for CLI subcommands that enables type-safe switching.
-public protocol CLISubcommandType: RawRepresentable, CaseIterable where RawValue == String {
+public protocol CLISubcommandType: RawRepresentable, CaseIterable, Sendable
+where RawValue == String {
   /// Help text for this subcommand.
   var description: String { get }
 }
@@ -61,10 +62,10 @@ extension CLISubcommandType {
 // MARK: - CLI
 
 /// CLI configuration that auto-generates usage, completions, and handles standard flags.
-public struct CLI<Option: CLIOptionType> {
+public struct CLI<Option: CLIOptionType>: Sendable {
   public let scriptName: String
   public let description: String
-  public let optionType: Option.Type
+  public var optionType: Option.Type { Option.self }
   public let subcommandDescriptions: [(name: String, description: String)]
   public let examples: [String]
   public let notes: [String]
@@ -84,7 +85,6 @@ public struct CLI<Option: CLIOptionType> {
     let url = URL(fileURLWithPath: filePath)
     self.scriptName = url.deletingLastPathComponent().lastPathComponent
     self.description = scriptDescription(filePath: filePath)
-    self.optionType = options
     self.subcommandDescriptions = subcommands
     self.examples = examples
     self.notes = notes
@@ -207,7 +207,7 @@ public struct CLI<Option: CLIOptionType> {
 // MARK: - CLI without options
 
 /// CLI configuration for scripts with no custom options.
-public struct SimpleCLI {
+public struct SimpleCLI: Sendable {
   public let scriptName: String
   public let description: String
   public let subcommandDescriptions: [(name: String, description: String)]

@@ -13,18 +13,42 @@ final class CachesViewModel: ObservableObject {
   @Published var imageCacheSizeBytes: Int64 = 0
   @Published var networkCacheSizeBytes: Int64 = 0
   private var refreshTimer: AnyCancellable?
+  private var refreshTask: Task<Void, Never>?
   private var isClearing = false
 
-  init() {
+  init() {}
+
+  /// Starts refreshing cache sizes immediately and periodically while Settings is visible
+  func startMonitoring() {
     refreshSizes()
-    startRefreshTimer()
+    guard refreshTimer == nil else { return }
+    refreshTimer = Timer.publish(every: 5, on: .main, in: .common)
+      .autoconnect()
+      .sink { [weak self] _ in
+        self?.refreshSizes()
+      }
   }
 
-  /// Refreshes the current cache size values (skipped during clearing)
+  /// Stops periodic cache size refreshes when Settings is closed
+  func stopMonitoring() {
+    refreshTimer?.cancel()
+    refreshTimer = nil
+    refreshTask?.cancel()
+    refreshTask = nil
+  }
+
+  /// Refreshes the current cache size values off the main thread (skipped during clearing)
   func refreshSizes() {
     guard !isClearing else { return }
-    imageCacheSizeBytes = ImageCache.diskCacheSizeBytes()
-    networkCacheSizeBytes = NetworkCache.diskCacheSizeBytes()
+    refreshTask?.cancel()
+    refreshTask = Task { @MainActor [weak self] in
+      let (imageBytes, networkBytes) = await Task.detached(priority: .utility) {
+        (ImageCache.diskCacheSizeBytes(), NetworkCache.diskCacheSizeBytes())
+      }.value
+      guard !Task.isCancelled, let self, !self.isClearing else { return }
+      self.imageCacheSizeBytes = imageBytes
+      self.networkCacheSizeBytes = networkBytes
+    }
   }
 
   /// Clears all caches (image and network)
@@ -32,6 +56,7 @@ final class CachesViewModel: ObservableObject {
     // Immediate feedback - show 0 right away and prevent timer from overwriting
     await MainActor.run {
       isClearing = true
+      refreshTask?.cancel()
       imageCacheSizeBytes = 0
       networkCacheSizeBytes = 0
     }
@@ -45,14 +70,5 @@ final class CachesViewModel: ObservableObject {
       isClearing = false
       refreshSizes()
     }
-  }
-
-  /// Starts the periodic timer to refresh cache sizes
-  private func startRefreshTimer() {
-    refreshTimer = Timer.publish(every: 5, on: .main, in: .common)
-      .autoconnect()
-      .sink { [weak self] _ in
-        self?.refreshSizes()
-      }
   }
 }
