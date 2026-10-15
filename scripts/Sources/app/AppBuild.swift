@@ -1,16 +1,6 @@
 import Common
+import CryptoKit
 import Foundation
-
-func findProjectPath(repoRoot: String) throws -> String {
-  let path = URL(fileURLWithPath: repoRoot)
-    .appendingPathComponent("Saga")
-    .appendingPathComponent("Saga.xcodeproj")
-    .path
-  guard FileManager.default.fileExists(atPath: path) else {
-    throw ScriptError("Xcode project not found at \(path)")
-  }
-  return path
-}
 
 func currentBranchName(repoRoot: String) -> String? {
   let output =
@@ -37,52 +27,14 @@ func currentShortCommit(repoRoot: String) -> String? {
   return trimmed.isEmpty ? nil : trimmed
 }
 
-func sha256Hex(_ value: String) -> String? {
-  let process = Process()
-  process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-  process.arguments = ["shasum", "-a", "256"]
-
-  let stdin = Pipe()
-  let stdout = Pipe()
-  let stderr = Pipe()
-  process.standardInput = stdin
-  process.standardOutput = stdout
-  process.standardError = stderr
-
-  do {
-    try process.run()
-  } catch {
-    return nil
-  }
-
-  if let data = value.data(using: .utf8) {
-    stdin.fileHandleForWriting.write(data)
-  }
-  stdin.fileHandleForWriting.closeFile()
-
-  process.waitUntilExit()
-
-  let stdoutData = stdout.fileHandleForReading.readDataToEndOfFile()
-  let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
-  let stdoutText = String(data: stdoutData, encoding: .utf8) ?? ""
-  let stderrText = String(data: stderrData, encoding: .utf8) ?? ""
-
-  guard process.terminationStatus == 0 else {
-    if !stderrText.isEmpty {
-      FileHandle.standardError.write(stderrData)
-    }
-    return nil
-  }
-
-  let trimmed = stdoutText.trimmingCharacters(in: .whitespacesAndNewlines)
-  return trimmed.split(separator: " ").first.map(String.init)
+func sha256Hex(_ value: String) -> String {
+  let digest = SHA256.hash(data: Data(value.utf8))
+  return digest.map { String(format: "%02x", $0) }.joined()
 }
 
 func buildCacheKey(repoRoot: String) -> String {
   if let branch = currentBranchName(repoRoot: repoRoot) {
-    if let hash = sha256Hex(branch) {
-      return hash
-    }
+    return sha256Hex(branch)
   }
   if let shortCommit = currentShortCommit(repoRoot: repoRoot) {
     return shortCommit
@@ -90,18 +42,53 @@ func buildCacheKey(repoRoot: String) -> String {
   return "unknown"
 }
 
+func hasUpToDateResolvedPackages(projectPath: String, derivedDataPath: String) -> Bool {
+  let fileManager = FileManager.default
+  let checkoutsPath = URL(fileURLWithPath: derivedDataPath)
+    .appendingPathComponent("SourcePackages/checkouts")
+    .path
+  guard
+    let checkoutEntries = try? fileManager.contentsOfDirectory(atPath: checkoutsPath),
+    !checkoutEntries.isEmpty
+  else {
+    return false
+  }
+
+  let resolvedPath = URL(fileURLWithPath: projectPath)
+    .appendingPathComponent("project.xcworkspace/xcshareddata/swiftpm/Package.resolved")
+    .path
+  guard
+    let resolvedAttrs = try? fileManager.attributesOfItem(atPath: resolvedPath),
+    let checkoutsAttrs = try? fileManager.attributesOfItem(atPath: checkoutsPath),
+    let resolvedDate = resolvedAttrs[.modificationDate] as? Date,
+    let checkoutsDate = checkoutsAttrs[.modificationDate] as? Date
+  else {
+    return true
+  }
+
+  return checkoutsDate >= resolvedDate
+}
+
 func buildApp(
-  projectPath: String, arch: String, verbose: Bool, skipSigning: Bool
+  projectPath: String,
+  derivedDataPath: String,
+  arch: String,
+  configuration: String = "Debug",
+  verbose: Bool,
+  skipSigning: Bool
 ) throws {
-  print("Building Saga (Debug)...")
+  print("Building Saga (\(configuration))...")
   // Uses standard DerivedData location for hot reload compatibility
   var args = [
     "-project", projectPath,
     "-scheme", "Saga",
-    "-configuration", "Debug",
+    "-configuration", configuration,
     "-destination", "platform=macOS,arch=\(arch)",
-    "build",
   ]
+  if hasUpToDateResolvedPackages(projectPath: projectPath, derivedDataPath: derivedDataPath) {
+    args.append("-disableAutomaticPackageResolution")
+  }
+  args.append("build")
   if !verbose {
     args.insert("-quiet", at: 0)
   }

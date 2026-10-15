@@ -2,38 +2,38 @@ import Common
 import Foundation
 
 struct AppPaths {
-  let resultBundlePath: String
-  let screenshotsPath: String
+  let derivedDataPath: String
   let appPath: String
 
   /// Standard Xcode DerivedData location (for hot reload compatibility)
   static let xcodeDerivedData = NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData"
 
   init(
-    repoRoot: String,
-    cacheKey: String,
     configuration: String = "Debug",
     appName: String = "Saga"
   ) {
-    let buildRoot = URL(fileURLWithPath: repoRoot).appendingPathComponent("build")
-
-    resultBundlePath =
-      buildRoot
-      .appendingPathComponent("UITestResults")
-      .appendingPathComponent("\(cacheKey).xcresult")
-      .path
-    screenshotsPath =
-      buildRoot
-      .appendingPathComponent("UITestScreenshots")
-      .appendingPathComponent(cacheKey)
-      .path
-
-    // Find existing DerivedData folder for app path
-    let derivedDataPath = Self.findDerivedData(projectName: appName)
+    derivedDataPath = Self.findDerivedData(projectName: appName)
     appPath =
       URL(fileURLWithPath: derivedDataPath)
       .appendingPathComponent("Build/Products/\(configuration)/\(appName).app")
       .path
+  }
+
+  static func uiTestPaths(repoRoot: String, cacheKey: String) -> (
+    resultBundlePath: String, screenshotsPath: String
+  ) {
+    let buildRoot = URL(fileURLWithPath: repoRoot).appendingPathComponent("build")
+    let resultBundlePath =
+      buildRoot
+      .appendingPathComponent("UITestResults")
+      .appendingPathComponent("\(cacheKey).xcresult")
+      .path
+    let screenshotsPath =
+      buildRoot
+      .appendingPathComponent("UITestScreenshots")
+      .appendingPathComponent(cacheKey)
+      .path
+    return (resultBundlePath, screenshotsPath)
   }
 
   static func findDerivedData(projectName: String) -> String {
@@ -49,8 +49,9 @@ struct AppPaths {
 }
 
 func runApp(appPath: String, processName: String = "Saga", subsystem: String = "Saga") throws {
-  terminateProcess(named: processName)
-  try waitForProcessToExit(named: processName)
+  if terminateProcess(named: processName) {
+    try waitForProcessToExit(named: processName)
+  }
   print("Streaming logs for \(processName). Press Ctrl+C to stop.")
   let logProcess = try streamLogs(processName: processName, subsystem: subsystem)
   let signalSources = installSignalHandlers {
@@ -66,7 +67,7 @@ func runApp(appPath: String, processName: String = "Saga", subsystem: String = "
 }
 
 func waitForProcessToExit(
-  named processName: String, retries: Int = 20, delaySeconds: TimeInterval = 0.25
+  named processName: String, retries: Int = 100, delaySeconds: TimeInterval = 0.05
 )
   throws
 {
