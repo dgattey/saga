@@ -3,7 +3,7 @@ import Foundation
 // MARK: - App config file
 
 /// The Contentful credentials that `Config.xcconfig` feeds into the app's Info.plist.
-public struct AppConfigValues {
+public struct AppConfigValues: Sendable {
   public let spaceID: String
   public let accessToken: String
 

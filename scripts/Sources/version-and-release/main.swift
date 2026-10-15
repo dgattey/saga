@@ -364,7 +364,7 @@ func loadExtendedEvent(from path: String) throws -> (owner: String, repo: String
 }
 
 func urlSessionSyncData(for request: URLRequest) throws -> (Data, URLResponse) {
-  var result: (Data?, URLResponse?, Error?)?
+  nonisolated(unsafe) var result: (Data?, URLResponse?, Error?)?
   let semaphore = DispatchSemaphore(value: 0)
   URLSession.shared.dataTask(with: request) { data, response, error in
     result = (data, response, error)
