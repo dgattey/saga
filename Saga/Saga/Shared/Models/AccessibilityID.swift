@@ -30,5 +30,8 @@ public enum AccessibilityID {
     public static let view = "settings.view"
     public static let clearCaches = "settings.clearCaches"
     public static let clearCachesAndData = "settings.clearCachesAndData"
+    public static let checkForUpdates = "settings.checkForUpdates"
+    public static let automaticallyCheckForUpdates = "settings.automaticallyCheckForUpdates"
+    public static let automaticallyDownloadUpdates = "settings.automaticallyDownloadUpdates"
   }
 }
