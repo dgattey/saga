@@ -40,11 +40,11 @@ struct SettingsView: View {
           currentSizeBytes: cachesViewModel.imageCacheSizeBytes,
           options: cacheLimitOptions,
           onLimitChange: {
-            Task.detached(priority: .utility) {
-              ImageCache.enforceDiskCacheLimit()
-              await MainActor.run {
-                cachesViewModel.refreshSizes()
-              }
+            Task { @MainActor in
+              await Task.detached(priority: .utility) {
+                ImageCache.enforceDiskCacheLimit()
+              }.value
+              cachesViewModel.refreshSizes()
             }
           }
         )

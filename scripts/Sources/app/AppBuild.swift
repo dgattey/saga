@@ -42,31 +42,78 @@ func buildCacheKey(repoRoot: String) -> String {
   return "unknown"
 }
 
+private struct ResolvedPackagesFile: Decodable {
+  struct Pin: Decodable {
+    struct State: Decodable {
+      let revision: String
+    }
+    let identity: String
+    let state: State
+  }
+  let pins: [Pin]
+}
+
+private struct WorkspaceStateFile: Decodable {
+  struct ObjectPayload: Decodable {
+    struct Dependency: Decodable {
+      struct PackageRef: Decodable {
+        let identity: String
+      }
+      struct State: Decodable {
+        struct CheckoutState: Decodable {
+          let revision: String
+        }
+        let checkoutState: CheckoutState?
+      }
+      let packageRef: PackageRef
+      let state: State
+      let subpath: String
+    }
+    let dependencies: [Dependency]
+  }
+  let object: ObjectPayload
+}
+
 func hasUpToDateResolvedPackages(projectPath: String, derivedDataPath: String) -> Bool {
   let fileManager = FileManager.default
-  let checkoutsPath = URL(fileURLWithPath: derivedDataPath)
-    .appendingPathComponent("SourcePackages/checkouts")
-    .path
+  let resolvedURL = URL(fileURLWithPath: projectPath)
+    .appendingPathComponent("project.xcworkspace/xcshareddata/swiftpm/Package.resolved")
+  let sourcePackagesURL = URL(fileURLWithPath: derivedDataPath)
+    .appendingPathComponent("SourcePackages")
+  let workspaceStateURL = sourcePackagesURL.appendingPathComponent("workspace-state.json")
+  let checkoutsURL = sourcePackagesURL.appendingPathComponent("checkouts")
+
   guard
-    let checkoutEntries = try? fileManager.contentsOfDirectory(atPath: checkoutsPath),
-    !checkoutEntries.isEmpty
+    let resolvedData = try? Data(contentsOf: resolvedURL),
+    let workspaceData = try? Data(contentsOf: workspaceStateURL),
+    let resolved = try? JSONDecoder().decode(ResolvedPackagesFile.self, from: resolvedData),
+    let workspace = try? JSONDecoder().decode(WorkspaceStateFile.self, from: workspaceData),
+    !resolved.pins.isEmpty
   else {
     return false
   }
 
-  let resolvedPath = URL(fileURLWithPath: projectPath)
-    .appendingPathComponent("project.xcworkspace/xcshareddata/swiftpm/Package.resolved")
-    .path
-  guard
-    let resolvedAttrs = try? fileManager.attributesOfItem(atPath: resolvedPath),
-    let checkoutsAttrs = try? fileManager.attributesOfItem(atPath: checkoutsPath),
-    let resolvedDate = resolvedAttrs[.modificationDate] as? Date,
-    let checkoutsDate = checkoutsAttrs[.modificationDate] as? Date
-  else {
-    return true
+  var checkedOutRevisions: [String: (revision: String, subpath: String)] = [:]
+  for dependency in workspace.object.dependencies {
+    guard let revision = dependency.state.checkoutState?.revision else { continue }
+    checkedOutRevisions[dependency.packageRef.identity.lowercased()] = (
+      revision, dependency.subpath
+    )
   }
 
-  return checkoutsDate >= resolvedDate
+  for pin in resolved.pins {
+    guard let match = checkedOutRevisions[pin.identity.lowercased()],
+      match.revision == pin.state.revision
+    else {
+      return false
+    }
+    let checkoutPath = checkoutsURL.appendingPathComponent(match.subpath).path
+    if !fileManager.fileExists(atPath: checkoutPath) {
+      return false
+    }
+  }
+
+  return true
 }
 
 func buildApp(

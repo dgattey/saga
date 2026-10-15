@@ -41,15 +41,13 @@ final class CachesViewModel: ObservableObject {
   func refreshSizes() {
     guard !isClearing else { return }
     refreshTask?.cancel()
-    refreshTask = Task.detached(priority: .utility) { [weak self] in
-      let imageBytes = ImageCache.diskCacheSizeBytes()
-      let networkBytes = NetworkCache.diskCacheSizeBytes()
-      guard !Task.isCancelled else { return }
-      await MainActor.run {
-        guard let self, !self.isClearing else { return }
-        self.imageCacheSizeBytes = imageBytes
-        self.networkCacheSizeBytes = networkBytes
-      }
+    refreshTask = Task { @MainActor [weak self] in
+      let (imageBytes, networkBytes) = await Task.detached(priority: .utility) {
+        (ImageCache.diskCacheSizeBytes(), NetworkCache.diskCacheSizeBytes())
+      }.value
+      guard !Task.isCancelled, let self, !self.isClearing else { return }
+      self.imageCacheSizeBytes = imageBytes
+      self.networkCacheSizeBytes = networkBytes
     }
   }
 
