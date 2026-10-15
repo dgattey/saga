@@ -107,7 +107,26 @@ struct BooksListView: View {
       text: $viewModel.searchModel.searchText,
       placement: .sidebar
     )
+    #if os(iOS)
+      .safeAreaInset(edge: .bottom, spacing: 0) {
+        if let activeBook = currentlyReadingBook {
+          NowReadingFloatingCardView(
+            book: activeBook,
+            onSelect: {
+              selectBook(activeBook.objectID)
+            }
+          )
+          .padding(.horizontal, 12)
+          .padding(.top, 6)
+          .padding(.bottom, 10)
+        }
+      }
+    #endif
     .navigationTitle("All books")
+  }
+
+  private var currentlyReadingBook: Book? {
+    books.first(where: { $0.readingStatus == .reading })
   }
 
   // MARK: - Selection
@@ -227,6 +246,90 @@ private struct BookListRowView: View {
     }
   }
 }
+
+#if os(iOS)
+  private struct NowReadingFloatingCardView: View {
+    @ObservedObject var book: Book
+    let onSelect: () -> Void
+
+    private let cornerRadius: CGFloat = 14
+
+    var body: some View {
+      Button(action: onSelect) {
+        HStack(spacing: 12) {
+          BookCoverImageView(book: book, targetSize: CGSize(width: 34, height: 48))
+            .frame(width: 34, height: 48)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .defaultShadow()
+
+          VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+              Image(systemName: "bookmark.fill")
+                .font(.caption2)
+                .foregroundStyle(Color.botanicalSage)
+              Text("CURRENTLY READING")
+                .font(.caption2.weight(.semibold))
+                .tracking(0.5)
+                .foregroundStyle(Color.botanicalSage)
+            }
+            Text(book.title ?? book.id)
+              .font(.subheadline.weight(.semibold))
+              .foregroundStyle(.primary)
+              .lineLimit(1)
+            if let author = book.author {
+              Text(author)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+          }
+
+          Spacer(minLength: 8)
+
+          Image(systemName: "chevron.right")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(8)
+            .glassEffect(
+              .regular.tint(Color.botanicalLeaf.opacity(0.18)),
+              in: Circle()
+            )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+      }
+      .buttonStyle(.plain)
+      .background {
+        ZStack {
+          RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.botanicalSurfaceTint.opacity(0.78))
+          Color.clear
+            .glassEffect(
+              .regular.tint(Color.botanicalForest.opacity(0.32)).interactive(),
+              in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+        }
+      }
+      .overlay {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+          .strokeBorder(
+            LinearGradient(
+              colors: [
+                Color.white.opacity(0.32),
+                Color.botanicalSage.opacity(0.28),
+                Color.white.opacity(0.10),
+              ],
+              startPoint: .topLeading,
+              endPoint: .bottomTrailing
+            ),
+            lineWidth: 1
+          )
+      }
+      .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
+    }
+  }
+#endif
 
 // MARK: - Navigation Throttle
 
