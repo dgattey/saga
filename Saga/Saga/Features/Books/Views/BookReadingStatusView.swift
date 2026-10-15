@@ -41,7 +41,7 @@ struct BookReadingStatusView: View {
     Group {
       switch book.readingStatus {
       case .reading:
-        Image(systemName: "book.circle.fill")
+        Image(systemName: "bookmark.circle.fill")
       case .read:
         Image(systemName: "checkmark.circle.fill")
       case .notStarted:

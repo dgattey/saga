@@ -14,7 +14,7 @@ struct BookStatusView: View {
 
   var body: some View {
     if book.readingStatus == .reading {
-      Image(systemName: "book.circle.fill")
+      Image(systemName: "bookmark.circle.fill")
         .font(.title2)
         .symbolEffect(.bounce, options: .nonRepeating, value: shouldBounce)
         .foregroundStyle(Color.botanicalLeaf)

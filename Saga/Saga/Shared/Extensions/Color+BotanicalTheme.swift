@@ -16,29 +16,29 @@ import SwiftUI
 extension Color {
   static var botanicalLeaf: Color {
     adaptiveColor(
-      light: (0.21, 0.49, 0.30),
-      dark: (0.40, 0.72, 0.49)
+      light: (0.149, 0.306, 0.227),
+      dark: (0.290, 0.495, 0.395)
     )
   }
 
   static var botanicalForest: Color {
     adaptiveColor(
-      light: (0.14, 0.34, 0.21),
-      dark: (0.28, 0.56, 0.37)
+      light: (0.106, 0.231, 0.169),
+      dark: (0.175, 0.345, 0.268)
     )
   }
 
   static var botanicalSage: Color {
     adaptiveColor(
-      light: (0.35, 0.56, 0.42),
-      dark: (0.54, 0.76, 0.60)
+      light: (0.245, 0.415, 0.340),
+      dark: (0.420, 0.595, 0.505)
     )
   }
 
   static var botanicalMoss: Color {
     adaptiveColor(
-      light: (0.39, 0.50, 0.25),
-      dark: (0.62, 0.75, 0.44)
+      light: (0.200, 0.360, 0.290),
+      dark: (0.345, 0.525, 0.440)
     )
   }
 
@@ -58,21 +58,21 @@ extension Color {
 
   static var botanicalSurfaceTint: Color {
     adaptiveColor(
-      light: (0.94, 0.96, 0.93),
-      dark: (0.08, 0.13, 0.10)
+      light: (0.935, 0.955, 0.945),
+      dark: (0.065, 0.110, 0.088)
     )
   }
 
   static func sidebarSelectionFill(isActiveWindow: Bool = true) -> Color {
     if isActiveWindow {
       return adaptiveColor(
-        light: (0.24, 0.52, 0.33, 0.18),
-        dark: (0.40, 0.70, 0.49, 0.24)
+        light: (0.149, 0.306, 0.227, 0.18),
+        dark: (0.220, 0.415, 0.328, 0.26)
       )
     }
     return adaptiveColor(
-      light: (0.30, 0.42, 0.33, 0.10),
-      dark: (0.38, 0.52, 0.42, 0.14)
+      light: (0.210, 0.330, 0.268, 0.10),
+      dark: (0.235, 0.385, 0.315, 0.14)
     )
   }
 
@@ -96,7 +96,7 @@ extension Color {
           let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
           let components = isDark ? dark : light
           return NSColor(
-            displayP3Red: components.0,
+            srgbRed: components.0,
             green: components.1,
             blue: components.2,
             alpha: components.3
@@ -109,7 +109,7 @@ extension Color {
           let isDark = traitCollection.userInterfaceStyle == .dark
           let components = isDark ? dark : light
           return UIColor(
-            displayP3Red: components.0,
+            red: components.0,
             green: components.1,
             blue: components.2,
             alpha: components.3
@@ -118,7 +118,7 @@ extension Color {
       )
     #else
       return Color(
-        .displayP3,
+        .sRGB,
         red: light.0,
         green: light.1,
         blue: light.2,
