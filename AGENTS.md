@@ -21,7 +21,7 @@ shared UI/utilities.
 
 ## Commands
 - `./run --help` or `run --help` to list scripts
-- `run app` (build + launch in background via `open -g -j`, macOS only), `run app -b` (build only), `run app -r` (Release), `run app -g` (background + exit), `run app -f` (foreground), `run app -v` (verbose)
+- `run app` (build + launch in background via `open -g -j`, macOS only), `run app -b` (build only), `run app -t` / `run app --test` (run `SagaTests` unit tests without stealing focus), `run app -r` (Release), `run app -g` (background + exit), `run app -f` (foreground), `run app -v` (verbose)
 - `run checks` (format + lint), `run checks --format`, `run checks --lint`
 - `run bootstrap` to set up shell completions for `run`
 - `run config` to write `Config.xcconfig` (`--placeholder` for build-only environments)
@@ -82,8 +82,9 @@ new code into the running app, and triggers view recreation via `.hotReloadable(
 See `Saga/Saga/Shared/HotReload/HotReloadable.swift` for full documentation.
 
 ## Testing
-No test targets found. Use `run checks` and a build (`run app -b` or Xcode) as
-the standard verification loop.
+- Unit and UI component tests live in `Saga/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).
+- Run unit tests with `run app --test` (or `run app -t`), which runs `-only-testing:SagaTests` in headless accessory mode without stealing window focus or hitting Contentful.
+- Use `run checks`, `run app -b`, and `run app -t` as the standard verification loop.
 
 ## Environment
 - Requires Xcode + SwiftUI/Combine

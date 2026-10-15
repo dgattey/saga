@@ -150,3 +150,36 @@ func buildApp(
 
   try runCommand("xcodebuild", args)
 }
+
+func runUnitTests(
+  projectPath: String,
+  derivedDataPath: String,
+  arch: String,
+  verbose: Bool,
+  skipSigning: Bool
+) throws {
+  print("Running Saga unit tests (SagaTests)...")
+  var args = [
+    "-project", projectPath,
+    "-scheme", "Saga",
+    "-configuration", "Debug",
+    "-destination", "platform=macOS,arch=\(arch)",
+    "-only-testing:SagaTests",
+  ]
+  if hasUpToDateResolvedPackages(projectPath: projectPath, derivedDataPath: derivedDataPath) {
+    args.append("-disableAutomaticPackageResolution")
+  }
+  args.append("test")
+  if !verbose {
+    args.insert("-quiet", at: 0)
+  }
+  if skipSigning {
+    args.append(contentsOf: [
+      "CODE_SIGN_IDENTITY=-",
+      "CODE_SIGNING_REQUIRED=NO",
+      "CODE_SIGNING_ALLOWED=NO",
+    ])
+  }
+
+  try runCommand("xcodebuild", args)
+}

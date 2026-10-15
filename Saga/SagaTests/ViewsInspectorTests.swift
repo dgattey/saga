@@ -1,0 +1,127 @@
+//
+//  ViewsInspectorTests.swift
+//  SagaTests
+//
+//  Created by Dylan Gattey on 10/14/26.
+//
+
+import CoreData
+import SwiftUI
+import Testing
+import ViewInspector
+
+@testable import Saga
+
+@Suite("SwiftUI Component Views (ViewInspector)")
+struct ViewsInspectorTests {
+  @Test("StarRatingView renders filled and empty stars and updates binding on tap")
+  @MainActor
+  func starRatingViewInspection() throws {
+    let displayOnly = StarRatingView(rating: 3, maxRating: 5)
+    let hStack = try displayOnly.inspect().hStack()
+    let forEach = try hStack.forEach(0)
+    #expect(forEach.count == 5)
+    #expect(try forEach.image(0).actualImage().name() == "star.fill")
+    #expect(try forEach.image(2).actualImage().name() == "star.fill")
+    #expect(try forEach.image(3).actualImage().name() == "star")
+    #expect(try forEach.image(4).actualImage().name() == "star")
+
+    var currentRating = 2
+    let binding = Binding(get: { currentRating }, set: { currentRating = $0 })
+    let interactive = StarRatingView(rating: binding, maxRating: 5)
+    let interactiveForEach = try interactive.inspect().hStack().forEach(0)
+    try interactiveForEach.button(3).tap()
+    #expect(currentRating == 4)
+  }
+
+  @Test("BookStatusView renders reading icon only when book is currently being read")
+  @MainActor
+  func bookStatusViewInspection() throws {
+    let container = TestCoreDataStack.makeContainer()
+    let context = container.viewContext
+
+    let readingBook = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Reading Now",
+      readDateStarted: Date(),
+      readDateFinished: nil
+    )
+    let finishedBook = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Finished Book",
+      readDateStarted: Date(),
+      readDateFinished: Date()
+    )
+
+    let readingView = BookStatusView(book: readingBook)
+    let image = try readingView.inspect().image()
+    #expect(try image.actualImage().name() == "book.circle.fill")
+
+    let finishedView = BookStatusView(book: finishedBook)
+    #expect(throws: Never.self) {
+      _ = try finishedView.inspect().emptyView()
+    }
+  }
+
+  @Test("BookListHeaderView and BookListEmptyStateView render expected copy")
+  @MainActor
+  func bookListHeaderAndEmptyStateInspection() throws {
+    let header = BookListHeaderView()
+    #expect(try header.inspect().text().string() == "Books")
+
+    let empty = BookListEmptyStateView()
+    #expect(try empty.inspect().text().string() == "No results")
+  }
+
+  @Test("SettingsSliderView renders label, formatted value pill, slider, and optional subtitle")
+  @MainActor
+  func settingsSliderViewInspection() throws {
+    var sliderValue = 250.0
+    let binding = Binding(get: { sliderValue }, set: { sliderValue = $0 })
+
+    let viewWithSubtitle = SettingsSliderView(
+      label: "Image cache limit",
+      formattedValue: "250 MB",
+      value: binding,
+      range: 50...1000,
+      step: 50,
+      subtitle: "Current usage",
+      subtitleValue: "42 MB"
+    )
+
+    let inspected = try viewWithSubtitle.inspect()
+    #expect(try inspected.find(text: "Image cache limit").string() == "Image cache limit")
+    #expect(try inspected.find(text: "250 MB").string() == "250 MB")
+    #expect(try inspected.find(text: "Current usage").string() == "Current usage")
+    #expect(try inspected.find(text: "42 MB").string() == "42 MB")
+
+    let slider = try inspected.find(ViewType.Slider.self)
+    try slider.setValue(0.5)
+    #expect(sliderValue > 250.0)
+  }
+
+  @Test("HomeSidebarRow renders Home label and triggers makeHomeEntry when not on Home")
+  @MainActor
+  func homeSidebarRowInspection() throws {
+    let container = TestCoreDataStack.makeContainer()
+    let book = try TestCoreDataStack.makeBook(in: container.viewContext)
+
+    var currentEntry: NavigationEntry? = NavigationEntry(selection: .book(book.objectID))
+    let expectedHomeEntry = NavigationEntry(
+      selection: .home(lastSelectedBookID: book.objectID)
+    )
+    var didCallMakeHome = false
+
+    let row = HomeSidebarRow(
+      entry: Binding(get: { currentEntry }, set: { currentEntry = $0 }),
+      makeHomeEntry: {
+        didCallMakeHome = true
+        return expectedHomeEntry
+      }
+    )
+
+    let inspected = try row.environmentObject(AnimationSettings.shared).inspect()
+    #expect(try inspected.find(text: "Home").string() == "Home")
+    #expect(!didCallMakeHome)
+  }
+}

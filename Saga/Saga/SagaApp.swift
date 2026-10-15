@@ -23,6 +23,22 @@ struct SagaApp: App {
     RichTextDocumentTransformer.register()
 
     #if os(macOS)
+      if PersistenceService.isRunningUnitTests {
+        // Prevent unit test host from showing a Dock icon, creating a visible window, or stealing focus
+        NSApp?.setActivationPolicy(.accessory)
+        NotificationCenter.default.addObserver(
+          forName: NSApplication.didFinishLaunchingNotification,
+          object: nil,
+          queue: .main
+        ) { _ in
+          NSApp.setActivationPolicy(.accessory)
+          for window in NSApp.windows {
+            window.orderOut(nil)
+          }
+        }
+        return
+      }
+
       // Close any restored settings window after app finishes launching
       NotificationCenter.default.addObserver(
         forName: NSApplication.didFinishLaunchingNotification,
@@ -41,10 +57,14 @@ struct SagaApp: App {
 
   var body: some Scene {
     WindowGroup {
-      ContentView()
-        .environment(\.managedObjectContext, syncViewModel.viewContext)
-        .windowBackground()
-        .hotReloadable()
+      if PersistenceService.isRunningUnitTests {
+        EmptyView()
+      } else {
+        ContentView()
+          .environment(\.managedObjectContext, syncViewModel.viewContext)
+          .windowBackground()
+          .hotReloadable()
+      }
     }
     .commands {
       MenuBarCommands()
