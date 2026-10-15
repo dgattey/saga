@@ -128,8 +128,11 @@ func bumpVersion(
 
 func releaseType(from body: String) -> String {
   func isChecked(_ label: String) -> Bool {
-    let pattern = "- \\[x\\]\\s*\(NSRegularExpression.escapedPattern(for: label))"
-    guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+    let pattern = "^\\s*-\\s*\\[x\\]\\s*\(NSRegularExpression.escapedPattern(for: label))\\b"
+    guard
+      let regex = try? NSRegularExpression(
+        pattern: pattern, options: [.caseInsensitive, .anchorsMatchLines])
+    else {
       return false
     }
     let range = NSRange(body.startIndex..<body.endIndex, in: body)
@@ -167,8 +170,15 @@ func extractNotes(from body: String) -> String {
       inSection = true
       continue
     }
-    if inSection && isHeading(line, heading: Constants.releaseTypeHeading) { break }
-    if inSection { collected.append(line) }
+    if inSection {
+      if isHeading(line, heading: Constants.releaseTypeHeading)
+        || line.range(of: "^-+\\s*$", options: .regularExpression) != nil
+        || line.contains("<!-- CURSOR_AGENT_PR_BODY_END -->")
+      {
+        break
+      }
+      collected.append(line)
+    }
   }
   return collected.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
 }
@@ -224,13 +234,31 @@ func loadPullRequestEvent(from path: String) throws -> PullRequestEvent {
 
 func runRead(arguments: Arguments) throws {
   let path = try arguments.require("--path")
-  let content = try String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8)
-  guard let version = extractValue(for: Constants.marketingVersionKey, in: content) else {
+  let fileURL = URL(fileURLWithPath: path)
+  let content = try String(contentsOf: fileURL, encoding: .utf8)
+  guard var version = extractValue(for: Constants.marketingVersionKey, in: content) else {
     throw ScriptError("MARKETING_VERSION not found")
   }
   guard let build = extractValue(for: Constants.buildVersionKey, in: content) else {
     throw ScriptError("CURRENT_PROJECT_VERSION not found")
   }
+
+  if let eventPath = arguments.value(for: "--event"), !eventPath.isEmpty,
+    let event = try? loadPullRequestEvent(from: eventPath),
+    let latestTag = latestTagVersion()
+  {
+    let selectedReleaseType = releaseType(from: event.pullRequest.body ?? "")
+    let baseSemver = try normalizedSemver(from: latestTag)
+    let expectedSemver = try bumpVersion(baseSemver, releaseType: selectedReleaseType)
+    let expectedVersion = "\(expectedSemver.major).\(expectedSemver.minor).\(expectedSemver.patch)"
+    if expectedVersion != version {
+      let updatedContent = try replacingValue(
+        for: Constants.marketingVersionKey, with: expectedVersion, in: content)
+      try updatedContent.write(to: fileURL, atomically: true, encoding: .utf8)
+      version = expectedVersion
+    }
+  }
+
   print("VERSION=\(version)")
   print("BUILD=\(build)")
 }

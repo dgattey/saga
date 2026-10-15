@@ -19,11 +19,14 @@ jobs:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
 
+      - name: Fetch tags
+        run: git fetch --tags
+
       - name: Read version/build from project
         id: version
         run: |
           set -euo pipefail
-          read_output="$(./run version-and-release read --path "${{ vars.PBXPROJ_PATH }}")"
+          read_output="$(./run version-and-release read --path "${{ vars.PBXPROJ_PATH }}" --event "$GITHUB_EVENT_PATH")"
           version="$(echo "$read_output" | awk -F= '/^VERSION=/{print $2}')"
           build="$(echo "$read_output" | awk -F= '/^BUILD=/{print $2}')"
           if [[ -z "$version" || -z "$build" ]]; then
