@@ -22,6 +22,7 @@ enum Command: String, CLISubcommandType, CaseIterable {
   case bump
   case extractNotes = "extract-notes"
   case prComment = "pr-comment"
+  case package
 
   var description: String {
     switch self {
@@ -29,6 +30,7 @@ enum Command: String, CLISubcommandType, CaseIterable {
     case .bump: "Bump PR branch (event + base ref + path)"
     case .extractNotes: "Extract release notes from PR body"
     case .prComment: "Upsert PR version comment (will-be|released)"
+    case .package: "Build, sign, zip, and generate Sparkle appcast.xml for macOS release"
     }
   }
 }
@@ -40,6 +42,7 @@ let cli = SimpleCLI(
     "run version-and-release read --path project.pbxproj",
     "run version-and-release bump --event event.json --path project.pbxproj --base-ref origin/main",
     "run version-and-release pr-comment --event event.json --version 2.0.0 --state will-be",
+    "run version-and-release package --version 2.1.0 --build 1042 --output-dir dist/release",
   ]
 )
 
@@ -125,8 +128,11 @@ func bumpVersion(
 
 func releaseType(from body: String) -> String {
   func isChecked(_ label: String) -> Bool {
-    let pattern = "- \\[x\\]\\s*\(NSRegularExpression.escapedPattern(for: label))"
-    guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+    let pattern = "^\\s*-\\s*\\[x\\]\\s*\(NSRegularExpression.escapedPattern(for: label))\\b"
+    guard
+      let regex = try? NSRegularExpression(
+        pattern: pattern, options: [.caseInsensitive, .anchorsMatchLines])
+    else {
       return false
     }
     let range = NSRange(body.startIndex..<body.endIndex, in: body)
@@ -164,8 +170,15 @@ func extractNotes(from body: String) -> String {
       inSection = true
       continue
     }
-    if inSection && isHeading(line, heading: Constants.releaseTypeHeading) { break }
-    if inSection { collected.append(line) }
+    if inSection {
+      if isHeading(line, heading: Constants.releaseTypeHeading)
+        || line.range(of: "^-+\\s*$", options: .regularExpression) != nil
+        || line.contains("<!-- CURSOR_AGENT_PR_BODY_END -->")
+      {
+        break
+      }
+      collected.append(line)
+    }
   }
   return collected.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
 }
@@ -221,13 +234,31 @@ func loadPullRequestEvent(from path: String) throws -> PullRequestEvent {
 
 func runRead(arguments: Arguments) throws {
   let path = try arguments.require("--path")
-  let content = try String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8)
-  guard let version = extractValue(for: Constants.marketingVersionKey, in: content) else {
+  let fileURL = URL(fileURLWithPath: path)
+  let content = try String(contentsOf: fileURL, encoding: .utf8)
+  guard var version = extractValue(for: Constants.marketingVersionKey, in: content) else {
     throw ScriptError("MARKETING_VERSION not found")
   }
   guard let build = extractValue(for: Constants.buildVersionKey, in: content) else {
     throw ScriptError("CURRENT_PROJECT_VERSION not found")
   }
+
+  if let eventPath = arguments.value(for: "--event"), !eventPath.isEmpty,
+    let event = try? loadPullRequestEvent(from: eventPath),
+    let latestTag = latestTagVersion()
+  {
+    let selectedReleaseType = releaseType(from: event.pullRequest.body ?? "")
+    let baseSemver = try normalizedSemver(from: latestTag)
+    let expectedSemver = try bumpVersion(baseSemver, releaseType: selectedReleaseType)
+    let expectedVersion = "\(expectedSemver.major).\(expectedSemver.minor).\(expectedSemver.patch)"
+    if expectedVersion != version {
+      let updatedContent = try replacingValue(
+        for: Constants.marketingVersionKey, with: expectedVersion, in: content)
+      try updatedContent.write(to: fileURL, atomically: true, encoding: .utf8)
+      version = expectedVersion
+    }
+  }
+
   print("VERSION=\(version)")
   print("BUILD=\(build)")
 }
@@ -325,6 +356,39 @@ func runPrComment(arguments: Arguments) throws {
 
   try upsertPrComment(
     owner: owner, repo: repo, issueNumber: issueNumber, body: body, token: token, marker: marker)
+}
+
+func runPackage(arguments: Arguments) throws {
+  let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
+  let defaultPbxproj = "\(repoRoot)/Saga/Saga.xcodeproj/project.pbxproj"
+  let pbxprojPath = arguments.value(for: "--path") ?? defaultPbxproj
+
+  let version: String
+  let build: String
+  if let v = arguments.value(for: "--version"), !v.isEmpty,
+    let b = arguments.value(for: "--build"), !b.isEmpty
+  {
+    version = v
+    build = b
+  } else {
+    let content = try String(contentsOf: URL(fileURLWithPath: pbxprojPath), encoding: .utf8)
+    guard let v = extractValue(for: Constants.marketingVersionKey, in: content),
+      let b = extractValue(for: Constants.buildVersionKey, in: content)
+    else {
+      throw ScriptError(
+        "Could not read MARKETING_VERSION / CURRENT_PROJECT_VERSION from \(pbxprojPath)")
+    }
+    version = arguments.value(for: "--version") ?? v
+    build = arguments.value(for: "--build") ?? b
+  }
+
+  let outputDir = arguments.value(for: "--output-dir") ?? "\(repoRoot)/dist/release"
+  let scriptPath = "\(repoRoot)/scripts/package-release.sh"
+  try runCommand(
+    scriptPath,
+    [version, build, outputDir],
+    cwd: URL(fileURLWithPath: repoRoot)
+  )
 }
 
 // MARK: - GitHub API
@@ -464,6 +528,7 @@ struct VersionAndReleaseCommand {
       case .bump: try runBump(arguments: arguments)
       case .extractNotes: try runExtractNotes(arguments: arguments)
       case .prComment: try runPrComment(arguments: arguments)
+      case .package: try runPackage(arguments: arguments)
       }
     }
   }
