@@ -103,7 +103,7 @@ fi
 APP="$STAGE_DIR/Saga.app"
 ditto "$BUILT_APP" "$APP"
 
-# 5. Sign Sparkle.framework and Saga.app inside-out (never --deep, which corrupts Sparkle XPC services)
+# 5. Sign embedded frameworks and Saga.app inside-out (never --deep, which corrupts Sparkle XPC services)
 SIGN_ID="${SAGA_SIGN_IDENTITY:-$(resolve_sign_identity)}"
 echo "package-release: signing Saga.app inside-out (identity=${SIGN_ID})..."
 
@@ -111,16 +111,27 @@ csign() {
   codesign --force --sign "$SIGN_ID" "$@"
 }
 
-FW="$APP/Contents/Frameworks/Sparkle.framework"
-if [[ -d "$FW" ]]; then
-  FWV="$FW/Versions/B"
-  [[ -e "$FWV/XPCServices/Installer.xpc" ]] && csign "$FWV/XPCServices/Installer.xpc"
-  if [[ -e "$FWV/XPCServices/Downloader.xpc" ]]; then
-    codesign --force --sign "$SIGN_ID" --preserve-metadata=entitlements "$FWV/XPCServices/Downloader.xpc"
-  fi
-  [[ -e "$FWV/Autoupdate" ]] && csign "$FWV/Autoupdate"
-  [[ -e "$FWV/Updater.app" ]] && csign "$FWV/Updater.app"
-  csign "$FW"
+if [[ -d "$APP/Contents/Frameworks" ]]; then
+  for fw in "$APP/Contents/Frameworks"/*.framework; do
+    [[ -d "$fw" ]] || continue
+    if [[ "$(basename "$fw")" == "Sparkle.framework" ]]; then
+      FWV="$fw/Versions/B"
+      [[ -e "$FWV/XPCServices/Installer.xpc" ]] && csign "$FWV/XPCServices/Installer.xpc"
+      if [[ -e "$FWV/XPCServices/Downloader.xpc" ]]; then
+        codesign --force --sign "$SIGN_ID" --preserve-metadata=entitlements "$FWV/XPCServices/Downloader.xpc"
+      fi
+      [[ -e "$FWV/Autoupdate" ]] && csign "$FWV/Autoupdate"
+      [[ -e "$FWV/Updater.app" ]] && csign "$FWV/Updater.app"
+      csign "$fw"
+    else
+      csign "$fw"
+    fi
+  done
+
+  for dylib in "$APP/Contents/Frameworks"/*.dylib; do
+    [[ -f "$dylib" ]] || continue
+    csign "$dylib"
+  done
 fi
 
 ENTITLEMENTS="$ROOT/Saga/Saga/Config/Saga.entitlements"
