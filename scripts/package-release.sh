@@ -92,6 +92,50 @@ fi
 APP="$STAGE_DIR/Saga.app"
 ditto "$BUILT_APP" "$APP"
 
+# 3b. Strip any absolute build-machine / Xcode toolchain LC_RPATH entries (e.g.
+# /Applications/Xcode_26.5.app/.../usr/lib/swift-6.2/macosx on CI runners), keeping only
+# bundle-relative (@executable_path / @loader_path) or /usr/lib/swift paths so XprotectService
+# never logs an rPathCmd lookup failure during Gatekeeper assessment.
+strip_non_portable_rpaths() {
+  local bin="$1"
+  [[ -f "$bin" ]] || return 0
+  while IFS= read -r rpath; do
+    [[ -z "$rpath" ]] && continue
+    case "$rpath" in
+      @executable_path*|@loader_path*|/usr/lib/swift*) ;;
+      *)
+        install_name_tool -delete_rpath "$rpath" "$bin" 2>/dev/null || true
+        ;;
+    esac
+  done < <(otool -l "$bin" 2>/dev/null | awk '/cmd LC_RPATH/{f=1;next} f && /path /{print $2; f=0}')
+}
+
+APP_BIN="$APP/Contents/MacOS/Saga"
+strip_non_portable_rpaths "$APP_BIN"
+if [[ -f "$APP_BIN" ]] && ! otool -l "$APP_BIN" | awk '/cmd LC_RPATH/{f=1;next} f && /path /{print $2; f=0}' | grep -Fxq '@executable_path/../Frameworks'; then
+  install_name_tool -add_rpath '@executable_path/../Frameworks' "$APP_BIN" 2>/dev/null || true
+fi
+
+if [[ -d "$APP/Contents/Frameworks" ]]; then
+  for fw in "$APP/Contents/Frameworks"/*.framework; do
+    [[ -d "$fw" ]] || continue
+    fw_name="$(basename "$fw" .framework)"
+    if [[ -f "$fw/Versions/Current/$fw_name" ]]; then
+      strip_non_portable_rpaths "$fw/Versions/Current/$fw_name"
+    elif [[ -f "$fw/$fw_name" ]]; then
+      strip_non_portable_rpaths "$fw/$fw_name"
+    fi
+  done
+  for dylib in "$APP/Contents/Frameworks"/*.dylib; do
+    [[ -f "$dylib" ]] || continue
+    strip_non_portable_rpaths "$dylib"
+  done
+fi
+
+# Strip any quarantine / provenance extended attributes before signing so nothing stale
+# or inherited from artifact downloads gets sealed or packaged.
+xattr -cr "$APP" 2>/dev/null || true
+
 # 4. Sign embedded frameworks and Saga.app inside-out (never --deep, which corrupts Sparkle XPC services)
 SIGN_ID="${SAGA_SIGN_IDENTITY:-$(resolve_sign_identity)}"
 echo "package-release: signing Saga.app inside-out (identity=${SIGN_ID})..."

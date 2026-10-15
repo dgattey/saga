@@ -71,6 +71,13 @@ export default async function HomePage() {
                     </li>
                     <li>Open the app again.</li>
                   </ol>
+                  <p className={styles.finePrint}>
+                    On an MDM-managed Mac where <strong>Open Anyway</strong> is disabled by
+                    device policy, clear the download quarantine attribute in Terminal:
+                  </p>
+                  <pre className={styles.commandSnippet}>
+                    <code>xattr -cr /Applications/Saga.app</code>
+                  </pre>
                   <figure className={styles.manualApprovalFigure}>
                     <div className={styles.manualApprovalMedia}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
