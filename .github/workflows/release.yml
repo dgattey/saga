@@ -45,6 +45,21 @@ jobs:
             echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Build and package macOS release + Sparkle appcast
+        id: package
+        env:
+          SAGA_CODESIGN_P12_BASE64: ${{ secrets.SAGA_CODESIGN_P12_BASE64 }}
+          SAGA_CODESIGN_P12_PASSWORD: ${{ secrets.SAGA_CODESIGN_P12_PASSWORD }}
+          SPARKLE_ED_PRIVATE_KEY_BASE64: ${{ secrets.SPARKLE_ED_PRIVATE_KEY_BASE64 }}
+          SAGA_RELEASE_NOTES: ${{ steps.notes.outputs.notes }}
+          SAGA_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          ./run version-and-release package \
+            --version "${{ steps.version.outputs.version }}" \
+            --build "${{ steps.version.outputs.build }}" \
+            --output-dir "dist/release"
+
       - name: Create GitHub release
         id: release
         uses: actions/github-script@v9
@@ -60,7 +75,7 @@ jobs:
             const body = process.env.NOTES || "";
             try {
               const existing = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
-              core.info(`Release ${tag} already exists, skipping.`);
+              core.info(`Release ${tag} already exists, skipping creation.`);
               core.setOutput('release_url', existing.data.html_url);
               return;
             } catch (error) {
@@ -77,6 +92,17 @@ jobs:
               target_commitish: context.payload.pull_request.merge_commit_sha
             });
             core.setOutput('release_url', created.html_url);
+
+      - name: Upload macOS release archive and Sparkle appcast.xml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release upload "v${VERSION}" \
+            "dist/release/Saga-${VERSION}.zip" \
+            "dist/release/appcast.xml" \
+            --clobber
 
       - name: Post PR released comment
         env:

@@ -22,6 +22,7 @@ enum Command: String, CLISubcommandType, CaseIterable {
   case bump
   case extractNotes = "extract-notes"
   case prComment = "pr-comment"
+  case package
 
   var description: String {
     switch self {
@@ -29,6 +30,7 @@ enum Command: String, CLISubcommandType, CaseIterable {
     case .bump: "Bump PR branch (event + base ref + path)"
     case .extractNotes: "Extract release notes from PR body"
     case .prComment: "Upsert PR version comment (will-be|released)"
+    case .package: "Build, sign, zip, and generate Sparkle appcast.xml for macOS release"
     }
   }
 }
@@ -40,6 +42,7 @@ let cli = SimpleCLI(
     "run version-and-release read --path project.pbxproj",
     "run version-and-release bump --event event.json --path project.pbxproj --base-ref origin/main",
     "run version-and-release pr-comment --event event.json --version 2.0.0 --state will-be",
+    "run version-and-release package --version 2.1.0 --build 1042 --output-dir dist/release",
   ]
 )
 
@@ -327,6 +330,39 @@ func runPrComment(arguments: Arguments) throws {
     owner: owner, repo: repo, issueNumber: issueNumber, body: body, token: token, marker: marker)
 }
 
+func runPackage(arguments: Arguments) throws {
+  let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
+  let defaultPbxproj = "\(repoRoot)/Saga/Saga.xcodeproj/project.pbxproj"
+  let pbxprojPath = arguments.value(for: "--path") ?? defaultPbxproj
+
+  let version: String
+  let build: String
+  if let v = arguments.value(for: "--version"), !v.isEmpty,
+    let b = arguments.value(for: "--build"), !b.isEmpty
+  {
+    version = v
+    build = b
+  } else {
+    let content = try String(contentsOf: URL(fileURLWithPath: pbxprojPath), encoding: .utf8)
+    guard let v = extractValue(for: Constants.marketingVersionKey, in: content),
+      let b = extractValue(for: Constants.buildVersionKey, in: content)
+    else {
+      throw ScriptError(
+        "Could not read MARKETING_VERSION / CURRENT_PROJECT_VERSION from \(pbxprojPath)")
+    }
+    version = arguments.value(for: "--version") ?? v
+    build = arguments.value(for: "--build") ?? b
+  }
+
+  let outputDir = arguments.value(for: "--output-dir") ?? "\(repoRoot)/dist/release"
+  let scriptPath = "\(repoRoot)/scripts/package-release.sh"
+  try runCommand(
+    scriptPath,
+    [version, build, outputDir],
+    cwd: URL(fileURLWithPath: repoRoot)
+  )
+}
+
 // MARK: - GitHub API
 
 func loadExtendedEvent(from path: String) throws -> (owner: String, repo: String, issueNumber: Int)
@@ -464,6 +500,7 @@ struct VersionAndReleaseCommand {
       case .bump: try runBump(arguments: arguments)
       case .extractNotes: try runExtractNotes(arguments: arguments)
       case .prComment: try runPrComment(arguments: arguments)
+      case .package: try runPackage(arguments: arguments)
       }
     }
   }

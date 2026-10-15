@@ -26,7 +26,7 @@ shared UI/utilities.
 - `run bootstrap` to set up shell completions for `run`
 - `run config` to write `Config.xcconfig` (`--placeholder` for build-only environments)
 - `run drop-bot-commits` for version bump conflicts
-- `run version-and-release` for manual release tooling
+- `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml`)
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
@@ -51,7 +51,7 @@ shared UI/utilities.
 
 ## Key Integration Points
 **Services**: `PersistenceService` (Core Data + Contentful), `LoggerService`,
-`ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`,
+`ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`, `UpdaterViewModel` (Sparkle automatic updates on macOS),
 book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`)
 **UI**: `ContentView` entry, `HomeView`/`BooksListView`, `ResponsiveLayout`,
 `PersistentScrollView`, `GlassOverlayModifier`, `MenuBarCommands`
