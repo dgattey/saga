@@ -222,6 +222,7 @@ struct SettingsView: View {
         Button("Check for Updates…") {
           updaterViewModel.checkForUpdates()
         }
+        .buttonStyle(.glass)
         .disabled(!updaterViewModel.canCheckForUpdates)
         .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
       }
