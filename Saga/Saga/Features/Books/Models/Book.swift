@@ -9,6 +9,7 @@ import Contentful
 import ContentfulPersistence
 import CoreData
 import Foundation
+import Ifrit
 
 /// A simple enum to wrap dates in an enum for status
 enum ReadingStatus: String, CaseIterable {
@@ -63,6 +64,18 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
 
   var readingStatus: ReadingStatus {
     .init(readDateStarted: readDateStarted, readDateFinished: readDateFinished)
+  }
+
+  /// Configured fetch request for the sidebar and home book lists that prefetches `coverImage`
+  /// and batches faults to avoid N+1 SQLite queries during scrolling and search indexing.
+  static func sidebarFetchRequest() -> NSFetchRequest<Book> {
+    let request = NSFetchRequest<Book>(entityName: "Book")
+    request.sortDescriptors = [
+      NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)
+    ]
+    request.relationshipKeyPathsForPrefetching = ["coverImage"]
+    request.fetchBatchSize = 100
+    return request
   }
 
   /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.
@@ -356,7 +369,7 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
       readDateStarted: self.readDateStarted?.description(with: .current),
       readDateFinished: self.readDateFinished?.description(with: .current),
       rating: self.rating?.stringValue,
-      reviewDescription: self.reviewDescription?.attributedString?.string
+      reviewDescription: self.reviewDescription?.plainText
     )
   }
 }
@@ -404,7 +417,7 @@ private actor CoverImageURLCache {
   }
 }
 
-final class BookDTO: SearchableDTO, CustomStringConvertible {
+final class BookDTO: SearchableDTO, CustomStringConvertible, @unchecked Sendable {
   let id: String
   let title: String?
   let isbn: String?
@@ -414,6 +427,7 @@ final class BookDTO: SearchableDTO, CustomStringConvertible {
   let readDateFinished: String?
   let rating: String?
   let reviewDescription: String?
+  let fuzzySearchableProperties: [FuseProp]
 
   init(
     id: String,
@@ -435,6 +449,20 @@ final class BookDTO: SearchableDTO, CustomStringConvertible {
     self.readDateFinished = readDateFinished
     self.rating = rating
     self.reviewDescription = reviewDescription
+
+    var props: [FuseProp] = [
+      FuseProp(title ?? ""),
+      FuseProp(isbn ?? ""),
+      FuseProp(author ?? ""),
+      FuseProp(readDateStarted ?? ""),
+      FuseProp(readDateFinished ?? ""),
+      FuseProp(rating ?? ""),
+      FuseProp(reviewDescription ?? ""),
+    ]
+    if let coverImage {
+      props.append(contentsOf: coverImage.fuzzySearchableProperties)
+    }
+    self.fuzzySearchableProperties = props
   }
 
   var description: String {

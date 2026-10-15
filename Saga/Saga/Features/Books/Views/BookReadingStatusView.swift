@@ -222,16 +222,22 @@ struct BookReadingStatusView: View {
 // MARK: - Supporting Views
 
 struct DateRowView: View {
+  private static let mediumDateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    return formatter
+  }()
+
+  private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+    let formatter = RelativeDateTimeFormatter()
+    formatter.unitsStyle = .short
+    return formatter
+  }()
+
   let title: String
   let date: Date
   let icon: String
   let color: Color
-
-  private var dateFormatter: DateFormatter {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .medium
-    return formatter
-  }
 
   var body: some View {
     HStack {
@@ -242,7 +248,7 @@ struct DateRowView: View {
         Text(title)
           .font(.caption)
           .foregroundColor(.secondary)
-        Text(dateFormatter.string(from: date))
+        Text(Self.mediumDateFormatter.string(from: date))
           .font(.subheadline)
           .fontWeight(.medium)
       }
@@ -256,9 +262,7 @@ struct DateRowView: View {
   }
 
   private func relativeDate(from date: Date) -> String {
-    let formatter = RelativeDateTimeFormatter()
-    formatter.unitsStyle = .short
-    return formatter.localizedString(for: date, relativeTo: Date())
+    Self.relativeDateFormatter.localizedString(for: date, relativeTo: Date())
   }
 }
 

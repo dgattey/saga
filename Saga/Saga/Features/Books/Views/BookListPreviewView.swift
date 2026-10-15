@@ -23,15 +23,29 @@ struct BookListPreviewView: View {
         .frame(height: 64, alignment: .center)
         .controlSize(.small)
       VStack(alignment: .leading, spacing: 4) {
-        Text(result.highlighted(for: \.title) ?? AttributedString(book.title ?? book.id))
-          .font(.headline)
-          .lineLimit(1)
-          .truncationMode(.tail)
-        if let author = book.author {
-          Text(result.highlighted(for: \.author) ?? AttributedString(author))
-            .font(.subheadline)
+        if let highlightedTitle = result.highlighted(for: \.title) {
+          Text(highlightedTitle)
+            .font(.headline)
             .lineLimit(1)
             .truncationMode(.tail)
+        } else {
+          Text(book.title ?? book.id)
+            .font(.headline)
+            .lineLimit(1)
+            .truncationMode(.tail)
+        }
+        if let author = book.author {
+          if let highlightedAuthor = result.highlighted(for: \.author) {
+            Text(highlightedAuthor)
+              .font(.subheadline)
+              .lineLimit(1)
+              .truncationMode(.tail)
+          } else {
+            Text(author)
+              .font(.subheadline)
+              .lineLimit(1)
+              .truncationMode(.tail)
+          }
         }
       }
       Spacer()

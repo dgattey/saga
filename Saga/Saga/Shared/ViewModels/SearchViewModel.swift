@@ -10,10 +10,16 @@ import SwiftUI
 
 struct SearchHighlightResult<Model: SearchableModel> {
   let model: Model
+  let index: Int
   private let fieldHighlights: [PartialKeyPath<Model.DTOType>: AttributedString]
 
-  init(model: Model, fieldHighlights: [PartialKeyPath<Model.DTOType>: AttributedString] = [:]) {
+  init(
+    model: Model,
+    index: Int = 0,
+    fieldHighlights: [PartialKeyPath<Model.DTOType>: AttributedString] = [:]
+  ) {
     self.model = model
+    self.index = index
     self.fieldHighlights = fieldHighlights
   }
 
@@ -38,16 +44,47 @@ final class SearchViewModel: ObservableObject {
   func search<Model: SearchableModel>(
     in allResults: [Model],
     debounce: Duration? = nil,
+    makeDTOs: (() -> [Model.DTOType])? = nil,
     completion: @escaping ([SearchHighlightResult<Model>]) -> Void
   ) {
     searchTask?.cancel()
-    let query = searchText
-    searchTask = Task(priority: .background) {
+    let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !query.isEmpty else {
+      if let debounce {
+        searchTask = Task { @MainActor in
+          try? await Task.sleep(for: debounce)
+          guard !Task.isCancelled else { return }
+          completion(
+            allResults.enumerated().map { index, model in
+              SearchHighlightResult(model: model, index: index)
+            }
+          )
+        }
+      } else {
+        searchTask = nil
+        completion(
+          allResults.enumerated().map { index, model in
+            SearchHighlightResult(model: model, index: index)
+          }
+        )
+      }
+      return
+    }
+
+    searchTask = Task(priority: .userInitiated) {
       if let debounce {
         try? await Task.sleep(for: debounce)
       }
       guard !Task.isCancelled else { return }
-      let filteredResults = await runFuzzySearch(in: allResults, query: query)
+      let dtos = await MainActor.run {
+        makeDTOs?() ?? allResults.map { $0.toDTO() }
+      }
+      guard !Task.isCancelled else { return }
+      let filteredResults = await runFuzzySearch(
+        in: allResults,
+        dtos: dtos,
+        query: query
+      )
       guard !Task.isCancelled else { return }
       await MainActor.run { completion(filteredResults) }
     }
@@ -56,13 +93,14 @@ final class SearchViewModel: ObservableObject {
   /// Actually runs the results using current text/etc
   private func runFuzzySearch<Model: SearchableModel>(
     in allResults: [Model],
+    dtos: [Model.DTOType],
     query: String
   ) async -> [SearchHighlightResult<Model>] {
     guard !query.isEmpty else {
-      return allResults.map { SearchHighlightResult(model: $0) }
+      return allResults.enumerated().map { index, model in
+        SearchHighlightResult(model: model, index: index)
+      }
     }
-
-    let dtos = allResults.map { $0.toDTO() }
 
     // Run Ifrit search
     let results = await fuse.search(
@@ -71,9 +109,10 @@ final class SearchViewModel: ObservableObject {
       by: \.fuzzySearchableProperties
     )
 
+    let orderedResults = results.sorted { $0.index < $1.index }
     let keyPaths = Model.DTOType.fuzzySearchKeyPaths
 
-    return results.map { result in
+    return orderedResults.enumerated().map { outputIndex, result in
       let dto = dtos[result.index]
       let model = allResults[result.index]
       var fieldHighlights: [PartialKeyPath<Model.DTOType>: AttributedString] = [:]
@@ -84,7 +123,7 @@ final class SearchViewModel: ObservableObject {
         // Find the matching key path in fuzzySearchKeyPaths
         if let matchingKeyPath = keyPaths.first(where: { keyPath in
           guard let fieldValue = dto[keyPath: keyPath] as? String else { return false }
-          return fieldValue.contains(match.value)
+          return fieldValue == matchValue || fieldValue.contains(matchValue)
         }) {
           let highlighted = makeHighlightedAttributedString(
             from: matchValue,
@@ -97,6 +136,7 @@ final class SearchViewModel: ObservableObject {
 
       return SearchHighlightResult(
         model: model,
+        index: outputIndex,
         fieldHighlights: fieldHighlights
       )
     }
@@ -110,23 +150,18 @@ final class SearchViewModel: ObservableObject {
   ) -> AttributedString {
     // Start with a styled, mutable AttributedString
     var attributed = AttributedString(value)
+    let valueCount = value.count
 
     // Loop over the character index ranges (ClosedRange<Int>)
     for characterRange in ranges {
       // Safely ensure range is within string bounds
       guard characterRange.lowerBound >= 0,
-        characterRange.upperBound < value.count
+        characterRange.upperBound < valueCount
       else {
         continue
       }
 
-      // Get String.Index equivalents of Int character positions
-      let startIndex = value.index(value.startIndex, offsetBy: characterRange.lowerBound)
-      let endIndex = value.index(value.startIndex, offsetBy: characterRange.upperBound + 1)
-
-      // Use text between start and end to find range in the attributed string
-      let substring = value[startIndex..<endIndex]
-      let rangeLength = substring.count
+      let rangeLength = characterRange.count
 
       // Calculate AttributedString indices
       let attrStart = attributed.index(

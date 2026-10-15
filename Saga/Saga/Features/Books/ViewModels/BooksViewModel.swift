@@ -10,9 +10,22 @@ import SwiftUI
 
 /// Contains all our books and allows for filtering
 final class BooksViewModel: ObservableObject {
+  private struct CachedBookDTO {
+    let bookUpdatedAt: Date?
+    let coverUpdatedAt: Date?
+    let title: String?
+    let author: String?
+    let isbn: NSNumber?
+    let rating: NSNumber?
+    let readDateStarted: Date?
+    let readDateFinished: Date?
+    let dto: BookDTO
+  }
+
   @Published var filteredBooks: [SearchHighlightResult<Book>] = []
   @Published var searchModel = SearchViewModel()
   private var isHandlingBookChanges = false
+  private var dtoCache: [NSManagedObjectID: CachedBookDTO] = [:]
 
   var hasActiveSearch: Bool {
     searchModel.hasActiveSearch
@@ -37,7 +50,11 @@ final class BooksViewModel: ObservableObject {
     let refreshed = (userInfo[NSRefreshedObjectsKey] as? Set<NSManagedObject>) ?? []
     let deleted = (userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject>) ?? []
     let changed = updated.union(inserted).union(refreshed).union(deleted)
-    guard changed.contains(where: { $0 is Book }) else { return }
+    let changedBooks = changed.compactMap { $0 as? Book }
+    guard !changedBooks.isEmpty else { return }
+    for book in changedBooks {
+      dtoCache.removeValue(forKey: book.objectID)
+    }
     isHandlingBookChanges = true
     performSearch(with: books, debounce: .milliseconds(150))
     DispatchQueue.main.async {
@@ -46,6 +63,7 @@ final class BooksViewModel: ObservableObject {
   }
 
   func delete(_ book: Book, in context: NSManagedObjectContext) {
+    dtoCache.removeValue(forKey: book.objectID)
     withAnimation {
       context.delete(book)
       do {
@@ -59,15 +77,52 @@ final class BooksViewModel: ObservableObject {
 
   func performSearch(with books: FetchedResults<Book>, debounce: Duration? = nil) {
     let sortedBooks = sorted(from: books)
-    let indexByObjectID = Dictionary(
-      uniqueKeysWithValues: sortedBooks.enumerated().map { ($0.element.objectID, $0.offset) }
-    )
-    searchModel.search(in: sortedBooks, debounce: debounce) { results in
-      self.filteredBooks = results.sorted { left, right in
-        let leftIndex = indexByObjectID[left.model.objectID] ?? 0
-        let rightIndex = indexByObjectID[right.model.objectID] ?? 0
-        return leftIndex < rightIndex
+    searchModel.search(
+      in: sortedBooks,
+      debounce: debounce,
+      makeDTOs: { [weak self] in
+        guard let self else { return sortedBooks.map { $0.toDTO() } }
+        return self.cachedDTOs(for: sortedBooks)
+      },
+      completion: { results in
+        self.filteredBooks = results
       }
+    )
+  }
+
+  private func cachedDTOs(for books: [Book]) -> [BookDTO] {
+    if dtoCache.count > books.count * 2 {
+      dtoCache.removeAll(keepingCapacity: true)
+    }
+    return books.map { book in
+      let objectID = book.objectID
+      let bookUpdatedAt = book.updatedAt
+      let coverUpdatedAt = book.coverImage?.updatedAt
+      if let cached = dtoCache[objectID],
+        cached.bookUpdatedAt == bookUpdatedAt,
+        cached.coverUpdatedAt == coverUpdatedAt,
+        cached.title == book.title,
+        cached.author == book.author,
+        cached.isbn == book.isbn,
+        cached.rating == book.rating,
+        cached.readDateStarted == book.readDateStarted,
+        cached.readDateFinished == book.readDateFinished
+      {
+        return cached.dto
+      }
+      let dto = book.toDTO()
+      dtoCache[objectID] = CachedBookDTO(
+        bookUpdatedAt: bookUpdatedAt,
+        coverUpdatedAt: coverUpdatedAt,
+        title: book.title,
+        author: book.author,
+        isbn: book.isbn,
+        rating: book.rating,
+        readDateStarted: book.readDateStarted,
+        readDateFinished: book.readDateFinished,
+        dto: dto
+      )
+      return dto
     }
   }
 
