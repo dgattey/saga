@@ -65,8 +65,8 @@ struct BookContentView: View {
     #if os(macOS)
       .navigationSubtitle(viewModel.displayAuthor)
       .toolbar(removing: .title)
+      .onExitCommand { focusedField = nil }
     #endif
-    .onExitCommand { focusedField = nil }
   }
 
   /// The "sidebar" of the two column view - shows less info and stays sticky in view

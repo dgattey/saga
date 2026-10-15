@@ -67,18 +67,20 @@ struct BooksListView: View {
         .onChange(of: entry?.selection) { _, newSelection in
           scrollToSelection(selection: newSelection, proxy: proxy)
         }
-        .onMoveCommand { direction in
-          guard navThrottle.canNavigate() else { return }
+        #if os(macOS)
+          .onMoveCommand { direction in
+            guard navThrottle.canNavigate() else { return }
 
-          switch direction {
-          case .down:
-            _ = navigateToNextBook()
-          case .up:
-            _ = navigateToPreviousBook()
-          default:
-            break
+            switch direction {
+            case .down:
+              _ = navigateToNextBook()
+            case .up:
+              _ = navigateToPreviousBook()
+            default:
+              break
+            }
           }
-        }
+        #endif
       }
     }
     #if os(macOS)

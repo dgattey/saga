@@ -20,6 +20,7 @@ struct ContentView: View {
   @StateObject private var navigationHistory: NavigationHistory
   @StateObject private var scrollStore = ScrollPositionStore()
   @StateObject private var bookNavigationViewModel: BookNavigationViewModel
+  @State private var preferredCompactColumn: NavigationSplitViewColumn = .sidebar
   @State private var detailWidth: CGFloat = 0
   @Namespace private var coverNamespace
 
@@ -40,6 +41,7 @@ struct ContentView: View {
   var body: some View {
     GoodreadsUploadDropzoneContainer {
       NavigationSplitView(
+        preferredCompactColumn: $preferredCompactColumn,
         sidebar: {
           VStack(alignment: .leading, spacing: 16) {
             HomeSidebarRow(
@@ -88,6 +90,9 @@ struct ContentView: View {
     }
     .onChange(of: entry) { oldEntry, newEntry in
       navigationHistory.onNavigationChange(from: oldEntry, to: newEntry)
+      if newEntry != nil {
+        preferredCompactColumn = .detail
+      }
     }
     .onChange(of: syncViewModel.resetToken) {
       scrollStore.reset()
