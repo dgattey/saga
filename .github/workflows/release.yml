@@ -51,8 +51,6 @@ jobs:
       - name: Build and package macOS release + Sparkle appcast
         id: package
         env:
-          SAGA_CODESIGN_P12_BASE64: ${{ secrets.SAGA_CODESIGN_P12_BASE64 }}
-          SAGA_CODESIGN_P12_PASSWORD: ${{ secrets.SAGA_CODESIGN_P12_PASSWORD }}
           SPARKLE_ED_PRIVATE_KEY_BASE64: ${{ secrets.SPARKLE_ED_PRIVATE_KEY_BASE64 }}
           SAGA_RELEASE_NOTES: ${{ steps.notes.outputs.notes }}
           SAGA_REPO: ${{ github.repository }}

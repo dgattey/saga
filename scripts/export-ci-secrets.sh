@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Validate release signing material and push GitHub Actions secrets for release.yml.
+# Validate Sparkle EdDSA signing key and push GitHub Actions secret (`SPARKLE_ED_PRIVATE_KEY_BASE64`)
+# for `release.yml`. Releases use ad-hoc (`-`) code signing with
+# `com.apple.security.cs.disable-library-validation` + Sparkle 2 EdDSA update verification.
 #
 # Usage:
 #   ./scripts/export-ci-secrets.sh
