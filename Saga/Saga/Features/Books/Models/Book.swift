@@ -182,6 +182,7 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     title: String,
     author: String
   ) async -> String? {
+    guard !PersistenceService.isRunningUnitTests else { return nil }
     guard let isbn = isbn?.stringValue else {
       do {
         return try await OpenLibraryAPIService.coverImageURL(forTitle: title, author: author)

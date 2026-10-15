@@ -116,86 +116,17 @@ struct BooksListView: View {
     }
   }
 
-  /// Selects a book via keyboard navigation, preserving scroll context and using fast animation
-  private func selectBookViaKeyboard(_ bookID: NSManagedObjectID) {
-    guard entry?.selection != .book(bookID) else { return }
-    // Preserve the existing scrollContextID to avoid environment changes that cause re-renders
-    let scrollContextID = entry?.scrollContextID ?? UUID()
-    // Use a fast animation for keyboard navigation
-    withAnimation(.interactiveSpring(response: 0.15, dampingFraction: 0.9)) {
-      entry = NavigationEntry(selection: .book(bookID), scrollContextID: scrollContextID)
-    }
-    // Scrolling is handled by onChange(of: entry?.selection)
-  }
-
   // MARK: - Keyboard Navigation
 
   private func navigateToNextBook() -> KeyPress.Result {
-    let filteredBooks = viewModel.filteredBooks
-    guard !filteredBooks.isEmpty else { return .ignored }
-
-    let nextBookID: NSManagedObjectID
-
-    switch entry?.selection {
-    case .home:
-      // From home, go to first book
-      nextBookID = filteredBooks[0].model.objectID
-
-    case .book(let currentID):
-      // Find current index and go to next
-      guard let currentIndex = filteredBooks.firstIndex(where: { $0.model.objectID == currentID })
-      else {
-        // Current book not in filtered list, go to first
-        nextBookID = filteredBooks[0].model.objectID
-        break
-      }
-      let nextIndex = currentIndex + 1
-      guard nextIndex < filteredBooks.count else {
-        // Already at last book
-        return .handled
-      }
-      nextBookID = filteredBooks[nextIndex].model.objectID
-
-    case nil:
-      nextBookID = filteredBooks[0].model.objectID
+    withAnimation(.interactiveSpring(response: 0.15, dampingFraction: 0.9)) {
+      viewModel.navigateToNextBook(entry: &entry)
     }
-
-    selectBookViaKeyboard(nextBookID)
-    return .handled
   }
 
   private func navigateToPreviousBook() -> KeyPress.Result {
-    let filteredBooks = viewModel.filteredBooks
-    guard !filteredBooks.isEmpty else { return .ignored }
-
-    switch entry?.selection {
-    case .home, nil:
-      // Already at home or no selection, can't go further up
-      return .ignored
-
-    case .book(let currentID):
-      guard let currentIndex = filteredBooks.firstIndex(where: { $0.model.objectID == currentID })
-      else {
-        // Current book not in filtered list, stay put
-        return .ignored
-      }
-
-      if currentIndex == 0 {
-        // At first book, go to home - preserve scroll context
-        let homeSelection =
-          entry?.selection.homeSelectionPreservingLast()
-          ?? .home(lastSelectedBookID: currentID)
-        let scrollContextID = entry?.scrollContextID ?? UUID()
-        withAnimation(.interactiveSpring(response: 0.15, dampingFraction: 0.9)) {
-          entry = NavigationEntry(selection: homeSelection, scrollContextID: scrollContextID)
-        }
-        return .handled
-      }
-
-      let previousIndex = currentIndex - 1
-      let previousBookID = filteredBooks[previousIndex].model.objectID
-      selectBookViaKeyboard(previousBookID)
-      return .handled
+    withAnimation(.interactiveSpring(response: 0.15, dampingFraction: 0.9)) {
+      viewModel.navigateToPreviousBook(entry: &entry)
     }
   }
 
@@ -248,7 +179,7 @@ struct BooksListView: View {
   }
 }
 
-private struct BookListHeaderView: View {
+struct BookListHeaderView: View {
   var body: some View {
     Text("Books")
       .font(.headline)
@@ -258,7 +189,7 @@ private struct BookListHeaderView: View {
   }
 }
 
-private struct BookListEmptyStateView: View {
+struct BookListEmptyStateView: View {
   var body: some View {
     Text("No results")
       .foregroundStyle(.secondary)

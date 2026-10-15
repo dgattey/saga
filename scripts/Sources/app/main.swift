@@ -11,6 +11,7 @@ enum Option: String, CLIOptionType, CaseIterable {
   case release
   case background
   case foreground
+  case test
   case uiTest = "ui-test"
   case skipSigning = "skip-signing"
 
@@ -21,6 +22,7 @@ enum Option: String, CLIOptionType, CaseIterable {
     case .release: "r"
     case .background: "g"
     case .foreground: "f"
+    case .test: "t"
     case .uiTest: nil
     case .skipSigning: nil
     }
@@ -33,6 +35,7 @@ enum Option: String, CLIOptionType, CaseIterable {
     case .release: "Build and/or run in Release configuration (default is Debug)"
     case .background: "Launch in background without stealing focus (open -g -j) and exit"
     case .foreground: "Bring the app to the foreground when launching"
+    case .test: "Run unit tests (SagaTests) without stealing focus"
     case .uiTest: "Run XCUITest UI tests and capture screenshots"
     case .skipSigning: "Skip code signing (for CI without certificates)"
     }
@@ -45,6 +48,7 @@ struct Config {
   var release = false
   var background = false
   var foreground = false
+  var runUnitTests = false
   var runUiTests = false
   var skipSigning = false
 
@@ -89,6 +93,8 @@ func parseArguments(_ args: [String]) throws -> Config {
       config.background = true
     case .foreground:
       config.foreground = true
+    case .test:
+      config.runUnitTests = true
     case .uiTest:
       config.runUiTests = true
     case .skipSigning:
@@ -98,6 +104,18 @@ func parseArguments(_ args: [String]) throws -> Config {
 
   if config.background, config.foreground {
     throw ScriptError("--background and --foreground cannot be used together")
+  }
+
+  if config.runUnitTests, config.runUiTests {
+    throw ScriptError("--test and --ui-test cannot be used together")
+  }
+
+  if config.runUnitTests, config.buildOnly {
+    throw ScriptError("--build-only is not supported with --test")
+  }
+
+  if config.runUnitTests, config.release {
+    throw ScriptError("--release is not supported with --test")
   }
 
   if config.runUiTests, config.buildOnly {
@@ -137,7 +155,15 @@ runMain(usage: cli.usage()) {
 
   try checkXcodeToolsSelected()
   let arch = try currentArchitecture()
-  if config.runUiTests {
+  if config.runUnitTests {
+    try runUnitTests(
+      projectPath: projectPath,
+      derivedDataPath: paths.derivedDataPath,
+      arch: arch,
+      verbose: config.verbose,
+      skipSigning: config.skipSigning
+    )
+  } else if config.runUiTests {
     let cacheKey = buildCacheKey(repoRoot: repoRoot)
     let uiTestPaths = AppPaths.uiTestPaths(repoRoot: repoRoot, cacheKey: cacheKey)
     try runUiTests(
