@@ -92,6 +92,10 @@ the standard verification loop.
  writes the same file from `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` (plus optional `GOODREADS_SYNC_URL` and `GOODREADS_SYNC_SECRET`)
 - The file is gitignored and Xcode errors if it is missing, so any build needs it first
  (CI uses `run config --placeholder --if-missing`)
+- **1Password CLI (`op`) rules**:
+  - Never call `op` repeatedly across separate shell commands or loops (each shell tool call is a new terminal session and triggers a separate Touch ID prompt).
+  - If a secret is needed and not already cached locally in `Saga/Saga/Config/Config.xcconfig` or `.env.local`, batch every needed `op` read into a single shell command, write them into a gitignored `.env.local` (or `Config.xcconfig`), and source that file on subsequent commands.
+  - Never print secret values.
 - `swift-format` is listed in the repo `Brewfile` (install with `brew bundle`)
 - Validate formatting and linting before final review, and build the app too.
 

@@ -24,10 +24,11 @@ import crypto from "node:crypto";
 // Constants & Configuration
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_SHELVES = ["read", "currently-reading", "to-read"];
+export const DEFAULT_SHELVES = ["currently-reading", "read"];
 export const DEFAULT_LOCALE = "en-US";
 export const DEFAULT_ENVIRONMENT_ID = "master";
 export const CONTENTFUL_CMA_BASE_URL = "https://api.contentful.com";
+export const CONTENTFUL_UPLOAD_BASE_URL = "https://upload.contentful.com";
 export const BOOKCOVER_API_BASE_URL = "https://bookcover.longitood.com/bookcover";
 export const OPENLIBRARY_API_BASE_URL = "https://openlibrary.org";
 export const OPENLIBRARY_COVERS_BASE_URL = "https://covers.openlibrary.org";
@@ -38,6 +39,7 @@ const BOOKCOVER_PREFERRED_MIN_BYTES = 30_000;
 const BOOKCOVER_PREFERRED_RATIO = 0.85;
 const OPENLIBRARY_PREFERRED_COVER_BYTES = 40_000;
 const MAX_OPENLIBRARY_SEARCH_CANDIDATES = 4;
+const MAX_CONCURRENT_PARSES = 10;
 
 // ---------------------------------------------------------------------------
 // String, HTML, ISBN & RichText Helpers (matching Saga Swift logic)
@@ -158,23 +160,24 @@ export function parseIsbn13Number(raw) {
 
 /**
  * Cleans HTML markup from Goodreads `<user_review>` into plain text with newline-separated
- * paragraphs, then builds a Contentful RichTextDocument matching `RichTextDocument(fromPlainText:)`.
+ * paragraphs, then builds a Contentful RichTextDocument matching `RichTextDocument(fromPlainText:)`
+ * in `Saga/Saga/Shared/Models/RichTextDocumentTransformer.swift`:
+ *
+ * - Replaces `<br>`, `<br/>`, and `\r\n` with `\n`
+ * - Splits by `.newlines` and filters out empty lines (`!line.isEmpty`)
+ * - Preserves each non-empty line verbatim inside a `paragraph` -> `text` node with `marks: []`
  */
 export function normalizeReviewText(rawReview) {
   if (!rawReview) return "";
   const withLineBreaks = String(rawReview)
     .replace(/\r\n/g, "\n")
-    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
-    .replace(/<\/\s*p\s*>/gi, "\n")
-    .replace(/<\s*p(?:\s[^>]*)?>/gi, "");
+    .replace(/\r/g, "\n")
+    .replace(/<br\s*\/?>/gi, "\n");
 
-  // Strip remaining HTML tags if any and decode entities
-  const stripped = withLineBreaks.replace(/<[^>]+>/g, "");
-  const decoded = decodeXmlEntities(stripped);
+  const decoded = decodeXmlEntities(withLineBreaks);
 
   const paragraphs = decoded
-    .split(/\r?\n/)
-    .map((line) => line.trim())
+    .split("\n")
     .filter((line) => line.length > 0);
 
   return paragraphs.join("\n\n");
@@ -185,12 +188,15 @@ export function normalizeReviewText(rawReview) {
  * `RichTextDocument(fromPlainText:)` in `RichTextDocumentTransformer.swift`.
  */
 export function buildRichTextDocument(rawReview) {
-  const normalized = normalizeReviewText(rawReview);
-  if (!normalized) return null;
+  if (!rawReview) return null;
+  const withLineBreaks = String(rawReview)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/<br\s*\/?>/gi, "\n");
 
-  const paragraphs = normalized
-    .split(/\n+/)
-    .map((line) => line.trim())
+  const decoded = decodeXmlEntities(withLineBreaks);
+  const paragraphs = decoded
+    .split("\n")
     .filter((line) => line.length > 0);
 
   if (paragraphs.length === 0) return null;
@@ -332,14 +338,23 @@ export function upgradeGoodreadsCoverUrl(url) {
 
 /**
  * Derives `readDateStarted` and `readDateFinished` from a Goodreads RSS item and shelf,
- * matching `Book.readingStatus` (`ReadingStatus(readDateStarted:readDateFinished:)`) and
- * `GoodreadsCSVParser` in Saga:
+ * matching `GoodreadsCSVParser.parseRow` and `Book.readingStatus` in Saga:
  *
  * - `to-read` -> `.notStarted`: `readDateStarted = null`, `readDateFinished = null`
- * - `currently-reading` -> `.reading`: `readDateStarted = dateAdded || dateCreated`, `readDateFinished = null`
- * - `read` -> `.read`: `readDateFinished = userReadAt || dateAdded || dateCreated`, `readDateStarted = dateAdded || readDateFinished`
+ * - `currently-reading` -> `.reading`: `readDateStarted = dateStarted || dateAdded`, `readDateFinished = null`
+ * - `read` -> `.read`: `readDateFinished = userReadAt || dateAdded`, `readDateStarted = dateStarted || dateAdded`
+ *   If `finished < started`:
+ *   - If `userReadAt` (`readDateFinishedFromRead`) was present, `readDateStarted = null`
+ *   - Otherwise, `readDateFinished = null`
  */
-export function resolveReadDates({ shelf, userShelves, userReadAt, userDateAdded, userDateCreated }) {
+export function resolveReadDates({
+  shelf,
+  userShelves,
+  userReadAt,
+  userDateStarted,
+  userDateAdded,
+  userDateCreated,
+}) {
   const shelvesList = [shelf, ...(userShelves ? userShelves.split(",").map((s) => s.trim()) : [])]
     .filter(Boolean)
     .map((s) => s.toLowerCase());
@@ -350,11 +365,12 @@ export function resolveReadDates({ shelf, userShelves, userReadAt, userDateAdded
     !isCurrentlyReading &&
     (shelf === "to-read" || (shelvesList.includes("to-read") && !shelvesList.includes("read")));
 
-  const parsedReadAt = parseGoodreadsDate(userReadAt);
-  const parsedAdded = parseGoodreadsDate(userDateAdded);
-  const parsedCreated = parseGoodreadsDate(userDateCreated);
+  const readDateFinishedFromRead = parseGoodreadsDate(userReadAt);
+  const readDateFinishedFromAdded =
+    parseGoodreadsDate(userDateAdded) || parseGoodreadsDate(userDateCreated);
+  const readDateStartedFromStarted = parseGoodreadsDate(userDateStarted);
 
-  if (isToRead && !parsedReadAt) {
+  if (isToRead && !readDateFinishedFromRead) {
     return {
       status: "notStarted",
       readDateStarted: null,
@@ -362,31 +378,36 @@ export function resolveReadDates({ shelf, userShelves, userReadAt, userDateAdded
     };
   }
 
-  if (isCurrentlyReading && !parsedReadAt) {
-    const started = parsedAdded || parsedCreated || new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-    return {
-      status: "reading",
-      readDateStarted: started,
-      readDateFinished: null,
-    };
+  let readDateStarted = readDateStartedFromStarted || readDateFinishedFromAdded;
+  let readDateFinished = null;
+  if (readDateFinishedFromRead) {
+    readDateFinished = readDateFinishedFromRead;
+  } else if (isCurrentlyReading) {
+    readDateFinished = null;
+  } else {
+    readDateFinished = readDateFinishedFromAdded;
   }
-
-  // Default / 'read' shelf
-  let readDateFinished = parsedReadAt || parsedAdded || parsedCreated;
-  let readDateStarted = parsedAdded || parsedCreated || readDateFinished;
 
   if (readDateFinished && readDateStarted) {
     const finishedTs = Date.parse(readDateFinished);
     const startedTs = Date.parse(readDateStarted);
     if (!Number.isNaN(finishedTs) && !Number.isNaN(startedTs) && finishedTs < startedTs) {
-      // Match GoodreadsCSVParser: if userReadAt was explicitly set and is earlier than dateAdded,
-      // align readDateStarted to readDateFinished so finished >= started.
-      readDateStarted = readDateFinished;
+      // Exact parity with GoodreadsCSVParser lines 397-413:
+      // If `dateRead` (`user_read_at`) was explicitly set and is earlier than `dateAdded`,
+      // clear `readDateStarted = null` (leaving `readDateFinished` intact); otherwise clear `readDateFinished = null`.
+      if (readDateFinishedFromRead !== null) {
+        readDateStarted = null;
+      } else {
+        readDateFinished = null;
+      }
     }
   }
 
+  const status =
+    readDateFinished !== null ? "read" : readDateStarted !== null ? "reading" : "notStarted";
+
   return {
-    status: "read",
+    status,
     readDateStarted,
     readDateFinished,
   };
@@ -413,14 +434,16 @@ export function parseGoodreadsRssXml(xml, shelf = "read") {
     const title = cleanWhitespace(rawTitle);
     const author = cleanWhitespace(rawAuthor);
     const bookId = extractXmlTag(itemXml, "book_id");
-    const rawIsbn = extractXmlTag(itemXml, "isbn");
-    const isbn = parseIsbn13Number(rawIsbn);
+    const rawIsbn13 = extractXmlTag(itemXml, "isbn13");
+    const rawIsbn10 = extractXmlTag(itemXml, "isbn");
+    const isbn = parseIsbn13Number(rawIsbn13) ?? parseIsbn13Number(rawIsbn10);
 
     const rawRating = extractXmlTag(itemXml, "user_rating");
     const parsedRating = rawRating ? Number.parseInt(rawRating, 10) : 0;
     const rating = Number.isInteger(parsedRating) && parsedRating > 0 ? parsedRating : null;
 
     const userReadAt = extractXmlTag(itemXml, "user_read_at");
+    const userDateStarted = extractXmlTag(itemXml, "user_date_started");
     const userDateAdded = extractXmlTag(itemXml, "user_date_added");
     const userDateCreated = extractXmlTag(itemXml, "user_date_created") || extractXmlTag(itemXml, "pubDate");
     const userShelves = extractXmlTag(itemXml, "user_shelves");
@@ -441,6 +464,7 @@ export function parseGoodreadsRssXml(xml, shelf = "read") {
       shelf,
       userShelves,
       userReadAt,
+      userDateStarted,
       userDateAdded,
       userDateCreated,
     });
@@ -624,22 +648,27 @@ export function computeBookDiff(goodreadsBook, existingEntry) {
 
   const changedFields = [];
 
-  // Keep existing title/author unless blank
-  const title = existingEntry.title || goodreadsBook.title;
+  // Match Book.add in Saga: update title to incoming Goodreads title,
+  // and fill nil fields on the existing entry (`??=`) while allowing transition
+  // from currently-reading (`readDateFinished == null`) to read (`readDateFinished != null`).
+  const title = goodreadsBook.title || existingEntry.title;
   if (title !== existingEntry.title) changedFields.push("title");
 
   const author = existingEntry.author || goodreadsBook.author;
   if (author !== existingEntry.author) changedFields.push("author");
 
-  // Fill in ISBN if missing in Contentful
+  // existingBook.isbn ??= isbn
   const isbn = existingEntry.isbn ?? goodreadsBook.isbn ?? null;
   if (isbn !== existingEntry.isbn) changedFields.push("isbn");
 
-  // Update rating if Goodreads has a positive rating that differs from Contentful
-  const rating = goodreadsBook.rating ?? existingEntry.rating ?? null;
-  if (rating !== existingEntry.rating) changedFields.push("rating");
+  // existingBook.rating ??= rating (also allow newly added rating if previously unrated, or updated rating)
+  const rating = existingEntry.rating ?? goodreadsBook.rating ?? null;
+  if (goodreadsBook.rating && goodreadsBook.rating !== existingEntry.rating) {
+    changedFields.push("rating");
+  }
+  const mergedRating = goodreadsBook.rating ?? existingEntry.rating ?? null;
 
-  // Update review if Goodreads has a non-empty review that differs from Contentful's plain text
+  // existingBook.reviewDescription ??= reviewDescription (or updated review in Goodreads)
   let reviewDescription = existingEntry.reviewDescription;
   let reviewText = existingEntry.reviewText;
   if (goodreadsBook.reviewText && goodreadsBook.reviewText !== existingEntry.reviewText) {
@@ -648,39 +677,18 @@ export function computeBookDiff(goodreadsBook, existingEntry) {
     changedFields.push("reviewDescription");
   }
 
-  // Reading status & dates:
-  // - If book is `read` in Goodreads (`readDateFinished != null`):
-  //   set `readDateFinished` if missing in Contentful or if Goodreads has an explicit `user_read_at` that differs.
-  //   Ensure `readDateStarted` is set (preserving existing `readDateStarted` if valid).
-  // - If book is `reading` in Goodreads (`readDateStarted != null`, `readDateFinished == null`):
-  //   only set `readDateStarted` if Contentful doesn't already have it marked as `read` or `reading`.
+  // existingBook.readDateFinished ??= readDateFinished
+  // existingBook.readDateStarted ??= readDateStarted
   let readDateStarted = existingEntry.readDateStarted;
   let readDateFinished = existingEntry.readDateFinished;
 
-  if (goodreadsBook.status === "read") {
-    if (!existingEntry.readDateFinished && goodreadsBook.readDateFinished) {
-      readDateFinished = goodreadsBook.readDateFinished;
-      changedFields.push("readDateFinished");
-    }
-    if (!readDateStarted && (goodreadsBook.readDateStarted || readDateFinished)) {
-      readDateStarted = goodreadsBook.readDateStarted || readDateFinished;
-      changedFields.push("readDateStarted");
-    }
-    if (
-      readDateFinished &&
-      readDateStarted &&
-      Date.parse(readDateFinished) < Date.parse(readDateStarted)
-    ) {
-      readDateStarted = readDateFinished;
-      if (!changedFields.includes("readDateStarted")) {
-        changedFields.push("readDateStarted");
-      }
-    }
-  } else if (goodreadsBook.status === "reading") {
-    if (!existingEntry.readDateStarted && !existingEntry.readDateFinished && goodreadsBook.readDateStarted) {
-      readDateStarted = goodreadsBook.readDateStarted;
-      changedFields.push("readDateStarted");
-    }
+  if (!existingEntry.readDateFinished && goodreadsBook.readDateFinished) {
+    readDateFinished = goodreadsBook.readDateFinished;
+    changedFields.push("readDateFinished");
+  }
+  if (!existingEntry.readDateStarted && goodreadsBook.readDateStarted) {
+    readDateStarted = goodreadsBook.readDateStarted;
+    changedFields.push("readDateStarted");
   }
 
   if (!existingEntry.coverImageId) {
@@ -694,7 +702,7 @@ export function computeBookDiff(goodreadsBook, existingEntry) {
       title,
       author,
       isbn,
-      rating,
+      rating: mergedRating,
       readDateStarted,
       readDateFinished,
       reviewText,
@@ -782,9 +790,121 @@ async function fetchBookcoverCandidate(isbn, fetchImpl = fetch) {
   }
 }
 
+function cleanOpenLibraryTitle(title) {
+  return String(title || "").replace(/ \([^(#)]*#\d+\)$/, "");
+}
+
+function normalizeAlphanumeric(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function openLibraryTitleMatches(candidate, normalizedTitle) {
+  if (!candidate || !normalizedTitle) return false;
+  const normalizedCandidate = normalizeAlphanumeric(candidate);
+  if (!normalizedCandidate) return false;
+  return (
+    normalizedCandidate === normalizedTitle ||
+    normalizedCandidate.includes(normalizedTitle) ||
+    normalizedTitle.includes(normalizedCandidate)
+  );
+}
+
+function openLibraryAuthorMatches(candidates, normalizedAuthor) {
+  if (!Array.isArray(candidates) || !normalizedAuthor) return false;
+  return candidates.some((candidate) => {
+    const normalizedCandidate = normalizeAlphanumeric(candidate);
+    if (!normalizedCandidate) return false;
+    return (
+      normalizedCandidate === normalizedAuthor ||
+      normalizedCandidate.includes(normalizedAuthor) ||
+      normalizedAuthor.includes(normalizedCandidate)
+    );
+  });
+}
+
+/**
+ * Matches `OpenLibraryAPIService.prioritizedDocGroups(from:normalizedTitle:normalizedAuthor:)`:
+ * filters to English docs when available, then orders groups:
+ * 1. Both author and title match
+ * 2. Author matches
+ * 3. Title matches
+ * 4. All docs
+ */
+export function prioritizeOpenLibraryDocGroups(docs, title, author) {
+  if (!Array.isArray(docs) || docs.length === 0) return [];
+  const normalizedTitle = normalizeAlphanumeric(cleanOpenLibraryTitle(title));
+  const normalizedAuthor = normalizeAlphanumeric(author);
+
+  const englishDocs = docs.filter(
+    (doc) => Array.isArray(doc?.language) && doc.language.includes("eng"),
+  );
+  const pool = englishDocs.length > 0 ? englishDocs : docs;
+
+  const authorMatchesDocs = pool.filter((doc) =>
+    openLibraryAuthorMatches(doc?.author_name, normalizedAuthor),
+  );
+  const titleMatchesDocs = pool.filter((doc) =>
+    openLibraryTitleMatches(doc?.title, normalizedTitle),
+  );
+  const authorTitleMatchesDocs = authorMatchesDocs.filter((doc) =>
+    openLibraryTitleMatches(doc?.title, normalizedTitle),
+  );
+
+  return [authorTitleMatchesDocs, authorMatchesDocs, titleMatchesDocs, pool].filter(
+    (group) => group.length > 0,
+  );
+}
+
+function preferredIsbnFromList(rawIsbns) {
+  if (!Array.isArray(rawIsbns)) return null;
+  const cleaned = rawIsbns
+    .map((raw) =>
+      String(raw || "")
+        .replace(/="/g, "")
+        .replace(/"/g, "")
+        .replace(/-/g, "")
+        .replace(/\s+/g, "")
+        .toUpperCase(),
+    )
+    .filter(Boolean);
+
+  // Prefer 13-digit ISBNs first (matching OpenLibraryAPIService.preferredISBN)
+  for (const candidate of cleaned) {
+    const digitsOnly = candidate.replace(/\D/g, "");
+    if (digitsOnly.length === 13) {
+      const parsed = parseIsbn13Number(digitsOnly);
+      if (parsed) return parsed;
+    }
+  }
+
+  // Fall back to 10-digit ISBNs converted to ISBN-13
+  for (const candidate of cleaned) {
+    if (candidate.length === 10) {
+      const parsed = parseIsbn13Number(candidate);
+      if (parsed) return parsed;
+    }
+  }
+
+  return null;
+}
+
+function extractIsbnCandidatesFromDocs(docs, normalizedTitle, requireTitleMatch) {
+  const editionDocs = docs.flatMap((doc) =>
+    Array.isArray(doc?.editions?.docs) ? doc.editions.docs : [],
+  );
+  const filteredEditions = requireTitleMatch
+    ? editionDocs.filter((edition) => openLibraryTitleMatches(edition?.title, normalizedTitle))
+    : editionDocs;
+  return filteredEditions.flatMap((edition) =>
+    Array.isArray(edition?.isbn) ? edition.isbn : [],
+  );
+}
+
 async function fetchOpenLibrarySearchDocs(title, author, fetchImpl = fetch) {
   try {
-    const cleanedTitle = title.replace(/ \([^(#)]*#\d+\)$/, "");
+    const cleanedTitle = cleanOpenLibraryTitle(title);
     const params = new URLSearchParams({
       q: `${cleanedTitle} ${author}`,
       fields: "key,title,author_name,language,cover_i,cover_edition_key,editions,editions.title,editions.isbn",
@@ -799,21 +919,55 @@ async function fetchOpenLibrarySearchDocs(title, author, fetchImpl = fetch) {
   }
 }
 
+async function fetchIsbnsFromOpenLibraryWorkEditions(workKey, fetchImpl = fetch) {
+  if (!workKey) return null;
+  try {
+    const res = await fetchImpl(`${OPENLIBRARY_API_BASE_URL}${workKey}/editions.json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const entries = Array.isArray(data?.entries) ? data.entries : [];
+    for (const edition of entries) {
+      const langs = Array.isArray(edition?.languages) ? edition.languages : [];
+      if (langs.some((lang) => lang?.key === "/languages/eng")) {
+        if (Array.isArray(edition?.isbn_13) && edition.isbn_13.length > 0) {
+          return edition.isbn_13;
+        }
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Resolves a missing ISBN-13 from OpenLibrary search when Goodreads RSS omits `<isbn>`.
+ * Resolves a missing ISBN-13 from OpenLibrary search + work editions fallback,
+ * matching `OpenLibraryAPIService.isbnFor(title:author:)` in Saga.
  */
 export async function resolveIsbnFromOpenLibrary(title, author, fetchImpl = fetch) {
   const docs = await fetchOpenLibrarySearchDocs(title, author, fetchImpl);
-  for (const doc of docs) {
-    const editionDocs = Array.isArray(doc?.editions?.docs) ? doc.editions.docs : [];
-    for (const edition of editionDocs) {
-      const isbns = Array.isArray(edition?.isbn) ? edition.isbn : [];
-      for (const raw of isbns) {
-        const parsed = parseIsbn13Number(raw);
-        if (parsed) return parsed;
-      }
-    }
+  if (docs.length === 0) return null;
+
+  const normalizedTitle = normalizeAlphanumeric(cleanOpenLibraryTitle(title));
+  const docGroups = prioritizeOpenLibraryDocGroups(docs, title, author);
+
+  for (const group of docGroups) {
+    const exactTitleIsbns = extractIsbnCandidatesFromDocs(group, normalizedTitle, true);
+    const exactMatch = preferredIsbnFromList(exactTitleIsbns);
+    if (exactMatch) return exactMatch;
+
+    const fallbackIsbns = extractIsbnCandidatesFromDocs(group, normalizedTitle, false);
+    const fallbackMatch = preferredIsbnFromList(fallbackIsbns);
+    if (fallbackMatch) return fallbackMatch;
   }
+
+  const firstWorkKey = docGroups.map((group) => group[0]?.key).find(Boolean);
+  if (firstWorkKey) {
+    const editionsIsbns = await fetchIsbnsFromOpenLibraryWorkEditions(firstWorkKey, fetchImpl);
+    const editionMatch = preferredIsbnFromList(editionsIsbns);
+    if (editionMatch) return editionMatch;
+  }
+
   return null;
 }
 
@@ -830,29 +984,33 @@ async function fetchOpenLibraryCoverCandidate(isbn, title, author, fetchImpl = f
   }
 
   const docs = await fetchOpenLibrarySearchDocs(title, author, fetchImpl);
+  const docGroups = prioritizeOpenLibraryDocGroups(docs, title, author);
   let checked = 0;
   let bestSearchCandidate = null;
 
-  for (const doc of docs) {
-    const candidateUrls = [];
-    if (doc.cover_edition_key) {
-      candidateUrls.push(
-        `${OPENLIBRARY_COVERS_BASE_URL}/b/olid/${doc.cover_edition_key}-L.jpg?default=false`,
-      );
-    }
-    if (doc.cover_i) {
-      candidateUrls.push(
-        `${OPENLIBRARY_COVERS_BASE_URL}/b/id/${doc.cover_i}-L.jpg?default=false`,
-      );
-    }
-
-    for (const candidateUrl of candidateUrls) {
-      if (checked >= MAX_OPENLIBRARY_SEARCH_CANDIDATES) break;
-      checked += 1;
-      const candidate = await probeImageCandidate(candidateUrl, fetchImpl);
-      if (candidate && (!bestSearchCandidate || candidate.bytes > bestSearchCandidate.bytes)) {
-        bestSearchCandidate = candidate;
+  for (const group of docGroups) {
+    for (const doc of group) {
+      const candidateUrls = [];
+      if (doc.cover_edition_key) {
+        candidateUrls.push(
+          `${OPENLIBRARY_COVERS_BASE_URL}/b/olid/${doc.cover_edition_key}-L.jpg?default=false`,
+        );
       }
+      if (doc.cover_i) {
+        candidateUrls.push(
+          `${OPENLIBRARY_COVERS_BASE_URL}/b/id/${doc.cover_i}-L.jpg?default=false`,
+        );
+      }
+
+      for (const candidateUrl of candidateUrls) {
+        if (checked >= MAX_OPENLIBRARY_SEARCH_CANDIDATES) break;
+        checked += 1;
+        const candidate = await probeImageCandidate(candidateUrl, fetchImpl);
+        if (candidate && (!bestSearchCandidate || candidate.bytes > bestSearchCandidate.bytes)) {
+          bestSearchCandidate = candidate;
+        }
+      }
+      if (checked >= MAX_OPENLIBRARY_SEARCH_CANDIDATES) break;
     }
     if (checked >= MAX_OPENLIBRARY_SEARCH_CANDIDATES) break;
   }
@@ -933,6 +1091,7 @@ export class ContentfulCmaClient {
     this.locale = locale;
     this.fetchImpl = fetchImpl;
     this.baseUrl = `${CONTENTFUL_CMA_BASE_URL}/spaces/${spaceId}/environments/${environmentId}`;
+    this.uploadUrl = `${CONTENTFUL_UPLOAD_BASE_URL}/spaces/${spaceId}/uploads`;
   }
 
   async request(path, { method = "GET", headers = {}, body } = {}) {
@@ -1005,35 +1164,85 @@ export class ContentfulCmaClient {
   }
 
   /**
-   * Creates, processes, and publishes a Contentful Asset from a remote cover image URL.
+   * Uploads binary image data to Contentful's Upload API (`upload.contentful.com/spaces/{spaceId}/uploads`),
+   * matching `ContentfulManagementService.uploadFile` in Saga.
+   */
+  async uploadFile(binaryBuffer) {
+    const response = await this.fetchImpl(this.uploadUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.managementToken}`,
+        "Content-Type": "application/octet-stream",
+      },
+      body: binaryBuffer,
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`Contentful binary upload failed (${response.status}): ${text.slice(0, 300)}`);
+    }
+    const data = text ? JSON.parse(text) : null;
+    if (!data?.sys?.id) {
+      throw new Error("Contentful binary upload response missing sys.id");
+    }
+    return data.sys.id;
+  }
+
+  /**
+   * Creates, processes, and publishes a Contentful Asset from a remote cover image URL,
+   * matching `TwoWaySyncService.pushAsset` + `ContentfulManagementService.uploadAsset` in Saga:
+   * 1. Downloads the image bytes from `imageUrl`
+   * 2. Uploads bytes to `upload.contentful.com` (`uploadFrom` link) or falls back to remote `upload: imageUrl`
+   * 3. Creates the Asset with `id = UUID().uuidString` (uppercase), `fileName = "${assetId}.jpg"`, `contentType = "image/jpeg"`
+   * 4. Calls `/assets/{id}/files/{locale}/process` and polls until `file[locale].url` is populated
+   * 5. Publishes the Asset
    */
   async createAndPublishCoverAsset({ title, imageUrl }) {
     const assetId = crypto.randomUUID().toUpperCase();
-    const urlObj = new URL(imageUrl);
-    const extMatch = urlObj.pathname.match(/\.(jpe?g|png|webp|gif)$/i);
-    const ext = extMatch ? extMatch[1].toLowerCase() : "jpg";
-    const contentType =
-      ext === "png"
-        ? "image/png"
-        : ext === "webp"
-          ? "image/webp"
-          : ext === "gif"
-            ? "image/gif"
-            : "image/jpeg";
+    const fileName = `${assetId}.jpg`;
+    const contentType = "image/jpeg";
+
+    let filePayload = {
+      contentType,
+      fileName,
+      upload: imageUrl,
+    };
+
+    try {
+      const imageRes = await this.fetchImpl(imageUrl, { method: "GET", redirect: "follow" });
+      if (imageRes.ok) {
+        const arrayBuffer = await imageRes.arrayBuffer();
+        if (arrayBuffer && arrayBuffer.byteLength > 0) {
+          const uploadId = await this.uploadFile(new Uint8Array(arrayBuffer));
+          filePayload = {
+            contentType,
+            fileName,
+            uploadFrom: {
+              sys: {
+                type: "Link",
+                linkType: "Upload",
+                id: uploadId,
+              },
+            },
+          };
+        }
+      }
+    } catch {
+      // Fall back to direct remote URL `upload: imageUrl` if binary upload endpoint isn't mocked or fails
+    }
+
+    const bodyFields = {
+      file: {
+        [this.locale]: filePayload,
+      },
+    };
+    if (title) {
+      bodyFields.title = { [this.locale]: title };
+    }
 
     const created = await this.request(`/assets/${assetId}`, {
       method: "PUT",
       body: {
-        fields: {
-          title: { [this.locale]: title },
-          file: {
-            [this.locale]: {
-              contentType,
-              fileName: `${assetId}.${ext}`,
-              upload: imageUrl,
-            },
-          },
-        },
+        fields: bodyFields,
       },
     });
 
@@ -1044,10 +1253,11 @@ export class ContentfulCmaClient {
       },
     });
 
-    // Poll until Contentful finishes processing the remote image file
+    // Poll until Contentful finishes processing the image file
     let processedAsset = null;
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, attempt < 2 ? 750 : 1500));
+    for (let attempt = 0; attempt < 15; attempt += 1) {
+      const delayMs = Math.min(1000 * 2 ** Math.min(attempt, 3), 8000);
+      await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 750 : delayMs));
       const candidate = await this.request(`/assets/${assetId}`);
       const fileField = candidate?.fields?.file?.[this.locale];
       if (fileField?.url) {

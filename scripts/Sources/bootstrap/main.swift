@@ -37,7 +37,11 @@ private enum ConfigDefaults {
   static let goodreadsSyncSecretItem = "GOODREADS_SYNC_SECRET"
 }
 
-private func resolveOptionalSecret(item: String, envKeys: [String]) -> String {
+private func resolveOptionalSecret(
+  item: String,
+  envKeys: [String],
+  availableVaultItems: Set<String>?
+) -> String {
   for key in envKeys {
     if let raw = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(
       in: .whitespacesAndNewlines),
@@ -46,6 +50,9 @@ private func resolveOptionalSecret(item: String, envKeys: [String]) -> String {
       return raw
     }
   }
+  if let availableVaultItems, !availableVaultItems.contains(item) {
+    return ""
+  }
   if let secret = try? readOnePasswordSecret(vault: ConfigDefaults.opVault, item: item) {
     return secret
   }
@@ -53,6 +60,7 @@ private func resolveOptionalSecret(item: String, envKeys: [String]) -> String {
 }
 
 private func resolveConfigValues() throws -> AppConfigValues {
+  let availableVaultItems = listOnePasswordVaultItemTitles(vault: ConfigDefaults.opVault)
   let spaceID = try readOnePasswordSecret(
     vault: ConfigDefaults.opVault,
     item: ConfigDefaults.spaceIDItem
@@ -63,11 +71,13 @@ private func resolveConfigValues() throws -> AppConfigValues {
   )
   let goodreadsSyncURL = resolveOptionalSecret(
     item: ConfigDefaults.goodreadsSyncURLItem,
-    envKeys: [AppConfig.goodreadsSyncURLKey, AppConfig.goodreadsSyncWebhookURLKey]
+    envKeys: [AppConfig.goodreadsSyncURLKey, AppConfig.goodreadsSyncWebhookURLKey],
+    availableVaultItems: availableVaultItems
   )
   let goodreadsSyncSecret = resolveOptionalSecret(
     item: ConfigDefaults.goodreadsSyncSecretItem,
-    envKeys: [AppConfig.goodreadsSyncSecretKey, AppConfig.cronSecretKey]
+    envKeys: [AppConfig.goodreadsSyncSecretKey, AppConfig.cronSecretKey],
+    availableVaultItems: availableVaultItems
   )
   return AppConfigValues(
     spaceID: spaceID,

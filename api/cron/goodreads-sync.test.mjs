@@ -13,6 +13,8 @@ import handler, {
   parseGoodreadsRssXml,
   parseIsbn13Number,
   resolveBestCoverUrl,
+  resolveIsbnFromOpenLibrary,
+  resolveReadDates,
   runGoodreadsSync,
   upgradeGoodreadsCoverUrl,
 } from "./goodreads-sync.mjs";
@@ -339,4 +341,81 @@ test("resolveBestCoverUrl falls back to Goodreads large image URL when OpenLibra
     buildGoodreadsRssUrl({ userId: "999", rssKey: "abc", shelf: "read" }),
     "https://www.goodreads.com/review/list_rss/999?shelf=read&per_page=200&key=abc",
   );
+});
+
+test("resolveReadDates matches GoodreadsCSVParser when finished < started", () => {
+  // When userReadAt (Date Read) is explicitly set and earlier than userDateAdded (Date Added),
+  // GoodreadsCSVParser clears readDateStarted = null and keeps readDateFinished.
+  const withReadAt = resolveReadDates({
+    shelf: "read",
+    userShelves: "read",
+    userReadAt: "2012/01/13",
+    userDateAdded: "2019/01/15",
+  });
+  assert.equal(withReadAt.status, "read");
+  assert.equal(withReadAt.readDateStarted, null);
+  assert.equal(withReadAt.readDateFinished, "2012-01-13T00:00:00Z");
+
+  // When userReadAt is NOT set (so finished came from Date Added) and userDateStarted > userDateAdded,
+  // GoodreadsCSVParser clears readDateFinished = null and keeps readDateStarted.
+  const withoutReadAt = resolveReadDates({
+    shelf: "read",
+    userShelves: "read",
+    userReadAt: null,
+    userDateStarted: "2020/05/01",
+    userDateAdded: "2019/01/15",
+  });
+  assert.equal(withoutReadAt.status, "reading");
+  assert.equal(withoutReadAt.readDateStarted, "2020-05-01T00:00:00Z");
+  assert.equal(withoutReadAt.readDateFinished, null);
+});
+
+test("resolveIsbnFromOpenLibrary prioritizes English + author/title match and falls back to work editions", async () => {
+  const mockFetch = async (url) => {
+    const urlStr = String(url);
+    if (urlStr.includes("/search.json")) {
+      return new Response(
+        JSON.stringify({
+          docs: [
+            {
+              key: "/works/OL1W",
+              title: "Other Book",
+              author_name: ["Someone Else"],
+              language: ["fre"],
+              editions: {
+                docs: [{ title: "Other Book", isbn: ["9781111111116"] }],
+              },
+            },
+            {
+              key: "/works/OL2W",
+              title: "Fahrenheit 451",
+              author_name: ["Ray Bradbury"],
+              language: ["eng"],
+              editions: {
+                docs: [],
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }
+    if (urlStr.includes("/works/OL2W/editions.json")) {
+      return new Response(
+        JSON.stringify({
+          entries: [
+            {
+              languages: [{ key: "/languages/eng" }],
+              isbn_13: ["9780007491568"],
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }
+    return new Response("Not Found", { status: 404 });
+  };
+
+  const isbn = await resolveIsbnFromOpenLibrary("Fahrenheit 451", "Ray Bradbury", mockFetch);
+  assert.equal(isbn, 9780007491568);
 });
