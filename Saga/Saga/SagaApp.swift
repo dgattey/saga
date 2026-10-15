@@ -94,7 +94,7 @@ struct SagaApp: App {
           .hotReloadable()
       }
       .windowResizability(.contentSize)
-      .defaultSize(width: 450, height: 650)
+      .defaultSize(width: 680, height: 560)
       .handlesExternalEvents(matching: ["settings"])
       .environmentObject(syncViewModel)
       .environmentObject(cachesViewModel)

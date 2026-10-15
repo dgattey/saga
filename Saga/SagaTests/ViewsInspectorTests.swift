@@ -124,4 +124,123 @@ struct ViewsInspectorTests {
     #expect(try inspected.find(text: "Home").string() == "Home")
     #expect(!didCallMakeHome)
   }
+
+  @Test("SettingsPane exposes expected metadata for all settings categories")
+  func settingsPaneMetadataInspection() {
+    #expect(SettingsPane.allCases == [.general, .storage, .credits])
+    #expect(SettingsPane.general.title == "General")
+    #expect(SettingsPane.storage.title == "Storage")
+    #expect(SettingsPane.credits.title == "Credits & About")
+    #expect(SettingsPane.credits.shortTitle == "Credits")
+    for pane in SettingsPane.allCases {
+      #expect(!pane.subtitle.isEmpty)
+      #expect(!pane.systemImage.isEmpty)
+      #expect(pane.id == pane.rawValue)
+    }
+  }
+
+  @Test("CreditItem and QuickLinkItem datasets contain expected APIs, libraries, and URLs")
+  func creditItemDatasetInspection() {
+    let quickLinkTitles = QuickLinkItem.all.map(\.title)
+    #expect(quickLinkTitles == ["Website", "GitHub", "More by Dylan"])
+    #expect(QuickLinkItem.all.first?.url.absoluteString == "https://saga.gattey.com")
+
+    let apiTitles = CreditItem.dataAndAPIs.map(\.name)
+    #expect(apiTitles == ["Open Library", "Bookcover API", "Goodreads", "Contentful"])
+
+    let libraryTitles = CreditItem.openSourceLibraries.map(\.name)
+    #expect(
+      libraryTitles == [
+        "Contentful",
+        "ContentfulPersistence",
+        "Ifrit",
+        "Sparkle",
+        "ViewInspector",
+        "InjectionNext",
+      ]
+    )
+    for item in CreditItem.openSourceLibraries {
+      #expect(item.version != nil)
+      #expect(item.badge == "MIT")
+      #expect(item.badgeURL != nil)
+    }
+  }
+
+  @Test("SettingsHeaderView and SettingsCard render titles, subtitles, and inner content")
+  @MainActor
+  func settingsHeaderAndCardInspection() throws {
+    let header = SettingsHeaderView(
+      title: "Credits & About",
+      subtitle: "About Saga, data sources & open source",
+      systemImage: "sparkles",
+      backgroundColor: .botanicalLeaf
+    )
+    let inspectedHeader = try header.inspect()
+    #expect(try inspectedHeader.find(text: "Credits & About").string() == "Credits & About")
+    #expect(
+      try inspectedHeader.find(text: "About Saga, data sources & open source").string()
+        == "About Saga, data sources & open source"
+    )
+
+    let card = SettingsCard(
+      title: "Data & APIs",
+      subtitle: "External services",
+      systemImage: "globe.americas.fill"
+    ) {
+      Text("Open Library")
+      SettingsCardDivider()
+      Text("Goodreads")
+    }
+    let inspectedCard = try card.inspect()
+    #expect(try inspectedCard.find(text: "Data & APIs").string() == "Data & APIs")
+    #expect(try inspectedCard.find(text: "External services").string() == "External services")
+    #expect(try inspectedCard.find(text: "Open Library").string() == "Open Library")
+    #expect(try inspectedCard.find(text: "Goodreads").string() == "Goodreads")
+  }
+
+  @Test("AppInformationView and CreditsView render app identity, quick links, APIs, and libraries")
+  @MainActor
+  func appInformationAndCreditsViewInspection() throws {
+    let appInfo = AppInformationView()
+    let inspectedAppInfo = try appInfo.inspect()
+    #expect(try inspectedAppInfo.find(text: "Saga").string() == "Saga")
+    #expect(
+      try inspectedAppInfo.find(text: "Crafted by Dylan Gattey").string()
+        == "Crafted by Dylan Gattey")
+    #expect(try inspectedAppInfo.find(text: "Website").string() == "Website")
+    #expect(try inspectedAppInfo.find(text: "GitHub").string() == "GitHub")
+    #expect(try inspectedAppInfo.find(text: "More by Dylan").string() == "More by Dylan")
+
+    let creditsView = CreditsView()
+    let inspectedCredits = try creditsView.inspect()
+    #expect(try inspectedCredits.find(text: "Data & APIs").string() == "Data & APIs")
+    #expect(
+      try inspectedCredits.find(text: "Open Source Libraries").string()
+        == "Open Source Libraries"
+    )
+    #expect(try inspectedCredits.find(text: "Open Library").string() == "Open Library")
+    #expect(try inspectedCredits.find(text: "Bookcover API").string() == "Bookcover API")
+    #expect(try inspectedCredits.find(text: "Ifrit").string() == "Ifrit")
+    #expect(try inspectedCredits.find(text: "Sparkle").string() == "Sparkle")
+  }
+
+  #if os(macOS)
+    @Test("SettingsSidebarView renders all panes and updates selectedPane binding on tap")
+    @MainActor
+    func settingsSidebarViewInspection() throws {
+      var selected: SettingsPane = .general
+      let binding = Binding(get: { selected }, set: { selected = $0 })
+      let sidebar = SettingsSidebarView(selectedPane: binding)
+        .environmentObject(AnimationSettings.shared)
+
+      let inspected = try sidebar.inspect()
+      #expect(try inspected.find(text: "General").string() == "General")
+      #expect(try inspected.find(text: "Storage").string() == "Storage")
+      #expect(try inspected.find(text: "Credits & About").string() == "Credits & About")
+
+      let creditsButton = try inspected.find(button: "Credits & About")
+      try creditsButton.tap()
+      #expect(selected == .credits)
+    }
+  #endif
 }

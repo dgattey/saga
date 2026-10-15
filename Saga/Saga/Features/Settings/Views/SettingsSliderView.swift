@@ -45,9 +45,10 @@ struct SettingsSliderView: View {
           .font(.callout.monospaced())
           .padding(.horizontal, 10)
           .padding(.vertical, 4)
-          .glassEffect(
-            .regular.tint(Color.botanicalLeaf.opacity(0.08)),
-            in: Capsule()
+          .background(Color.botanicalLeaf.opacity(0.10), in: Capsule())
+          .overlay(
+            Capsule()
+              .strokeBorder(Color.botanicalLeaf.opacity(0.22), lineWidth: 1)
           )
       }
       ZStack {

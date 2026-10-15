@@ -70,6 +70,20 @@ extension Color {
     )
   }
 
+  static var botanicalCardFill: Color {
+    adaptiveColor(
+      light: (0.985, 0.995, 0.988, 0.78),
+      dark: (0.110, 0.185, 0.148, 0.65)
+    )
+  }
+
+  static var botanicalCardBorder: Color {
+    adaptiveColor(
+      light: (0.149, 0.306, 0.227, 0.14),
+      dark: (0.420, 0.595, 0.505, 0.22)
+    )
+  }
+
   static func sidebarSelectionFill(isActiveWindow: Bool = true) -> Color {
     if isActiveWindow {
       return adaptiveColor(
