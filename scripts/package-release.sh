@@ -44,8 +44,11 @@ decode_secret_b64() {
 cleanup_files=()
 cleanup() {
   for f in "${cleanup_files[@]:-}"; do
-    [[ -n "$f" && -e "$f" ]] && rm -rf "$f"
+    if [[ -n "$f" && -e "$f" ]]; then
+      rm -rf "$f"
+    fi
   done
+  return 0
 }
 trap cleanup EXIT
 
@@ -182,58 +185,9 @@ ZIP_PATH="$OUT_DIR/$ZIP_NAME"
 ditto -c -k --keepParent "$APP" "$ZIP_PATH"
 rm -rf "$STAGE_DIR"
 
-# 6. Generate appcast.xml (using Sparkle's generate_appcast when EdDSA key is available, or fallback XML)
-DOWNLOAD_PREFIX="https://github.com/${REPO}/releases/download/v${VERSION}/"
-DOWNLOAD_URL="${DOWNLOAD_PREFIX}${ZIP_NAME}"
-RELEASE_LINK="https://github.com/${REPO}/releases/tag/v${VERSION}"
+# 6. Generate appcast.xml with clean HTML release notes inside CDATA (and optional EdDSA signature)
 APPCAST_PATH="$OUT_DIR/appcast.xml"
-
-GA="$(find_sparkle_tool generate_appcast "$DERIVED_DATA" || find_sparkle_tool generate_appcast || true)"
-USED_GENERATE_APPCAST=false
-
-if [[ -n "$GA" && -x "$GA" ]]; then
-  GA_ARGS=(--download-url-prefix "$DOWNLOAD_PREFIX" --link "$RELEASE_LINK")
-  if [[ -n "${SPARKLE_ED_KEY_FILE:-}" && -f "${SPARKLE_ED_KEY_FILE}" ]]; then
-    GA_ARGS+=(--ed-key-file "$SPARKLE_ED_KEY_FILE")
-  fi
-  # Copy zip into an isolated directory for generate_appcast
-  APPCAST_WORK="$(mktemp -d /tmp/saga-appcast.XXXXXX)"
-  cleanup_files+=("$APPCAST_WORK")
-  cp "$ZIP_PATH" "$APPCAST_WORK/$ZIP_NAME"
-  if [[ -n "${SAGA_RELEASE_NOTES:-}" ]]; then
-    printf '%s\n' "$SAGA_RELEASE_NOTES" > "$APPCAST_WORK/Saga-${VERSION}.txt"
-  fi
-  if "$GA" "${GA_ARGS[@]}" "$APPCAST_WORK" 2>/dev/null && [[ -f "$APPCAST_WORK/appcast.xml" ]]; then
-    cp "$APPCAST_WORK/appcast.xml" "$APPCAST_PATH"
-    USED_GENERATE_APPCAST=true
-  fi
-fi
-
-if [[ "$USED_GENERATE_APPCAST" != true ]]; then
-  echo "package-release: generating fallback appcast.xml (no Sparkle EdDSA private key in environment)" >&2
-  ZIP_BYTES="$(wc -c <"$ZIP_PATH" | tr -d ' ')"
-  PUB_DATE="$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')"
-  NOTES_ESCAPED="$(printf '%s' "${SAGA_RELEASE_NOTES:-Release v${VERSION}}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
-  cat > "$APPCAST_PATH" <<XML
-<?xml version="1.0" standalone="yes"?>
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
-  <channel>
-    <title>Saga</title>
-    <link>${RELEASE_LINK}</link>
-    <item>
-      <title>${VERSION}</title>
-      <pubDate>${PUB_DATE}</pubDate>
-      <link>${RELEASE_LINK}</link>
-      <sparkle:version>${BUILD_NUMBER}</sparkle:version>
-      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <description>${NOTES_ESCAPED}</description>
-      <enclosure url="${DOWNLOAD_URL}" length="${ZIP_BYTES}" type="application/octet-stream"/>
-    </item>
-  </channel>
-</rss>
-XML
-fi
+DERIVED_DATA="$DERIVED_DATA" "$ROOT/scripts/generate-appcast.sh" "$VERSION" "$BUILD_NUMBER" "$ZIP_PATH" "$APPCAST_PATH"
 
 rm -rf "$DERIVED_DATA"
 
