@@ -11,6 +11,9 @@ struct SettingsView: View {
   @EnvironmentObject var syncViewModel: SyncViewModel
   @EnvironmentObject var cachesViewModel: CachesViewModel
   @EnvironmentObject var animationSettings: AnimationSettings
+  #if os(macOS)
+    @EnvironmentObject var updaterViewModel: UpdaterViewModel
+  #endif
 
   // Image cache settings
   @AppStorage(ImageCache.cacheLimitKey) private var imageCacheLimitGB: Double = 5
@@ -24,6 +27,16 @@ struct SettingsView: View {
 
   var body: some View {
     Form {
+      #if os(macOS)
+        Section {
+          automaticallyCheckForUpdatesToggle
+          automaticallyDownloadUpdatesToggle
+          checkForUpdatesRow
+        } header: {
+          Text("Updates")
+            .font(.headline)
+        }
+      #endif
       Section {
         animationSpringResponseSlider
         animationSpringDampingSlider
@@ -176,5 +189,39 @@ struct SettingsView: View {
       )
     }
   }
+
+  #if os(macOS)
+    // MARK: - Update Settings
+
+    private var automaticallyCheckForUpdatesToggle: some View {
+      Toggle(
+        "Automatically check for updates",
+        isOn: $updaterViewModel.automaticallyChecksForUpdates
+      )
+      .disabled(!updaterViewModel.isConfigured)
+      .accessibilityIdentifier(AccessibilityID.Settings.automaticallyCheckForUpdates)
+    }
+
+    private var automaticallyDownloadUpdatesToggle: some View {
+      Toggle(
+        "Automatically download updates",
+        isOn: $updaterViewModel.automaticallyDownloadsUpdates
+      )
+      .disabled(!updaterViewModel.isConfigured || !updaterViewModel.automaticallyChecksForUpdates)
+      .accessibilityIdentifier(AccessibilityID.Settings.automaticallyDownloadUpdates)
+    }
+
+    private var checkForUpdatesRow: some View {
+      HStack {
+        Text("Software updates")
+        Spacer()
+        Button("Check for Updates…") {
+          updaterViewModel.checkForUpdates()
+        }
+        .disabled(!updaterViewModel.canCheckForUpdates)
+        .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
+      }
+    }
+  #endif
 
 }

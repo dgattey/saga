@@ -12,6 +12,10 @@ enum BundleKey: String {
   case spaceId = "ContentfulSpaceId"
   case accessToken = "ContentfulAccessToken"
   case sagaAPISecret = "SagaAPISecret"
+  case sparkleFeedURL = "SUFeedURL"
+  case sparklePublicEDKey = "SUPublicEDKey"
+  case sparkleEnableAutomaticChecks = "SUEnableAutomaticChecks"
+  case sparkleScheduledCheckInterval = "SUScheduledCheckInterval"
 
   /// Use this to get the actual value from the app bundle
   var bundleValue: String {

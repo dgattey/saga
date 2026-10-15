@@ -14,9 +14,18 @@ import SwiftUI
 struct MenuBarCommands: Commands {
   @EnvironmentObject var syncViewModel: SyncViewModel
   @EnvironmentObject var cachesViewModel: CachesViewModel
+  #if os(macOS)
+    @EnvironmentObject var updaterViewModel: UpdaterViewModel
+  #endif
   @Environment(\.openWindow) private var openWindow
 
   var body: some Commands {
+    #if os(macOS)
+      CommandGroup(after: .appInfo) {
+        CheckForUpdatesMenuItem(updaterViewModel: updaterViewModel)
+      }
+    #endif
+
     CommandGroup(after: .newItem) {
       Divider()
 

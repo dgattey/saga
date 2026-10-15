@@ -3,3 +3,6 @@ xcuserdata
 *.swp
 scripts/.build/
 /build/
+/dist/
+/.cert/
+sparkle_private.key

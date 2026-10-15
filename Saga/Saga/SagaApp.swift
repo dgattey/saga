@@ -17,6 +17,9 @@ struct SagaApp: App {
   @StateObject private var cachesViewModel = CachesViewModel()
   @StateObject private var booksViewModel = BooksViewModel()
   @StateObject private var animationSettings = AnimationSettings.shared
+  #if os(macOS)
+    @StateObject private var updaterViewModel = UpdaterViewModel()
+  #endif
 
   init() {
     // Register our transformers
@@ -64,6 +67,11 @@ struct SagaApp: App {
           .environment(\.managedObjectContext, syncViewModel.viewContext)
           .windowBackground()
           .hotReloadable()
+          #if os(macOS)
+            .onAppear {
+              updaterViewModel.mainWindowDidAppear()
+            }
+          #endif
       }
     }
     .commands {
@@ -74,6 +82,9 @@ struct SagaApp: App {
     .environmentObject(cachesViewModel)
     .environmentObject(booksViewModel)
     .environmentObject(animationSettings)
+    #if os(macOS)
+      .environmentObject(updaterViewModel)
+    #endif
     .defaultSize(width: 1000, height: 600)
 
     #if os(macOS)
@@ -88,6 +99,7 @@ struct SagaApp: App {
       .environmentObject(syncViewModel)
       .environmentObject(cachesViewModel)
       .environmentObject(animationSettings)
+      .environmentObject(updaterViewModel)
     #endif
   }
 }

@@ -14,6 +14,7 @@
 		694D9E5DAF914F79883DD791 /* SagaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCA819EDF6E64B3F834D7698 /* SagaUITests.swift */; };
 		5D6A8B317F8C4A9DB0C1D2E6 /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6A8B307F8C4A9DB0C1D2E5 /* AccessibilityID.swift */; };
 		A1B2C3D4E5F6471890ABCDEF /* ViewInspector in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D4E5F6471890ABCDEE /* ViewInspector */; };
+		B1C2D3E4F5A6471890ABCDE2 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = B1C2D3E4F5A6471890ABCDE1 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,6 +91,7 @@
 			files = (
 				7558CB4C2E1CEF2F00D92477 /* Ifrit in Frameworks */,
 				7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */,
+				B1C2D3E4F5A6471890ABCDE2 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -172,6 +174,7 @@
 			packageProductDependencies = (
 				7589F8172E1B29E5005C31D9 /* ContentfulPersistence */,
 				7558CB4B2E1CEF2F00D92477 /* Ifrit */,
+				B1C2D3E4F5A6471890ABCDE1 /* Sparkle */,
 			);
 			productName = Saga;
 			productReference = 7589F7FF2E1B2299005C31D9 /* Saga.app */;
@@ -255,6 +258,7 @@
 				7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */,
 				7558CB442E1CE7E300D92477 /* XCRemoteSwiftPackageReference "Ifrit" */,
 				A1B2C3D4E5F6471890ABCDED /* XCRemoteSwiftPackageReference "ViewInspector" */,
+				B1C2D3E4F5A6471890ABCDE0 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7589F8002E1B2299005C31D9 /* Products */;
@@ -698,6 +702,14 @@
 				minimumVersion = 0.10.3;
 			};
 		};
+		B1C2D3E4F5A6471890ABCDE0 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -708,13 +720,18 @@
 		};
 		7589F8172E1B29E5005C31D9 /* ContentfulPersistence */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */;
+			package = 7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "ContentfulPersistence" */;
 			productName = ContentfulPersistence;
 		};
 		A1B2C3D4E5F6471890ABCDEE /* ViewInspector */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A1B2C3D4E5F6471890ABCDED /* XCRemoteSwiftPackageReference "ViewInspector" */;
 			productName = ViewInspector;
+		};
+		B1C2D3E4F5A6471890ABCDE1 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1C2D3E4F5A6471890ABCDE0 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
