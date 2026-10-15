@@ -39,44 +39,42 @@ struct ContentView: View {
   }
 
   var body: some View {
-    GoodreadsUploadDropzoneContainer {
-      NavigationSplitView(
-        preferredCompactColumn: $preferredCompactColumn,
-        sidebar: {
-          VStack(alignment: .leading, spacing: 16) {
-            HomeSidebarRow(
-              entry: $entry,
-              makeHomeEntry: {
-                navigationHistory.makeHomeEntry(currentEntry: entry, scrollStore: scrollStore)
-              }
-            )
-            BooksListView(entry: $entry)
-          }
-          .botanicalPageBackground()
-        },
-        detail: {
-          Group {
-            switch entry?.selection {
-            case .book(let selectedBookID):
-              if let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book {
-                BookContentView(book: selectedBook, detailLayoutWidth: detailWidth)
-              } else {
-                HomeView(entry: $entry)
-              }
-            default:
+    NavigationSplitView(
+      preferredCompactColumn: $preferredCompactColumn,
+      sidebar: {
+        VStack(alignment: .leading, spacing: 16) {
+          HomeSidebarRow(
+            entry: $entry,
+            makeHomeEntry: {
+              navigationHistory.makeHomeEntry(currentEntry: entry, scrollStore: scrollStore)
+            }
+          )
+          BooksListView(entry: $entry)
+        }
+        .botanicalPageBackground()
+      },
+      detail: {
+        Group {
+          switch entry?.selection {
+          case .book(let selectedBookID):
+            if let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book {
+              BookContentView(book: selectedBook, detailLayoutWidth: detailWidth)
+            } else {
               HomeView(entry: $entry)
             }
-          }
-          .botanicalPageBackground()
-          .backgroundExtensionEffect()
-          .readSize { size in
-            if size.width != detailWidth {
-              detailWidth = size.width
-            }
+          default:
+            HomeView(entry: $entry)
           }
         }
-      )
-    }
+        .botanicalPageBackground()
+        .backgroundExtensionEffect()
+        .readSize { size in
+          if size.width != detailWidth {
+            detailWidth = size.width
+          }
+        }
+      }
+    )
     .environmentObject(navigationHistory)
     .environmentObject(scrollStore)
     .environmentObject(bookNavigationViewModel)
@@ -104,13 +102,16 @@ struct ContentView: View {
         cloneFromLast: false
       )
     }
+    .task {
+      await syncViewModel.syncWithContentful()
+    }
     #if os(macOS)
       .onReceive(
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
       ) { _ in
         // Scene phase doesn't consistently fire on macOS focus changes, so we sync on app activation.
         Task {
-          await syncViewModel.sync()
+          await syncViewModel.syncWithContentful()
         }
       }
       .frame(minWidth: 600, minHeight: 300)

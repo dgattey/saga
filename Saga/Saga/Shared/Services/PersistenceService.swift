@@ -59,17 +59,6 @@ struct PersistenceService {
       persistenceStore: CoreDataStore(context: container.newBackgroundContext()),
       persistenceModel: PersistenceModel.shared
     )
-
-    guard !inMemory else { return }
-
-    // --- Creation kicks off an initial sync ---
-    Task { [self] in
-      do {
-        try await syncWithApi()
-      } catch {
-        LoggerService.log("Initial sync failed", error: error, surface: .persistence)
-      }
-    }
   }
 
   /// Actually executes a sync with the Contentful API

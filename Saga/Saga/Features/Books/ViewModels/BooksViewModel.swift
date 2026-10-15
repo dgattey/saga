@@ -63,6 +63,7 @@ final class BooksViewModel: ObservableObject {
   }
 
   func delete(_ book: Book, in context: NSManagedObjectContext) {
+    let deletedBookID = book.id
     dtoCache.removeValue(forKey: book.objectID)
     withAnimation {
       context.delete(book)
@@ -72,6 +73,9 @@ final class BooksViewModel: ObservableObject {
         let nsError = error as NSError
         fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
       }
+    }
+    Task(priority: .utility) {
+      await GoodreadsSyncService.pushBookDeletionIfConfigured(id: deletedBookID)
     }
   }
 

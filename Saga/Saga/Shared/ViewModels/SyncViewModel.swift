@@ -2,28 +2,34 @@
 //  SyncViewModel.swift
 //  Saga
 //
-//  Created by Dylan Gattey on 7/11/25.
+//  Created by Dylan Gattey on 7/8/25.
 //
 
+import Combine
 import CoreData
 import SwiftUI
 
-/// Handles syncing data across the full app, delegating to service functions as needed
 final class SyncViewModel: ObservableObject {
-  private var controller = PersistenceService()
+  let controller = PersistenceService()
   @Published var isSyncing = false
   @Published var isResetting = false
   @Published var resetToken = UUID()
   private var syncTask: Task<Void, Never>?
 
   var viewContext: NSManagedObjectContext {
-    return controller.container.viewContext
+    controller.container.viewContext
   }
 
   // MARK: - Sync Operations
 
-  /// Syncs if there's no sync running already
+  /// Syncs with Goodreads (if configured) and Contentful if there's no sync running already.
   func sync() async {
+    await syncWithContentful()
+  }
+
+  /// Triggers the remote Goodreads → Contentful sync endpoint (when configured) and then
+  /// pulls the latest published Contentful entries into Core Data.
+  func syncWithContentful() async {
     LoggerService.log("Sync starting refresh", level: .notice, surface: .sync)
     await orchestrateSync(
       start: { [weak self] in
@@ -33,39 +39,48 @@ final class SyncViewModel: ObservableObject {
         self?.isSyncing = false
       },
       { [weak self] in
-        try await self?.controller.syncWithApi()
+        guard let self else { return }
+        _ = await GoodreadsSyncService.triggerIfConfigured()
+        try await self.controller.syncWithApi()
       }
     )
   }
 
-  /// Resets all data, then syncs as long as there's no sync running already
+  /// Resets all data in the store and then triggers a sync, unless one is already running
   func resetAndSync() async {
-    LoggerService.log("Sync starting reset + refresh", level: .notice, surface: .sync)
+    LoggerService.log("Sync starting reset", level: .notice, surface: .sync)
     await orchestrateSync(
       start: { [weak self] in
         self?.isResetting = true
-        self?.resetToken = UUID()
       },
       finish: { [weak self] in
+        self?.resetToken = UUID()
         self?.isResetting = false
       },
       { [weak self] in
-        try await self?.controller.resetAndSyncWithApi()
+        guard let self else { return }
+        _ = await GoodreadsSyncService.triggerIfConfigured()
+        try await self.controller.resetAndSyncWithApi()
       }
     )
   }
 
-  /// Helper to orchestrate some sync function, managing state as it does so
+  // MARK: - Private Methods
+
+  /// Helper to start/finish some sync action with a given function
   private func orchestrateSync(
     start: @escaping () -> Void,
     finish: @escaping () -> Void,
     _ syncFunction: @escaping () async throws -> Void
   ) async {
-    guard !isSyncing, !isResetting else { return }
-    syncTask = Task(priority: .background) {
-      await MainActor.run {
-        start()
-      }
+    let shouldStart = await MainActor.run {
+      guard !isSyncing, !isResetting else { return false }
+      start()
+      return true
+    }
+    guard shouldStart else { return }
+
+    let task = Task(priority: .utility) {
       do {
         try await syncFunction()
         await MainActor.run {
@@ -78,5 +93,7 @@ final class SyncViewModel: ObservableObject {
         LoggerService.log("Sync failed", error: error, surface: .sync)
       }
     }
+    syncTask = task
+    await task.value
   }
 }

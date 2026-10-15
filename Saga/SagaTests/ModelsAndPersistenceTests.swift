@@ -99,92 +99,70 @@ struct ModelsAndPersistenceTests {
     #expect(count == 1)
   }
 
-  @Test("Book.add merges into existing duplicate book by author and contained title")
-  func bookAddMergesDuplicates() async throws {
+  @Test(
+    "Book.toServerUpsertPayload snapshots fields and filters cover URLs against server allowlist")
+  @MainActor
+  func bookServerUpsertPayloadAndCoverAllowlist() throws {
     let container = TestCoreDataStack.makeContainer()
     let context = container.viewContext
 
-    let existing = try TestCoreDataStack.makeBook(
+    let book = try TestCoreDataStack.makeBook(
       in: context,
-      title: "Dune",
-      author: "Frank Herbert",
-      isbn: 9_780_441_172_719,
-      rating: nil,
-      readDateStarted: nil,
-      readDateFinished: nil,
-      reviewPlainText: nil,
-      coverURLString: "https://example.com/dune.jpg"
+      id: "book-sync-1",
+      title: "  Project   Hail Mary  ",
+      author: "  Andy   Weir ",
+      isbn: 9_780_593_135_204,
+      rating: 5,
+      reviewPlainText: "Amaze! Grace and Rocky.",
+      coverURLString: "https://covers.openlibrary.org/b/isbn/9780593135204-L.jpg"
     )
 
-    let finishDate = Date(timeIntervalSince1970: 1_710_000_000)
-    try await Book.add(
-      to: context,
-      title: "Dune (Deluxe Edition)",
-      author: "frank herbert",
-      getISBN: { NSNumber(value: 9_780_441_013_593 as Int64) },
-      readDateStarted: nil,
-      readDateFinished: finishDate,
-      rating: NSNumber(value: 5),
-      reviewDescription: RichTextDocument(fromPlainText: "Spice must flow.")
+    let payload = try #require(book.toServerUpsertPayload())
+    #expect(payload.id == "book-sync-1")
+    #expect(payload.title == "Project Hail Mary")
+    #expect(payload.author == "Andy Weir")
+    #expect(payload.isbn == 9_780_593_135_204)
+    #expect(payload.rating == 5)
+    #expect(payload.reviewPlainText == "Amaze! Grace and Rocky.")
+    #expect(
+      payload.coverImageUrl == "https://covers.openlibrary.org/b/isbn/9780593135204-L.jpg"
     )
-    try context.save()
+    #expect(payload.coverAssetId == book.coverImage?.id)
 
-    let allBooks = try context.fetch(NSFetchRequest<Book>(entityName: "Book"))
-    #expect(allBooks.count == 1)
-    #expect(existing.title == "Dune (Deluxe Edition)")
-    #expect(existing.isbn?.int64Value == 9_780_441_172_719)
-    #expect(existing.rating?.intValue == 5)
-    #expect(existing.readDateFinished == finishDate)
-    #expect(existing.reviewDescription?.plainText == "Spice must flow.")
+    let disallowedCoverPayload = try #require(
+      book.toServerUpsertPayload(overrideCoverImageURL: "https://evil.example.com/cover.jpg")
+    )
+    #expect(disallowedCoverPayload.coverImageUrl == nil)
+
+    let protocolRelativeCtfPayload = try #require(
+      book.toServerUpsertPayload(
+        overrideCoverImageURL: "//images.ctfassets.net/space/asset/cover.jpg")
+    )
+    #expect(
+      protocolRelativeCtfPayload.coverImageUrl
+        == "https://images.ctfassets.net/space/asset/cover.jpg"
+    )
   }
 
-  @Test("GoodreadsCSVParser imports read and currently-reading rows and skips to-read")
-  @MainActor
-  func goodreadsCSVParserImportsAndDeduplicates() async throws {
-    let container = TestCoreDataStack.makeContainer()
-    let context = container.viewContext
-
-    let csvContents = #"""
-      Title,Author,ISBN,ISBN13,My Rating,Date Read,Date Added,Date Started,Exclusive Shelf,My Review
-      "Project Hail Mary","Andy Weir","=""0593135202""","=""9780593135204""",5,2025/04/12,2025/04/01,2025/04/02,read,"Amaze! <br/>Grace and Rocky."
-      "TheMartian","Andy Weir","=""0553418025""","",4,,2025/05/01,2025/05/02,currently-reading,""
-      "Unread Book","Someone Else","=""1234567890""","=""9781234567897""",0,,2025/05/01,,to-read,""
-      """#
-
-    let tempURL = FileManager.default.temporaryDirectory
-      .appendingPathComponent("goodreads-test-\(UUID().uuidString).csv")
-    try csvContents.write(to: tempURL, atomically: true, encoding: .utf8)
-    defer { try? FileManager.default.removeItem(at: tempURL) }
-
-    var completed = 0
-    var total = 0
-    let completedBinding = Binding(get: { completed }, set: { completed = $0 })
-    let totalBinding = Binding(get: { total }, set: { total = $0 })
-
-    try await GoodreadsCSVParser.parse(
-      into: context,
-      from: tempURL,
-      completedSteps: completedBinding,
-      totalSteps: totalBinding
+  @Test("GoodreadsSyncService computes deterministic HMAC-SHA256 signatures")
+  func goodreadsSyncServiceHMACSignature() {
+    let signature = GoodreadsSyncService.computeHMACSignature(
+      secret: "test-secret",
+      timestamp: "1700000000",
+      method: "post",
+      pathname: "/api/books/sync",
+      rawBodyString: #"{"deleteIds":["book-1"]}"#
     )
-
-    #expect(total == 2)
-    #expect(completed == 2)
-
-    let request = NSFetchRequest<Book>(entityName: "Book")
-    request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
-    let books = try context.fetch(request)
-    #expect(books.count == 2)
-
-    let hailMary = try #require(books.first(where: { $0.title == "Project Hail Mary" }))
-    #expect(hailMary.author == "Andy Weir")
-    #expect(hailMary.isbn?.int64Value == 9_780_593_135_204)
-    #expect(hailMary.rating?.intValue == 5)
-    #expect(hailMary.readingStatus == .read)
-    #expect(hailMary.reviewDescription?.plainText == "Amaze! \n\nGrace and Rocky.")
-
-    let martian = try #require(books.first(where: { $0.title == "TheMartian" }))
-    #expect(martian.isbn?.int64Value == 9_780_553_418_026)
-    #expect(martian.readingStatus == .reading)
+    #expect(signature.count == 64)
+    #expect(
+      signature
+        == GoodreadsSyncService.computeHMACSignature(
+          secret: "test-secret",
+          timestamp: "1700000000",
+          method: "POST",
+          pathname: "/api/books/sync",
+          rawBodyString: #"{"deleteIds":["book-1"]}"#
+        )
+    )
   }
 }

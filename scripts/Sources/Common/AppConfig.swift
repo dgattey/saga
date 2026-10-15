@@ -2,14 +2,16 @@ import Foundation
 
 // MARK: - App config file
 
-/// The Contentful credentials that `Config.xcconfig` feeds into the app's Info.plist.
+/// The Contentful and optional Saga API credentials that `Config.xcconfig` feeds into the app's Info.plist.
 public struct AppConfigValues: Sendable {
   public let spaceID: String
   public let accessToken: String
+  public let sagaAPISecret: String
 
-  public init(spaceID: String, accessToken: String) {
+  public init(spaceID: String, accessToken: String, sagaAPISecret: String = "") {
     self.spaceID = spaceID
     self.accessToken = accessToken
+    self.sagaAPISecret = sagaAPISecret
   }
 }
 
@@ -17,6 +19,7 @@ public enum AppConfig {
   /// Env var names shared by `run bootstrap`, `run config`, and the 1Password vault items.
   public static let spaceIDKey = "CONTENTFUL_SPACE_ID"
   public static let accessTokenKey = "CONTENTFUL_ACCESS_TOKEN"
+  public static let sagaAPISecretKey = "SAGA_API_SECRET"
 
   /// Stand-in values for build-only environments (CI) that never talk to Contentful.
   /// Real credentials are only needed to *run* the app, not to compile it.
@@ -41,14 +44,23 @@ public enum AppConfig {
     FileManager.default.fileExists(atPath: path(repoRoot: repoRoot).path)
   }
 
-  /// Reads credentials from the environment, or nil when either is unset or blank.
+  /// Reads credentials from the environment, or nil when required Contentful keys are unset or blank.
   public static func valuesFromEnvironment() -> AppConfigValues? {
     guard let spaceID = environmentValue(spaceIDKey),
       let accessToken = environmentValue(accessTokenKey)
     else {
       return nil
     }
-    return AppConfigValues(spaceID: spaceID, accessToken: accessToken)
+    let sagaAPISecret =
+      environmentValue(sagaAPISecretKey)
+      ?? environmentValue("GOODREADS_SYNC_SECRET")
+      ?? environmentValue("CRON_SECRET")
+      ?? ""
+    return AppConfigValues(
+      spaceID: spaceID,
+      accessToken: accessToken,
+      sagaAPISecret: sagaAPISecret
+    )
   }
 
   /// Writes `Config.xcconfig`, creating the directory if needed. Overwrites any existing file.
@@ -90,6 +102,7 @@ public enum AppConfig {
 
     \(spaceIDKey) = \(values.spaceID)
     \(accessTokenKey) = \(values.accessToken)
+    \(sagaAPISecretKey) = \(values.sagaAPISecret)
     """
   }
 }

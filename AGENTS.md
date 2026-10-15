@@ -50,13 +50,14 @@ shared UI/utilities.
 - App specific UI and models live in `Features/*`, each with their own set of folders for Models, Views, etc.
 
 ## Key Integration Points
-**Services**: `PersistenceService` (Core Data + Contentful), `LoggerService`,
+**Services**: `PersistenceService` (Core Data + Contentful CDA), `GoodreadsSyncService` (HMAC-SHA256 signed client for `https://dylangattey.com/api/books/goodreads-sync` and `https://dylangattey.com/api/books/sync`), `LoggerService`,
 `ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`, `UpdaterViewModel` (Sparkle automatic updates on macOS),
 book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`)
 **UI**: `ContentView` entry, `HomeView`/`BooksListView`, `ResponsiveLayout`,
 `PersistentScrollView`, `MenuBarCommands`
 **Data**: `Saga.xcdatamodeld` + `PersistenceModel` for Core Data entities; register new
 entities in both when adding models
+**Server**: Hosted on `https://dylangattey.com` (`dgattey/dg`) under `/api/books/goodreads-sync` (Goodreads RSS → Contentful CMA + daily Vercel Cron) and `/api/books/sync` (local `Saga.app` book edits and deletions → Contentful CMA), authenticated via `CryptoKit.HMAC<SHA256>` (`X-Saga-Timestamp` + `X-Saga-Signature`) and Bearer token fallback.
 
 ## Workflow
 - Ask for clarification when requirements are ambiguous; surface 2–3 options when trade-offs matter
@@ -89,9 +90,13 @@ See `Saga/Saga/Shared/HotReload/HotReloadable.swift` for full documentation.
 ## Environment
 - Requires Xcode + SwiftUI/Combine
 - `run bootstrap` writes `Saga/Saga/Config/Config.xcconfig` from 1Password; `run config`
- writes the same file from `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN`
+ writes the same file from `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` (plus optional `SAGA_API_SECRET`)
 - The file is gitignored and Xcode errors if it is missing, so any build needs it first
  (CI uses `run config --placeholder --if-missing`)
+- **1Password CLI (`op`) rules**:
+  - Never call `op` repeatedly across separate shell commands or loops (each shell tool call is a new terminal session and triggers a separate Touch ID prompt).
+  - If a secret is needed and not already cached locally in `Saga/Saga/Config/Config.xcconfig` or `.env.local`, batch every needed `op` read into a single shell command, write them into a gitignored `.env.local` (or `Config.xcconfig`), and source that file on subsequent commands.
+  - Never print secret values.
 - `swift-format` is listed in the repo `Brewfile` (install with `brew bundle`)
 - Validate formatting and linting before final review, and build the app too.
 

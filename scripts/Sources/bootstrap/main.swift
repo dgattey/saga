@@ -33,9 +33,11 @@ private enum ConfigDefaults {
   // the delivery key rather than the preview or management token also in the vault.
   static let spaceIDItem = "CONTENTFUL_SPACE_ID"
   static let accessTokenItem = "CONTENTFUL_DELIVERY_API_KEY"
+  static let sagaAPISecretItem = "SAGA_API_SECRET"
 }
 
 private func resolveConfigValues() throws -> AppConfigValues {
+  let availableVaultItems = listOnePasswordVaultItemTitles(vault: ConfigDefaults.opVault)
   let spaceID = try readOnePasswordSecret(
     vault: ConfigDefaults.opVault,
     item: ConfigDefaults.spaceIDItem
@@ -44,7 +46,26 @@ private func resolveConfigValues() throws -> AppConfigValues {
     vault: ConfigDefaults.opVault,
     item: ConfigDefaults.accessTokenItem
   )
-  return AppConfigValues(spaceID: spaceID, accessToken: accessToken)
+  let envSecret =
+    ProcessInfo.processInfo.environment[AppConfig.sagaAPISecretKey]?.trimmingCharacters(
+      in: .whitespacesAndNewlines
+    ) ?? ""
+  let sagaAPISecret: String
+  if !envSecret.isEmpty {
+    sagaAPISecret = envSecret
+  } else if availableVaultItems?.contains(ConfigDefaults.sagaAPISecretItem) != false,
+    let secret = try? readOnePasswordSecret(
+      vault: ConfigDefaults.opVault, item: ConfigDefaults.sagaAPISecretItem)
+  {
+    sagaAPISecret = secret
+  } else {
+    sagaAPISecret = ""
+  }
+  return AppConfigValues(
+    spaceID: spaceID,
+    accessToken: accessToken,
+    sagaAPISecret: sagaAPISecret
+  )
 }
 
 @main

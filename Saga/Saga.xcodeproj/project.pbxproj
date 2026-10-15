@@ -11,7 +11,6 @@
 		7558CB4D2E1CEF2F00D92477 /* Ifrit in Embed Frameworks */ = {isa = PBXBuildFile; productRef = 7558CB4B2E1CEF2F00D92477 /* Ifrit */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = 7589F8172E1B29E5005C31D9 /* ContentfulPersistence */; };
 		7589F82D2E1B4203005C31D9 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 7589F82C2E1B4203005C31D9 /* README.md */; };
-		758F7A2B2E1E2D58007CDCC8 /* SwiftCSV in Frameworks */ = {isa = PBXBuildFile; productRef = 758F7A2A2E1E2D58007CDCC8 /* SwiftCSV */; };
 		694D9E5DAF914F79883DD791 /* SagaUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCA819EDF6E64B3F834D7698 /* SagaUITests.swift */; };
 		5D6A8B317F8C4A9DB0C1D2E6 /* AccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6A8B307F8C4A9DB0C1D2E5 /* AccessibilityID.swift */; };
 		A1B2C3D4E5F6471890ABCDEF /* ViewInspector in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D4E5F6471890ABCDEE /* ViewInspector */; };
@@ -91,7 +90,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				7558CB4C2E1CEF2F00D92477 /* Ifrit in Frameworks */,
-				758F7A2B2E1E2D58007CDCC8 /* SwiftCSV in Frameworks */,
 				7589F8182E1B29E5005C31D9 /* ContentfulPersistence in Frameworks */,
 				B1C2D3E4F5A6471890ABCDE2 /* Sparkle in Frameworks */,
 			);
@@ -176,7 +174,6 @@
 			packageProductDependencies = (
 				7589F8172E1B29E5005C31D9 /* ContentfulPersistence */,
 				7558CB4B2E1CEF2F00D92477 /* Ifrit */,
-				758F7A2A2E1E2D58007CDCC8 /* SwiftCSV */,
 				B1C2D3E4F5A6471890ABCDE1 /* Sparkle */,
 			);
 			productName = Saga;
@@ -260,7 +257,6 @@
 			packageReferences = (
 				7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "contentful-persistence" */,
 				7558CB442E1CE7E300D92477 /* XCRemoteSwiftPackageReference "Ifrit" */,
-				758F7A292E1E2D58007CDCC8 /* XCRemoteSwiftPackageReference "SwiftCSV" */,
 				A1B2C3D4E5F6471890ABCDED /* XCRemoteSwiftPackageReference "ViewInspector" */,
 				B1C2D3E4F5A6471890ABCDE0 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
@@ -474,7 +470,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Saga/Config/Saga-Debug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 22344;
+				CURRENT_PROJECT_VERSION = 22345;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = KCH4HBZ68M;
 				EMIT_FRONTEND_COMMAND_LINES = YES;
@@ -501,7 +497,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.4.0;
 				OTHER_LDFLAGS = (
 					"-Xlinker",
 					"-interposable",
@@ -527,7 +523,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Saga/Config/Saga.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 22344;
+				CURRENT_PROJECT_VERSION = 22345;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = KCH4HBZ68M;
 				ENABLE_APP_SANDBOX = YES;
@@ -553,7 +549,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dylangattey.Saga;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -698,14 +694,6 @@
 				minimumVersion = 0.18.2;
 			};
 		};
-		758F7A292E1E2D58007CDCC8 /* XCRemoteSwiftPackageReference "SwiftCSV" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/swiftcsv/SwiftCSV";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.10.0;
-			};
-		};
 		A1B2C3D4E5F6471890ABCDED /* XCRemoteSwiftPackageReference "ViewInspector" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/nalexn/ViewInspector";
@@ -734,11 +722,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7589F8162E1B29E5005C31D9 /* XCRemoteSwiftPackageReference "ContentfulPersistence" */;
 			productName = ContentfulPersistence;
-		};
-		758F7A2A2E1E2D58007CDCC8 /* SwiftCSV */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 758F7A292E1E2D58007CDCC8 /* XCRemoteSwiftPackageReference "SwiftCSV" */;
-			productName = SwiftCSV;
 		};
 		A1B2C3D4E5F6471890ABCDEE /* ViewInspector */ = {
 			isa = XCSwiftPackageProductDependency;

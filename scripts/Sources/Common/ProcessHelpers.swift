@@ -35,6 +35,27 @@ public func signInToOnePassword(account: String) throws {
   _ = try runCommand("op", ["signin", "--account", account])
 }
 
+private struct OnePasswordItemSummary: Decodable {
+  let title: String
+}
+
+/// Lists item titles present in a 1Password vault in a single CLI call.
+public func listOnePasswordVaultItemTitles(vault: String) -> Set<String>? {
+  guard
+    let output = try? runCommand(
+      "op",
+      ["item", "list", "--vault", vault, "--format", "json"],
+      allowFailure: true,
+      emitOutput: false
+    ),
+    let data = output.data(using: .utf8),
+    let items = try? JSONDecoder().decode([OnePasswordItemSummary].self, from: data)
+  else {
+    return nil
+  }
+  return Set(items.map(\.title))
+}
+
 /// Reads a secret from 1Password using the secret reference syntax.
 public func readOnePasswordSecret(
   vault: String,
