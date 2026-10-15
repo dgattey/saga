@@ -112,6 +112,24 @@ func normalizedSemver(from raw: String) throws -> (major: Int, minor: Int, patch
   return (trimmed[0], trimmed[1], trimmed[2])
 }
 
+func isSemverHigher(
+  _ lhs: (major: Int, minor: Int, patch: Int),
+  than rhs: (major: Int, minor: Int, patch: Int)
+) -> Bool {
+  (lhs.major, lhs.minor, lhs.patch) > (rhs.major, rhs.minor, rhs.patch)
+}
+
+func maxSemver(
+  _ lhs: (major: Int, minor: Int, patch: Int),
+  _ rhs: (major: Int, minor: Int, patch: Int)
+) -> (major: Int, minor: Int, patch: Int) {
+  isSemverHigher(lhs, than: rhs) ? lhs : rhs
+}
+
+func formatSemver(_ version: (major: Int, minor: Int, patch: Int)) -> String {
+  "\(version.major).\(version.minor).\(version.patch)"
+}
+
 func bumpVersion(
   _ version: (major: Int, minor: Int, patch: Int),
   releaseType: String
@@ -248,14 +266,16 @@ func runRead(arguments: Arguments) throws {
     let latestTag = latestTagVersion()
   {
     let selectedReleaseType = releaseType(from: event.pullRequest.body ?? "")
-    let baseSemver = try normalizedSemver(from: latestTag)
-    let expectedSemver = try bumpVersion(baseSemver, releaseType: selectedReleaseType)
-    let expectedVersion = "\(expectedSemver.major).\(expectedSemver.minor).\(expectedSemver.patch)"
-    if expectedVersion != version {
+    let currentSemver = try normalizedSemver(from: version)
+    let tagSemver = try normalizedSemver(from: latestTag)
+    let bumpedFromTag = try bumpVersion(tagSemver, releaseType: selectedReleaseType)
+    let resolvedSemver = maxSemver(currentSemver, bumpedFromTag)
+    let resolvedVersion = formatSemver(resolvedSemver)
+    if resolvedVersion != version {
       let updatedContent = try replacingValue(
-        for: Constants.marketingVersionKey, with: expectedVersion, in: content)
+        for: Constants.marketingVersionKey, with: resolvedVersion, in: content)
       try updatedContent.write(to: fileURL, atomically: true, encoding: .utf8)
-      version = expectedVersion
+      version = resolvedVersion
     }
   }
 
@@ -289,11 +309,13 @@ func runBump(arguments: Arguments) throws {
     throw ScriptError("Invalid base build: \(baseBuildRaw)")
   }
 
+  let baseSemver = try normalizedSemver(from: baseVersionRaw)
   let versionBase = latestTagVersion() ?? baseVersionRaw
   let versionSemver = try normalizedSemver(from: versionBase)
   let bumpedSemver = try bumpVersion(versionSemver, releaseType: releaseType)
+  let resolvedSemver = maxSemver(bumpedSemver, baseSemver)
   let fromVersion = versionBase
-  let toVersion = "\(bumpedSemver.major).\(bumpedSemver.minor).\(bumpedSemver.patch)"
+  let toVersion = formatSemver(resolvedSemver)
 
   let repoInception = 1_751_838_521
   let halfHoursSinceInception = (updatedEpoch - repoInception) / 1800
