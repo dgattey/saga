@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-/// A reusable header view for settings-style screens with an icon and title.
 struct SettingsHeaderView: View {
   let title: String
   let systemImage: String
@@ -26,7 +25,6 @@ struct SettingsHeaderView: View {
     .padding(.horizontal)
     .padding(.top, 8)
     .padding(.bottom, 12)
-    .withGlassBackground(edge: .top)
   }
 
   private var icon: some View {
@@ -34,20 +32,9 @@ struct SettingsHeaderView: View {
       .font(.system(size: 16, weight: .medium))
       .foregroundStyle(.white)
       .frame(width: iconSize, height: iconSize)
-      .background(
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-          .fill(backgroundColor)
+      .glassEffect(
+        .regular.tint(backgroundColor),
+        in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
       )
-      .overlay(
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-          .fill(
-            LinearGradient(
-              colors: [.white.opacity(0.3), .clear],
-              startPoint: .top,
-              endPoint: .center
-            )
-          )
-      )
-      .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
   }
 }

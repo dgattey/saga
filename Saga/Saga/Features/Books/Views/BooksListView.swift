@@ -58,6 +58,7 @@ struct BooksListView: View {
           .padding(.vertical, 4)
         }
         .scrollVelocityThrottle()
+        .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .focusable()
         .focused($isListFocused)
@@ -166,15 +167,9 @@ struct BooksListView: View {
 
   private var selectionBackgroundColor: Color {
     #if os(macOS)
-      switch controlActiveState {
-      case .inactive:
-        return Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
-      default:
-        return Color(nsColor: .selectedContentBackgroundColor)
-      }
+      return Color.sidebarSelectionFill(isActiveWindow: controlActiveState != .inactive)
     #else
-      // iOS fallback: use standard selection-like background
-      return Color.accentColor.opacity(0.15)
+      return Color.sidebarSelectionFill(isActiveWindow: true)
     #endif
   }
 }
@@ -212,15 +207,18 @@ private struct BookListRowView: View {
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-          if isSelected {
-            RoundedRectangle(cornerRadius: 6)
-              .fill(selectionBackgroundColor)
-          }
-        }
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .background {
+      if isSelected {
+        Color.clear
+          .glassEffect(
+            .regular.tint(selectionBackgroundColor).interactive(),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+          )
+      }
+    }
     .padding(.horizontal, SidebarLayout.rowHorizontalPadding)
     .contextMenu {
       Button("Delete", action: onDelete)

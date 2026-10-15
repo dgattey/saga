@@ -108,18 +108,14 @@ struct FileDropZoneContainer<Content: View>: View {
 
   /// Dims the background
   private var overlay: some View {
-    #if os(macOS)
-      Color(nsColor: .windowBackgroundColor)
-        .opacity(0.9)
-        .ignoresSafeArea()
-        .animation(.snappy, value: isDropTargeted)
+    Rectangle()
+      .fill(.ultraThinMaterial)
+      .overlay(Color.botanicalSurfaceTint.opacity(0.6))
+      .ignoresSafeArea()
+      .animation(.snappy, value: isDropTargeted)
+      #if os(macOS)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-    #else
-      Color(UIColor.systemBackground)
-        .ignoresSafeArea()
-        .opacity(0.9)
-        .animation(.snappy, value: isDropTargeted)
-    #endif
+      #endif
   }
 
   func loadURLAsync(from provider: NSItemProvider) async -> URL? {
@@ -146,13 +142,11 @@ private struct DropZone<Content: View>: View {
     .padding(32)
     .frame(maxWidth: 200)
     .controlSize(.regular)
-    .foregroundColor(.primary.opacity(0.8))
+    .foregroundColor(.primary.opacity(0.85))
     .fontWeight(.bold)
-    .background(
-      RoundedRectangle(cornerRadius: 12)
-        .fill(.bar)
-        .stroke(.primary.opacity(0.2), style: StrokeStyle())
-        .defaultShadow()
+    .glassEffect(
+      .regular.tint(Color.botanicalLeaf.opacity(0.1)),
+      in: RoundedRectangle(cornerRadius: 16, style: .continuous)
     )
     .transition(.scale(0.5).combined(with: .opacity))
   }

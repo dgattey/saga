@@ -9,6 +9,26 @@ import SwiftUI
 
 extension View {
 
+  /// Applies the standard window background effect to any view.
+  /// Use this on the root view of every Scene for consistent styling.
+  func windowBackground() -> some View {
+    #if os(macOS)
+      self.containerBackground(for: .window) {
+        ZStack {
+          Rectangle().fill(.ultraThinMaterial)
+          Color.botanicalSurfaceTint.opacity(0.45)
+        }
+      }
+    #else
+      self.containerBackground(for: .navigationSplitView) {
+        ZStack {
+          Rectangle().fill(.ultraThinMaterial)
+          Color.botanicalSurfaceTint.opacity(0.45)
+        }
+      }
+    #endif
+  }
+
   /// Our default shadow across the whole app
   func defaultShadow() -> some View {
     self.shadow(color: .black.opacity(0.1), radius: 8)

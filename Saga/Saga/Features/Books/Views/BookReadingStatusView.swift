@@ -9,28 +9,30 @@ import SwiftUI
 
 struct BookReadingStatusView: View {
   let book: Book
+  @Namespace private var glassNamespace
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      // Status Header
-      HStack {
-        statusIcon
-        statusText
-        Spacer()
-      }
+    GlassEffectContainer(spacing: 12) {
+      VStack(alignment: .leading, spacing: 16) {
+        HStack(spacing: 10) {
+          statusIcon
+          statusText
+          Spacer()
+        }
 
-      // Date Information
-      dateInfoSection
+        dateInfoSection
 
-      // Statistics
-      if book.readingStatus != .notStarted {
-        statisticsSection
+        if book.readingStatus != .notStarted {
+          statisticsSection
+        }
       }
+      .padding(16)
+      .glassEffect(
+        .regular.tint(Color.botanicalLeaf.opacity(0.08)),
+        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+      )
+      .glassEffectID("reading-status-card", in: glassNamespace)
     }
-    .padding(16)
-    .background(.bar)
-    .cornerRadius(8)
-    .defaultShadow()
   }
 
   // MARK: - Status Components
@@ -61,13 +63,12 @@ struct BookReadingStatusView: View {
 
   private var dateInfoSection: some View {
     VStack(alignment: .leading, spacing: 12) {
-      // Date Information
       if let startDate = book.readDateStarted {
         DateRowView(
           title: "Started",
           date: startDate,
           icon: "bookmark.fill",
-          color: .accent
+          color: .botanicalSage
         )
       }
 
@@ -76,14 +77,14 @@ struct BookReadingStatusView: View {
           title: "Finished",
           date: finishDate,
           icon: "book.closed.fill",
-          color: .green
+          color: .botanicalLeaf
         )
       }
 
       if book.readingStatus == .notStarted {
         HStack {
           Image(systemName: "books.vertical.fill")
-            .foregroundColor(.orange)
+            .foregroundColor(.botanicalGold)
             .frame(width: 20)
           Text("Ready to start reading")
             .foregroundColor(.secondary)
@@ -114,6 +115,7 @@ struct BookReadingStatusView: View {
             icon: stat.icon,
             color: stat.color
           )
+          .glassEffectID(stat.title, in: glassNamespace)
         }
       }
     }
@@ -135,11 +137,11 @@ struct BookReadingStatusView: View {
   private var statusColor: Color {
     switch book.readingStatus {
     case .notStarted:
-      return .orange
+      return .botanicalGold
     case .reading:
-      return .cyan
+      return .botanicalSage
     case .read:
-      return .green
+      return .botanicalLeaf
     }
   }
 
@@ -155,13 +157,13 @@ struct BookReadingStatusView: View {
       let readingSpeedColor: Color
       switch daysDiff {
       case 0..<7:
-        readingSpeedColor = .green
+        readingSpeedColor = .botanicalLeaf
         readingSpeed = "Fast"
       case 7..<14:
-        readingSpeedColor = .orange
+        readingSpeedColor = .botanicalGold
         readingSpeed = "Moderate"
       default:
-        readingSpeedColor = .red
+        readingSpeedColor = .botanicalTerracotta
         readingSpeed = "Slow"
       }
 
@@ -170,7 +172,7 @@ struct BookReadingStatusView: View {
           title: book.readingStatus == .reading ? "Days so far" : "Reading time",
           value: formatDays(daysDiff),
           icon: "calendar",
-          color: .accent
+          color: .botanicalSage
         ))
 
       if book.readingStatus == .reading {
@@ -180,7 +182,7 @@ struct BookReadingStatusView: View {
             title: "Weeks reading",
             value: "\(weeksReading)",
             icon: "calendar.badge.clock",
-            color: .purple
+            color: .botanicalMoss
           ))
       } else if book.readingStatus == .read {
         stats.append(
@@ -292,8 +294,10 @@ struct StatisticCard: View {
       }
     }
     .padding(12)
-    .background(.thickMaterial)
-    .cornerRadius(12)
+    .glassEffect(
+      .regular.tint(color.opacity(0.06)),
+      in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+    )
   }
 }
 
