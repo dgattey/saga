@@ -103,10 +103,6 @@ struct BooksListView: View {
     ) { notification in
       viewModel.handleBooksChangeNotification(notification, books: books)
     }
-    .searchable(
-      text: $viewModel.searchModel.searchText,
-      placement: .sidebar
-    )
     #if os(iOS)
       .safeAreaInset(edge: .bottom, spacing: 0) {
         if let activeBook = currentlyReadingBook {
@@ -117,11 +113,21 @@ struct BooksListView: View {
             }
           )
           .padding(.horizontal, 12)
-          .padding(.top, 6)
-          .padding(.bottom, 10)
+          .padding(.top, 8)
+          .padding(.bottom, 22)
         }
       }
+      .task(id: books.count) {
+        guard ProcessInfo.processInfo.arguments.contains("--open-first-book"),
+          let targetBook = currentlyReadingBook ?? books.first
+        else { return }
+        selectBook(targetBook.objectID)
+      }
     #endif
+    .searchable(
+      text: $viewModel.searchModel.searchText,
+      placement: .sidebar
+    )
     .navigationTitle("All books")
   }
 
@@ -257,10 +263,10 @@ private struct BookListRowView: View {
     var body: some View {
       Button(action: onSelect) {
         HStack(spacing: 12) {
-          BookCoverImageView(book: book, targetSize: CGSize(width: 34, height: 48))
-            .frame(width: 34, height: 48)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .defaultShadow()
+          BookCoverImageView(book: book, targetSize: CGSize(width: 36, height: 52))
+            .frame(width: 36, height: 52)
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .shadow(color: .black.opacity(0.32), radius: 6, y: 3)
 
           VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 5) {
@@ -268,8 +274,8 @@ private struct BookListRowView: View {
                 .font(.caption2)
                 .foregroundStyle(Color.botanicalSage)
               Text("CURRENTLY READING")
-                .font(.caption2.weight(.semibold))
-                .tracking(0.5)
+                .font(.caption2.weight(.bold))
+                .tracking(0.6)
                 .foregroundStyle(Color.botanicalSage)
             }
             Text(book.title ?? book.id)
@@ -287,26 +293,35 @@ private struct BookListRowView: View {
           Spacer(minLength: 8)
 
           Image(systemName: "chevron.right")
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .padding(8)
+            .font(.footnote.weight(.bold))
+            .foregroundStyle(Color.botanicalSage)
+            .frame(width: 28, height: 28)
             .glassEffect(
-              .regular.tint(Color.botanicalLeaf.opacity(0.18)),
+              .regular.tint(Color.botanicalLeaf.opacity(0.24)),
               in: Circle()
             )
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
       }
       .buttonStyle(.plain)
       .background {
         ZStack {
           RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.botanicalSurfaceTint.opacity(0.78))
+            .fill(
+              LinearGradient(
+                colors: [
+                  Color.botanicalForest.opacity(0.88),
+                  Color.botanicalSurfaceTint.opacity(0.92),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+              )
+            )
           Color.clear
             .glassEffect(
-              .regular.tint(Color.botanicalForest.opacity(0.32)).interactive(),
+              .regular.tint(Color.botanicalLeaf.opacity(0.36)).interactive(),
               in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             )
         }
@@ -316,16 +331,17 @@ private struct BookListRowView: View {
           .strokeBorder(
             LinearGradient(
               colors: [
-                Color.white.opacity(0.32),
-                Color.botanicalSage.opacity(0.28),
-                Color.white.opacity(0.10),
+                Color.white.opacity(0.62),
+                Color.botanicalSage.opacity(0.55),
+                Color.white.opacity(0.22),
               ],
               startPoint: .topLeading,
               endPoint: .bottomTrailing
             ),
-            lineWidth: 1
+            lineWidth: 1.5
           )
       }
+      .compositingGroup()
       .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
     }
   }
