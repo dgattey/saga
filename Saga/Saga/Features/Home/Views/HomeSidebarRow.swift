@@ -15,17 +15,22 @@ struct HomeSidebarRow: View {
   @Binding var entry: NavigationEntry?
   let makeHomeEntry: () -> NavigationEntry
 
+  private var isSelected: Bool {
+    entry?.selection.isHome == true
+  }
+
   var body: some View {
     Button {
       withAnimation(animationSettings.selectionSpring) {
-        guard entry?.selection.isHome != true else { return }
+        guard !isSelected else { return }
         entry = makeHomeEntry()
       }
     } label: {
       HStack(spacing: 8) {
-        Image(systemName: "house")
+        Image(systemName: "books.vertical")
           .font(.headline)
           .imageScale(.medium)
+          .foregroundStyle(isSelected ? Color.botanicalLeaf : .secondary)
         Text("Home")
           .font(.headline)
         Spacer(minLength: 0)
@@ -33,15 +38,18 @@ struct HomeSidebarRow: View {
       .padding(.vertical, 8)
       .padding(.horizontal, 8)
       .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32, alignment: .leading)
-      .background {
-        if entry?.selection.isHome == true {
-          RoundedRectangle(cornerRadius: 6)
-            .fill(selectionBackgroundColor)
-        }
-      }
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .background {
+      if isSelected {
+        Color.clear
+          .glassEffect(
+            .regular.tint(selectionBackgroundColor).interactive(),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+          )
+      }
+    }
     .accessibilityIdentifier(AccessibilityID.Sidebar.homeButton)
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal, SidebarLayout.rowHorizontalPadding)
@@ -50,15 +58,9 @@ struct HomeSidebarRow: View {
 
   private var selectionBackgroundColor: Color {
     #if os(macOS)
-      switch controlActiveState {
-      case .inactive:
-        return Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
-      default:
-        return Color(nsColor: .selectedContentBackgroundColor)
-      }
+      return Color.sidebarSelectionFill(isActiveWindow: controlActiveState != .inactive)
     #else
-      // iOS fallback: use standard selection-like background
-      return Color.accentColor.opacity(0.15)
+      return Color.sidebarSelectionFill(isActiveWindow: true)
     #endif
   }
 }

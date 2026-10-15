@@ -12,41 +12,37 @@ private struct Constants {
   static let headerPaddingY: CGFloat = 16
 }
 
-/// Renders the home view with a book grid
 struct HomeView: View {
   @EnvironmentObject private var viewModel: BooksViewModel
   @Environment(\.scrollContextID) private var scrollContextID
   @Binding var entry: NavigationEntry?
 
   var body: some View {
-    ZStack(alignment: .topLeading) {
-      PersistentScrollView(
-        scrollKey: ScrollKey(
-          scope: .home,
-          region: "main",
-          contextID: scrollContextID
-        ),
-        onRestore: notifyScrollRestored
-      ) {
-        ScrollVelocityReader()
-        LazyVStack(alignment: .leading, pinnedViews: [.sectionHeaders]) {
-          ForEach(sections) { section in
-            Section {
-              section.content
-            } header: {
-              headerPlaceholderView(title: section.title)
-            }
+    PersistentScrollView(
+      scrollKey: ScrollKey(
+        scope: .home,
+        region: "main",
+        contextID: scrollContextID
+      ),
+      onRestore: notifyScrollRestored
+    ) {
+      ScrollVelocityReader()
+      LazyVStack(alignment: .leading) {
+        ForEach(sections) { section in
+          Section {
+            section.content
+          } header: {
+            headerTitleView(title: section.title)
           }
         }
       }
-      .scrollVelocityThrottle()
-      .withGlassOverlay(.top)
-      .accessibilityIdentifier(AccessibilityID.Home.scroll)
-      headerTitleView(title: sections.first?.title ?? "")
-        .zIndex(2)
     }
+    .scrollVelocityThrottle()
+    .scrollEdgeEffectStyle(.soft, for: .top)
+    .accessibilityIdentifier(AccessibilityID.Home.scroll)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .navigationTitle("Home")
+    .botanicalPageBackground()
     .accessibilityIdentifier(AccessibilityID.Home.view)
     .accessibilityElement(children: .contain)
     #if os(macOS)
@@ -74,22 +70,11 @@ struct HomeView: View {
     ]
   }
 
-  private func headerPlaceholderView(title: String) -> some View {
-    Text(title)
-      .font(.largeTitleBold)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(.horizontal, 32)
-      .padding(.vertical, Constants.headerPaddingY)
-      .opacity(0)
-      .allowsHitTesting(false)
-  }
-
   private func headerTitleView(title: String) -> some View {
     Text(title)
       .font(.largeTitleBold)
       .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.horizontal, 32)
       .padding(.vertical, Constants.headerPaddingY)
-      .allowsHitTesting(false)
   }
 }

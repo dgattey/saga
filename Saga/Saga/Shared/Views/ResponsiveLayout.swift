@@ -60,6 +60,7 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
         columnA
           .padding([.leading, .vertical], outsidePadding)
       }
+      .scrollEdgeEffectStyle(.soft, for: .top)
       .frame(
         maxWidth: containerWidth * widthRatio,
         maxHeight: .infinity,
@@ -71,6 +72,7 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
         columnB
           .padding([.trailing, .vertical], outsidePadding)
       }
+      .scrollEdgeEffectStyle(.soft, for: .top)
       .frame(alignment: .topLeading)
       .scrollClipDisabled()
     }
@@ -84,6 +86,7 @@ struct ResponsiveLayout<ColumnA: View, ColumnB: View>: View {
       }
       .padding(outsidePadding)
     }
+    .scrollEdgeEffectStyle(.soft, for: .top)
   }
 
   @ViewBuilder

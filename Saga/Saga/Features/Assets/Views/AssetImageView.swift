@@ -33,9 +33,15 @@ struct AssetImageView: View {
   }
 
   private var placeholderView: some View {
-    Image(systemName: "photo")
-      .resizable()
-      .aspectRatio(contentMode: .fit)
-      .foregroundColor(.gray)
+    Color.clear
+      .overlay {
+        Image(systemName: "book.closed.fill")
+          .font(.title2)
+          .foregroundStyle(Color.botanicalSage.opacity(0.75))
+      }
+      .glassEffect(
+        .regular.tint(Color.botanicalLeaf.opacity(0.12)),
+        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+      )
   }
 }

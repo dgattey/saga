@@ -1,178 +1,46 @@
 {
-  "fill-specializations" : [
-    {
-      "value" : {
-        "automatic-gradient" : "srgb:0.00000,0.66008,0.59077,1.00000"
-      }
-    },
-    {
-      "appearance" : "dark",
-      "value" : {
-        "automatic-gradient" : "display-p3:0.23200,0.60500,0.53000,1.00000"
-      }
-    }
-  ],
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.149,0.306,0.227,1.00000",
+      "display-p3:0.086,0.188,0.137,1.00000"
+    ]
+  },
   "groups" : [
     {
+      "blur-material" : null,
       "layers" : [
         {
-          "blend-mode" : "normal",
-          "fill-specializations" : [
-            {
-              "value" : {
-                "automatic-gradient" : "srgb:0.88865,0.88865,0.88865,1.00000"
-              }
-            },
-            {
-              "appearance" : "dark",
-              "value" : {
-                "automatic-gradient" : "display-p3:0.74057,0.88526,0.86288,1.00000"
-              }
-            },
-            {
-              "appearance" : "tinted",
-              "value" : {
-                "automatic-gradient" : "srgb:0.73012,0.73012,0.73012,1.00000"
-              }
-            }
-          ],
           "glass" : true,
-          "hidden" : false,
-          "image-name" : "books.vertical.fill 3.svg",
-          "name" : "books.vertical.fill 3",
-          "position-specializations" : [
-            {
-              "value" : {
-                "scale" : 24.04,
-                "translation-in-points" : [
-                  40.32196776628609,
-                  8.946561360906344
-                ]
-              }
-            },
-            {
-              "idiom" : "square",
-              "value" : {
-                "scale" : 26,
-                "translation-in-points" : [
-                  40.32196776628609,
-                  8.946561360906344
-                ]
-              }
-            }
-          ]
+          "image-name" : "book-ribbon.png",
+          "name" : "book-ribbon"
         },
         {
-          "fill" : {
-            "automatic-gradient" : "display-p3:0.74057,0.88526,0.86288,1.00000"
-          },
-          "hidden" : true,
-          "image-name" : "02.png",
-          "name" : "02",
-          "position-specializations" : [
-            {
-              "idiom" : "square",
-              "value" : {
-                "scale" : 0.1,
-                "translation-in-points" : [
-                  348.68814687265217,
-                  -465.716542685839
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "fill" : {
-            "automatic-gradient" : "display-p3:0.74057,0.88526,0.86288,1.00000"
-          },
           "glass" : true,
-          "hidden-specializations" : [
-            {
-              "idiom" : "square",
-              "value" : true
-            }
-          ],
-          "image-name" : "01.png",
-          "name" : "01",
-          "position-specializations" : [
-            {
-              "idiom" : "square",
-              "value" : {
-                "scale" : 0.1,
-                "translation-in-points" : [
-                  -311.2293095389401,
-                  -423.0302609519774
-                ]
-              }
-            }
-          ]
+          "image-name" : "book-cover.png",
+          "name" : "book-cover"
         },
         {
-          "blend-mode" : "normal",
-          "fill-specializations" : [
-            {
-              "value" : "automatic"
-            },
-            {
-              "appearance" : "dark",
-              "value" : "automatic"
-            },
-            {
-              "appearance" : "tinted",
-              "value" : "automatic"
-            }
-          ],
           "glass" : false,
-          "hidden-specializations" : [
-            {
-              "value" : false
-            },
-            {
-              "idiom" : "square",
-              "value" : false
-            }
-          ],
-          "image-name" : "03.png",
-          "name" : "03",
-          "opacity-specializations" : [
-            {
-              "value" : 0.3
-            },
-            {
-              "appearance" : "dark",
-              "value" : 0.3
-            },
-            {
-              "appearance" : "tinted",
-              "value" : 0.5
-            }
-          ],
-          "position-specializations" : [
-            {
-              "idiom" : "square",
-              "value" : {
-                "scale" : 0.25,
-                "translation-in-points" : [
-                  12.920690461059962,
-                  70.16973904802262
-                ]
-              }
-            }
-          ]
+          "image-name" : "book-base.png",
+          "name" : "book-base"
         }
       ],
+      "lighting" : "combined",
       "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
+        "kind" : "layer-color",
+        "opacity" : 0.45
       },
+      "specular" : true,
       "translucency" : {
         "enabled" : true,
-        "value" : 0.5
+        "value" : 0.25
       }
     }
   ],
   "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
     "squares" : "shared"
   }
 }

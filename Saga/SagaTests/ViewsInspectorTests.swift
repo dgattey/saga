@@ -55,7 +55,7 @@ struct ViewsInspectorTests {
 
     let readingView = BookStatusView(book: readingBook)
     let image = try readingView.inspect().image()
-    #expect(try image.actualImage().name() == "book.circle.fill")
+    #expect(try image.actualImage().name() == "bookmark.circle.fill")
 
     let finishedView = BookStatusView(book: finishedBook)
     #expect(throws: Never.self) {
