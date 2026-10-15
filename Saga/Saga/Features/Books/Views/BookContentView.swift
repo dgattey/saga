@@ -65,11 +65,12 @@ struct BookContentView: View {
       viewModel.setBook(book)
     }
     .navigationTitle(viewModel.displayTitle)
+    .botanicalPageBackground()
     #if os(macOS)
       .navigationSubtitle(viewModel.displayAuthor)
       .toolbar(removing: .title)
+      .onExitCommand { focusedField = nil }
     #endif
-    .onExitCommand { focusedField = nil }
   }
 
   /// The "sidebar" of the two column view - shows less info and stays sticky in view
@@ -101,13 +102,12 @@ struct BookContentView: View {
         .help(coverImageURLText)
       #endif
       .background {
-        Circle()
-          .foregroundStyle(
-            Color
-              .accent
-              .mix(with: .primary, by: 0.25)
+        Color.clear
+          .frame(width: detailCoverSize.width + 28, height: detailCoverSize.width + 28)
+          .glassEffect(
+            .regular.tint(Color.botanicalLeaf.opacity(0.18)),
+            in: Circle()
           )
-          .padding(-12)
           .defaultShadow()
       }
   }
@@ -195,7 +195,13 @@ struct BookContentView: View {
       }
       labeledField("ISBN") {
         TextField("ISBN-13", text: $viewModel.isbnDraft)
-          .textFieldStyle(.roundedBorder)
+          .textFieldStyle(.plain)
+          .padding(.horizontal, 10)
+          .padding(.vertical, 6)
+          .glassEffect(
+            .regular.tint(Color.botanicalLeaf.opacity(0.05)),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+          )
           .focused($focusedField, equals: .isbn)
           .onChange(of: viewModel.isbnDraft) { _, newValue in
             viewModel.updateISBNDraft(newValue)
@@ -204,13 +210,25 @@ struct BookContentView: View {
       }
       labeledField("Image URL") {
         TextField("Cover image URL", text: $viewModel.coverURLDraft)
-          .textFieldStyle(.roundedBorder)
+          .textFieldStyle(.plain)
+          .padding(.horizontal, 10)
+          .padding(.vertical, 6)
+          .glassEffect(
+            .regular.tint(Color.botanicalLeaf.opacity(0.05)),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+          )
           .focused($focusedField, equals: .coverURL)
           .onSubmit { viewModel.commitField(.coverURL) }
       }
       BookReadingStatusView(book: book)
       labeledField("Description") {
         TextEditor(text: $viewModel.reviewDraft)
+          .scrollContentBackground(.hidden)
+          .padding(10)
+          .glassEffect(
+            .regular.tint(Color.botanicalLeaf.opacity(0.05)),
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+          )
           .focused($focusedField, equals: .review)
           .onChange(of: viewModel.reviewDraft) { _, newValue in
             viewModel.updateReviewDraft(newValue)

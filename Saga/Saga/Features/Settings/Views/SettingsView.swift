@@ -85,6 +85,7 @@ struct SettingsView: View {
     }
     .formStyle(.grouped)
     .scrollContentBackground(.hidden)
+    .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
     .navigationTitle("Settings")
     .toolbar(removing: .title)
     .accessibilityIdentifier(AccessibilityID.Settings.view)
@@ -92,7 +93,7 @@ struct SettingsView: View {
       SettingsHeaderView(
         title: "Settings",
         systemImage: "gear",
-        backgroundColor: Color(white: 0.5)
+        backgroundColor: .botanicalLeaf
       )
     }
     .safeAreaInset(edge: .bottom) {
@@ -120,6 +121,7 @@ struct SettingsView: View {
           await cachesViewModel.clearAll()
         }
       }
+      .buttonStyle(.glass)
       .foregroundStyle(.red)
       .accessibilityIdentifier(AccessibilityID.Settings.clearCaches)
     }
@@ -147,6 +149,7 @@ struct SettingsView: View {
             await syncViewModel.resetAndSync()
           }
         }
+        .buttonStyle(.glass)
         .foregroundStyle(.red)
         .accessibilityIdentifier(AccessibilityID.Settings.clearCachesAndData)
       }
@@ -183,6 +186,7 @@ struct SettingsView: View {
       Button("Reset") {
         animationSettings.resetToDefaults()
       }
+      .buttonStyle(.glass)
       .disabled(
         animationSettings.springResponse == AnimationSettings.defaultSpringResponse
           && animationSettings.springDamping == AnimationSettings.defaultSpringDamping
@@ -218,6 +222,7 @@ struct SettingsView: View {
         Button("Check for Updates…") {
           updaterViewModel.checkForUpdates()
         }
+        .buttonStyle(.glass)
         .disabled(!updaterViewModel.canCheckForUpdates)
         .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
       }

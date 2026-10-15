@@ -7,10 +7,8 @@
 
 import SwiftUI
 
-/// Displays app icon, name, version, and an expandable link on hover.
 struct AppInformationView: View {
   @State private var isHoveringAppInfo = false
-  @State private var isHoveringLink = false
 
   var body: some View {
     VStack(spacing: 4) {
@@ -33,29 +31,19 @@ struct AppInformationView: View {
           Label("More by Dylan Gattey", systemImage: "lightbulb")
             .font(.body)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 16)
-            .background(
-              RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isHoveringLink ? .tertiary : .quaternary)
-            )
+            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glass)
         #if os(macOS)
           .pointerStyle(.link)
         #endif
-        .onHover { hovering in
-          withAnimation(.easeInOut(duration: 0.15)) {
-            isHoveringLink = hovering
-          }
-        }
         .padding(.top, 16)
         .transition(.move(edge: .bottom).combined(with: .opacity))
       }
     }
     .padding()
     .frame(maxWidth: .infinity)
-    .withGlassBackground(edge: .bottom)
     .onHover { hovering in
       withAnimation(.spring(duration: 0.25, bounce: 0.2)) {
         isHoveringAppInfo = hovering

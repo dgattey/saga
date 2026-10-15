@@ -92,7 +92,11 @@ struct DownsampledAsyncImage: View {
       placeholder
     } else {
       ZStack {
-        Rectangle().fill(.gray.opacity(0.5))
+        Color.clear
+          .glassEffect(
+            .regular.tint(Color.botanicalLeaf.opacity(0.08)),
+            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+          )
         ProgressView()
       }
     }

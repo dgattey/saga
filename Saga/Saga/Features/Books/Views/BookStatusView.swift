@@ -14,12 +14,15 @@ struct BookStatusView: View {
 
   var body: some View {
     if book.readingStatus == .reading {
-      Image(systemName: "book.circle.fill")
-        .font(.title)
+      Image(systemName: "bookmark.circle.fill")
+        .font(.title2)
         .symbolEffect(.bounce, options: .nonRepeating, value: shouldBounce)
-        .foregroundStyle(.secondary)
-        .imageScale(.large)
-        .defaultShadow()
+        .foregroundStyle(Color.botanicalLeaf)
+        .padding(4)
+        .glassEffect(
+          .regular.tint(Color.botanicalLeaf.opacity(0.12)),
+          in: Circle()
+        )
         .task {
           try? await Task.sleep(for: .seconds(1))
           shouldBounce = true

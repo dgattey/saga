@@ -54,7 +54,7 @@ shared UI/utilities.
 `ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`, `UpdaterViewModel` (Sparkle automatic updates on macOS),
 book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`)
 **UI**: `ContentView` entry, `HomeView`/`BooksListView`, `ResponsiveLayout`,
-`PersistentScrollView`, `GlassOverlayModifier`, `MenuBarCommands`
+`PersistentScrollView`, `MenuBarCommands`
 **Data**: `Saga.xcdatamodeld` + `PersistenceModel` for Core Data entities; register new
 entities in both when adding models
 **Server**: Hosted on `https://dylangattey.com` (`dgattey/dg`) under `/api/books/goodreads-sync` (Goodreads RSS → Contentful CMA + daily Vercel Cron) and `/api/books/sync` (local `Saga.app` book edits and deletions → Contentful CMA), authenticated via `CryptoKit.HMAC<SHA256>` (`X-Saga-Timestamp` + `X-Saga-Signature`) and Bearer token fallback.

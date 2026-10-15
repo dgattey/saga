@@ -58,6 +58,7 @@ struct BooksListView: View {
           .padding(.vertical, 4)
         }
         .scrollVelocityThrottle()
+        .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .focusable()
         .focused($isListFocused)
@@ -66,18 +67,20 @@ struct BooksListView: View {
         .onChange(of: entry?.selection) { _, newSelection in
           scrollToSelection(selection: newSelection, proxy: proxy)
         }
-        .onMoveCommand { direction in
-          guard navThrottle.canNavigate() else { return }
+        #if os(macOS)
+          .onMoveCommand { direction in
+            guard navThrottle.canNavigate() else { return }
 
-          switch direction {
-          case .down:
-            _ = navigateToNextBook()
-          case .up:
-            _ = navigateToPreviousBook()
-          default:
-            break
+            switch direction {
+            case .down:
+              _ = navigateToNextBook()
+            case .up:
+              _ = navigateToPreviousBook()
+            default:
+              break
+            }
           }
-        }
+        #endif
       }
     }
     #if os(macOS)
@@ -100,11 +103,36 @@ struct BooksListView: View {
     ) { notification in
       viewModel.handleBooksChangeNotification(notification, books: books)
     }
+    #if os(iOS)
+      .safeAreaInset(edge: .bottom, spacing: 0) {
+        if let activeBook = currentlyReadingBook {
+          NowReadingFloatingCardView(
+            book: activeBook,
+            onSelect: {
+              selectBook(activeBook.objectID)
+            }
+          )
+          .padding(.horizontal, 12)
+          .padding(.top, 8)
+          .padding(.bottom, 22)
+        }
+      }
+      .task(id: books.count) {
+        guard ProcessInfo.processInfo.arguments.contains("--open-first-book"),
+          let targetBook = currentlyReadingBook ?? books.first
+        else { return }
+        selectBook(targetBook.objectID)
+      }
+    #endif
     .searchable(
       text: $viewModel.searchModel.searchText,
       placement: .sidebar
     )
     .navigationTitle("All books")
+  }
+
+  private var currentlyReadingBook: Book? {
+    books.first(where: { $0.readingStatus == .reading })
   }
 
   // MARK: - Selection
@@ -166,15 +194,9 @@ struct BooksListView: View {
 
   private var selectionBackgroundColor: Color {
     #if os(macOS)
-      switch controlActiveState {
-      case .inactive:
-        return Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
-      default:
-        return Color(nsColor: .selectedContentBackgroundColor)
-      }
+      return Color.sidebarSelectionFill(isActiveWindow: controlActiveState != .inactive)
     #else
-      // iOS fallback: use standard selection-like background
-      return Color.accentColor.opacity(0.15)
+      return Color.sidebarSelectionFill(isActiveWindow: true)
     #endif
   }
 }
@@ -212,21 +234,117 @@ private struct BookListRowView: View {
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-          if isSelected {
-            RoundedRectangle(cornerRadius: 6)
-              .fill(selectionBackgroundColor)
-          }
-        }
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .background {
+      if isSelected {
+        Color.clear
+          .glassEffect(
+            .regular.tint(selectionBackgroundColor).interactive(),
+            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+          )
+      }
+    }
     .padding(.horizontal, SidebarLayout.rowHorizontalPadding)
     .contextMenu {
       Button("Delete", action: onDelete)
     }
   }
 }
+
+#if os(iOS)
+  private struct NowReadingFloatingCardView: View {
+    @ObservedObject var book: Book
+    let onSelect: () -> Void
+
+    private let cornerRadius: CGFloat = 14
+
+    var body: some View {
+      Button(action: onSelect) {
+        HStack(spacing: 12) {
+          BookCoverImageView(book: book, targetSize: CGSize(width: 36, height: 52))
+            .frame(width: 36, height: 52)
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .shadow(color: .black.opacity(0.32), radius: 6, y: 3)
+
+          VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+              Image(systemName: "bookmark.fill")
+                .font(.caption2)
+                .foregroundStyle(Color.botanicalSage)
+              Text("Currently reading")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.botanicalSage)
+            }
+            Text(book.title ?? book.id)
+              .font(.subheadline.weight(.semibold))
+              .foregroundStyle(.primary)
+              .lineLimit(1)
+            if let author = book.author {
+              Text(author)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+          }
+
+          Spacer(minLength: 8)
+
+          Image(systemName: "chevron.right")
+            .font(.footnote.weight(.bold))
+            .foregroundStyle(Color.botanicalSage)
+            .frame(width: 28, height: 28)
+            .glassEffect(
+              .regular.tint(Color.botanicalLeaf.opacity(0.24)),
+              in: Circle()
+            )
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+      }
+      .buttonStyle(.plain)
+      .background {
+        ZStack {
+          RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(
+              LinearGradient(
+                colors: [
+                  Color.botanicalForest.opacity(0.88),
+                  Color.botanicalSurfaceTint.opacity(0.92),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+              )
+            )
+          Color.clear
+            .glassEffect(
+              .regular.tint(Color.botanicalLeaf.opacity(0.36)).interactive(),
+              in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+        }
+      }
+      .overlay {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+          .strokeBorder(
+            LinearGradient(
+              colors: [
+                Color.white.opacity(0.62),
+                Color.botanicalSage.opacity(0.55),
+                Color.white.opacity(0.22),
+              ],
+              startPoint: .topLeading,
+              endPoint: .bottomTrailing
+            ),
+            lineWidth: 1.5
+          )
+      }
+      .compositingGroup()
+      .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
+    }
+  }
+#endif
 
 // MARK: - Navigation Throttle
 

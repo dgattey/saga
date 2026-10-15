@@ -89,6 +89,7 @@ private struct PersistentScrollViewBody<Content: View>: View {
     ScrollView(axis, showsIndicators: showsIndicators) {
       content()
     }
+    .scrollContentBackground(.hidden)
     .scrollPosition($position)
     .onScrollGeometryChange(for: Double.self) { geometry in
       if axis.contains(.vertical) {

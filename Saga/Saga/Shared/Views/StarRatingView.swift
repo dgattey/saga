@@ -10,8 +10,8 @@ import SwiftUI
 private struct Defaults {
   static let maxRating: Int = 5
   static let size: CGFloat = 24
-  static let fillColor: Color = .yellow
-  static let emptyColor: Color = .secondary
+  static let fillColor: Color = .botanicalGold
+  static let emptyColor: Color = .secondary.opacity(0.45)
 }
 
 /// Allows editing or viewing a star rating with configurable settings but smart defaults. Two
