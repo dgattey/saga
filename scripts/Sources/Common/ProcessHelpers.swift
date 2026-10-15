@@ -74,11 +74,17 @@ public func terminateProcess(named processName: String) -> Bool {
 }
 
 /// Opens an app bundle at the given path.
-public func openApp(at path: String) throws {
+/// Defaults to launching in the background (`open -g -j`) so it does not steal window focus.
+public func openApp(at path: String, background: Bool = true) throws {
   guard FileManager.default.fileExists(atPath: path) else {
     throw ScriptError("App not found at \(path)")
   }
-  try runCommand("open", [path])
+  var args: [String] = []
+  if background {
+    args.append(contentsOf: ["-g", "-j"])
+  }
+  args.append(path)
+  try runCommand("open", args)
 }
 
 /// Waits for a process to appear, returning its PID or throwing on timeout.

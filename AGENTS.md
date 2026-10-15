@@ -21,7 +21,7 @@ shared UI/utilities.
 
 ## Commands
 - `./run --help` or `run --help` to list scripts
-- `run app` (build + launch, macOS only), `run app -b` (build only), `run app -r` (Release), `run app -v` (verbose)
+- `run app` (build + launch in background via `open -g -j`, macOS only), `run app -b` (build only), `run app -r` (Release), `run app -g` (background + exit), `run app -f` (foreground), `run app -v` (verbose)
 - `run checks` (format + lint), `run checks --format`, `run checks --lint`
 - `run bootstrap` to set up shell completions for `run`
 - `run config` to write `Config.xcconfig` (`--placeholder` for build-only environments)

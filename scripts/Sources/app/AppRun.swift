@@ -48,10 +48,25 @@ struct AppPaths {
   }
 }
 
-func runApp(appPath: String, processName: String = "Saga", subsystem: String = "Saga") throws {
+func runApp(
+  appPath: String,
+  processName: String = "Saga",
+  subsystem: String = "Saga",
+  background: Bool = true,
+  streamLogsUntilExit: Bool = true
+) throws {
   if terminateProcess(named: processName) {
     try waitForProcessToExit(named: processName)
   }
+
+  guard streamLogsUntilExit else {
+    print("Launching \(processName) in background...")
+    try openApp(at: appPath, background: background)
+    let pid = try waitForProcessID(named: processName)
+    print("Launched \(processName) (PID \(pid)).")
+    return
+  }
+
   print("Streaming logs for \(processName). Press Ctrl+C to stop.")
   let logProcess = try streamLogs(processName: processName, subsystem: subsystem)
   let signalSources = installSignalHandlers {
@@ -60,7 +75,7 @@ func runApp(appPath: String, processName: String = "Saga", subsystem: String = "
   defer { _ = signalSources }
 
   print("Launching \(processName)...")
-  try openApp(at: appPath)
+  try openApp(at: appPath, background: background)
   let pid = try waitForProcessID(named: processName)
   waitForProcessExit(processID: pid)
   logProcess.terminate()

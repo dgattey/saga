@@ -9,6 +9,8 @@ enum Option: String, CLIOptionType, CaseIterable {
   case verbose
   case buildOnly = "build-only"
   case release
+  case background
+  case foreground
   case uiTest = "ui-test"
   case skipSigning = "skip-signing"
 
@@ -17,6 +19,8 @@ enum Option: String, CLIOptionType, CaseIterable {
     case .verbose: "v"
     case .buildOnly: "b"
     case .release: "r"
+    case .background: "g"
+    case .foreground: "f"
     case .uiTest: nil
     case .skipSigning: nil
     }
@@ -27,6 +31,8 @@ enum Option: String, CLIOptionType, CaseIterable {
     case .verbose: "Show full xcodebuild output (default is quiet)"
     case .buildOnly: "Build without launching the app"
     case .release: "Build and/or run in Release configuration (default is Debug)"
+    case .background: "Launch in background without stealing focus (open -g -j) and exit"
+    case .foreground: "Bring the app to the foreground when launching"
     case .uiTest: "Run XCUITest UI tests and capture screenshots"
     case .skipSigning: "Skip code signing (for CI without certificates)"
     }
@@ -37,11 +43,31 @@ struct Config {
   var verbose = false
   var buildOnly = false
   var release = false
+  var background = false
+  var foreground = false
   var runUiTests = false
   var skipSigning = false
 
   var configuration: String {
     release ? "Release" : "Debug"
+  }
+
+  /// Avoid stealing focus unless `--foreground` is explicitly requested.
+  var shouldOpenInBackground: Bool {
+    !foreground
+  }
+
+  /// Exit once the app is running instead of blocking on `log stream` when `--background` is set
+  /// or when running in a non-interactive / automated agent shell.
+  var shouldStreamLogs: Bool {
+    if background {
+      return false
+    }
+    let env = ProcessInfo.processInfo.environment
+    if env["CURSOR_AGENT"] != nil || env["CURSOR_TRACE_ID"] != nil || env["CI"] != nil {
+      return false
+    }
+    return isatty(STDIN_FILENO) != 0
   }
 }
 
@@ -59,11 +85,19 @@ func parseArguments(_ args: [String]) throws -> Config {
       config.buildOnly = true
     case .release:
       config.release = true
+    case .background:
+      config.background = true
+    case .foreground:
+      config.foreground = true
     case .uiTest:
       config.runUiTests = true
     case .skipSigning:
       config.skipSigning = true
     }
+  }
+
+  if config.background, config.foreground {
+    throw ScriptError("--background and --foreground cannot be used together")
   }
 
   if config.runUiTests, config.buildOnly {
@@ -126,7 +160,11 @@ runMain(usage: cli.usage()) {
     if !config.buildOnly {
       // Re-resolve DerivedData in case this was the very first build
       let resolvedPaths = AppPaths(configuration: config.configuration)
-      try runApp(appPath: resolvedPaths.appPath)
+      try runApp(
+        appPath: resolvedPaths.appPath,
+        background: config.shouldOpenInBackground,
+        streamLogsUntilExit: config.shouldStreamLogs
+      )
     }
   }
 }
