@@ -40,8 +40,12 @@ struct SettingsView: View {
           currentSizeBytes: cachesViewModel.imageCacheSizeBytes,
           options: cacheLimitOptions,
           onLimitChange: {
-            ImageCache.enforceDiskCacheLimit()
-            cachesViewModel.refreshSizes()
+            Task.detached(priority: .utility) {
+              ImageCache.enforceDiskCacheLimit()
+              await MainActor.run {
+                cachesViewModel.refreshSizes()
+              }
+            }
           }
         )
       } header: {
@@ -85,6 +89,10 @@ struct SettingsView: View {
     .onAppear {
       imageCacheLimitIndex = Double(cacheLimitOptions.firstIndex(of: imageCacheLimitGB) ?? 3)
       networkCacheLimitIndex = Double(cacheLimitOptions.firstIndex(of: networkCacheLimitGB) ?? 3)
+      cachesViewModel.startMonitoring()
+    }
+    .onDisappear {
+      cachesViewModel.stopMonitoring()
     }
   }
 
