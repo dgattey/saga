@@ -1,0 +1,19 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>Saga</title>
+    <link>https://github.com/dgattey/saga/releases/tag/v1.4.1</link>
+    <item>
+      <title>1.4.1</title>
+      <pubDate>Thu, 15 Oct 2026 10:26:49 +0000</pubDate>
+      <link>https://github.com/dgattey/saga/releases/tag/v1.4.1</link>
+      <sparkle:version>22346</sparkle:version>
+      <sparkle:shortVersionString>1.4.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description>- Switched CI and default non-Developer-ID macOS release signing in `scripts/lib/signing.sh`, `scripts/package-release.sh`, and `.github/workflows/release.yml` from a self-signed X.509 certificate (`SAGA_CODESIGN_P12_BASE64`) to ad-hoc (`-`) signing so quarantined release downloads work cleanly with macOS Sequoia / Tahoe's **Privacy &amp; Security → Open Anyway** flow without `syspolicyd` / `amfid` rejecting an untrusted X.509 certificate chain (`CSSMERR_TP_NOT_TRUSTED`) when loading `@rpath` frameworks (`Sparkle.framework`, `Ifrit.framework`).
+- Added `com.apple.security.cs.disable-library-validation` and `com.apple.security.network.client` (`&lt;true/&gt;`) to `Saga/Saga/Config/Saga.entitlements` (matching `GatteyPhotos.local.entitlements`) and required `--entitlements` when signing `Saga.app` in `scripts/package-release.sh` (with `ENABLE_APP_SANDBOX=NO` during `CODE_SIGNING_ALLOWED=NO` builds).
+- Updated release packaging comments in `scripts/package-release.sh`, `scripts/lib/signing.sh`, and `scripts/export-ci-secrets.sh` to document ad-hoc (`-`) + Sparkle 2 EdDSA update verification.</description>
+      <enclosure url="https://github.com/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip" length="5674479" type="application/octet-stream"/>
+    </item>
+  </channel>
+</rss>
