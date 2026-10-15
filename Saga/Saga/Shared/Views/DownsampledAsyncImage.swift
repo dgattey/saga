@@ -40,7 +40,7 @@ struct DownsampledAsyncImage: View {
   var body: some View {
     contentView
       .task(id: loadKey) {
-        let maxPixelSize = targetMaxPixelSize
+        let maxPixelSize = effectiveMaxPixelSize
         let cacheKey = loadKey as NSString
         let urlKey = url.absoluteString
         await loadImage(
@@ -152,8 +152,18 @@ struct DownsampledAsyncImage: View {
     targetMaxPixelSize = maxPixelSize
   }
 
+  private var effectiveMaxPixelSize: CGFloat {
+    if targetMaxPixelSize > 0 {
+      return targetMaxPixelSize
+    }
+    if let resolvedTargetSize {
+      return bucketedMaxPixelSize(for: resolvedTargetSize)
+    }
+    return 0
+  }
+
   private var loadKey: String {
-    "\(url.absoluteString)|\(Int(targetMaxPixelSize))"
+    "\(url.absoluteString)|\(Int(effectiveMaxPixelSize))"
   }
 
   private func cacheKey(for maxPixelSize: CGFloat) -> NSString {
@@ -168,6 +178,11 @@ struct DownsampledAsyncImage: View {
     }
     guard maxPixelSize > 0 else { return }
     guard !Task.isCancelled else { return }
+    if let memoryCached = ImageCache.memoryCachedImage(for: cacheKey) {
+      renderedImage = Image(decorative: memoryCached, scale: displayScale)
+      didFail = false
+      return
+    }
     if let previousKey = activeCacheKey,
       previousKey != cacheKey
     {

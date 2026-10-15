@@ -17,7 +17,7 @@ struct BooksListView: View {
   #endif
   @Binding var entry: NavigationEntry?
   @FetchRequest(
-    sortDescriptors: [NSSortDescriptor(keyPath: \Book.readDateStarted, ascending: false)],
+    fetchRequest: Book.sidebarFetchRequest(),
     animation: .default
   ) private var books: FetchedResults<Book>
 
@@ -38,8 +38,7 @@ struct BooksListView: View {
             if viewModel.filteredBooks.isEmpty, hasActiveSearch {
               BookListEmptyStateView()
             } else {
-              ForEach(Array(viewModel.filteredBooks.enumerated()), id: \.element.model.objectID) {
-                index, result in
+              ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
                 BookListRowView(
                   result: result,
                   isSelected: entry?.selection == .book(result.model.objectID),
@@ -52,7 +51,7 @@ struct BooksListView: View {
                   }
                 )
                 .id(result.model.objectID)
-                .accessibilityIdentifier(AccessibilityID.Books.bookRow(index))
+                .accessibilityIdentifier(AccessibilityID.Books.bookRow(result.index))
               }
             }
           }
@@ -90,8 +89,16 @@ struct BooksListView: View {
         debounce: viewModel.searchModel.searchText.isEmpty ? nil : .milliseconds(200)
       )
     }
-    .onChange(of: Array(books)) {
-      viewModel.performSearch(with: books, debounce: .milliseconds(150))
+    .onChange(of: books.count) {
+      viewModel.handleBooksChange(books)
+    }
+    .onReceive(
+      NotificationCenter.default.publisher(
+        for: .NSManagedObjectContextObjectsDidChange,
+        object: viewContext
+      )
+    ) { notification in
+      viewModel.handleBooksChangeNotification(notification, books: books)
     }
     .searchable(
       text: $viewModel.searchModel.searchText,

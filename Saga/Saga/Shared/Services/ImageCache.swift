@@ -64,6 +64,12 @@ enum ImageCache {
   /// In-memory cache keyed by URL for fast lookups when URL is known
   private static let urlImageCache = NSCache<NSString, CGImage>()
 
+  /// Memoizes SHA256 disk cache file URLs by cache key to avoid repeated hashing and string formatting
+  private static let fileURLCache = NSCache<NSString, NSURL>()
+
+  /// Lowercase ASCII hex lookup table for fast SHA256 digest formatting
+  private static let hexDigits: [UInt8] = Array("0123456789abcdef".utf8)
+
   /// Tracks in-flight download tasks to deduplicate concurrent requests
   private static let inflightTasks = InflightTasks()
 
@@ -286,10 +292,21 @@ enum ImageCache {
 
   /// Generates a disk cache file URL from a cache key using SHA256 hash.
   private static func cacheFileURL(for key: NSString) -> URL {
-    let data = Data(String(key).utf8)
-    let digest = SHA256.hash(data: data)
-    let filename = digest.map { String(format: "%02x", $0) }.joined()
-    return diskCacheDirectory.appendingPathComponent(filename).appendingPathExtension("png")
+    if let cached = fileURLCache.object(forKey: key) {
+      return cached as URL
+    }
+    let digest = SHA256.hash(data: Data(String(key).utf8))
+    var bytes = [UInt8]()
+    bytes.reserveCapacity(68)
+    for byte in digest {
+      bytes.append(hexDigits[Int(byte >> 4)])
+      bytes.append(hexDigits[Int(byte & 0x0F)])
+    }
+    bytes.append(contentsOf: [0x2e, 0x70, 0x6e, 0x67])  // ".png"
+    let filename = String(decoding: bytes, as: UTF8.self)
+    let url = diskCacheDirectory.appendingPathComponent(filename, isDirectory: false)
+    fileURLCache.setObject(url as NSURL, forKey: key)
+    return url
   }
 
   /// Loads an image from disk cache, if it exists.

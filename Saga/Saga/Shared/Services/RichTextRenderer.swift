@@ -29,6 +29,43 @@ extension RichTextDocument {
     )
     return transformer.attributedString(from: self)
   }
+
+  /// Extracts plain text directly from the document node tree without allocating
+  /// platform fonts, colors, or `NSAttributedString` instances.
+  var plainText: String {
+    var result = ""
+    let nodes = content
+    for (index, node) in nodes.enumerated() {
+      Self.appendPlainText(for: node, to: &result)
+      if node.nodeType == .paragraph,
+        index < nodes.count - 1,
+        nodes[index + 1].nodeType == .paragraph
+      {
+        result.append("\n\n")
+      }
+    }
+    return result
+  }
+
+  private static func appendPlainText(for node: Node, to output: inout String) {
+    switch node.nodeType {
+    case .paragraph, .h1, .h2, .h3, .h4, .h5, .h6:
+      guard let block = node as? BlockNode else { return }
+      for child in block.content {
+        appendPlainText(for: child, to: &output)
+      }
+    case .text:
+      guard let textNode = node as? Text else { return }
+      output.append(textNode.value)
+    case .hyperlink:
+      guard let linkNode = node as? Hyperlink else { return }
+      for child in linkNode.content {
+        appendPlainText(for: child, to: &output)
+      }
+    default:
+      break
+    }
+  }
 }
 
 final class RichTextToAttributedStringTransformer {

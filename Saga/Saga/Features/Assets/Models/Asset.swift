@@ -7,6 +7,7 @@
 
 import ContentfulPersistence
 import CoreData
+import Ifrit
 
 @objc(Asset)
 final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
@@ -62,6 +63,7 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
     // Fetch books by author first for efficiency
     let fetchRequest = NSFetchRequest<Asset>(entityName: "Asset")
     fetchRequest.predicate = NSPredicate(format: "urlString ==[c] %@", urlString)
+    fetchRequest.fetchLimit = 1
     let existingAssets = try context.fetch(fetchRequest)
     return existingAssets.first
   }
@@ -81,17 +83,22 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
   }
 }
 
-final class AssetDTO: SearchableDTO {
+final class AssetDTO: SearchableDTO, @unchecked Sendable {
   let id: String
   let title: String?
   let fileName: String?
   let urlString: String?
+  let fuzzySearchableProperties: [FuseProp]
 
   init(id: String, title: String?, fileName: String?, urlString: String?) {
     self.id = id
     self.title = title
     self.fileName = fileName
     self.urlString = urlString
+    self.fuzzySearchableProperties = [
+      FuseProp(title ?? ""),
+      FuseProp(fileName ?? ""),
+    ]
   }
 
   static var fuzzySearchKeyPaths: [PartialKeyPath<AssetDTO>] = [

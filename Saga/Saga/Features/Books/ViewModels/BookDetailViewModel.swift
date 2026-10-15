@@ -38,7 +38,7 @@ final class BookDetailViewModel: ObservableObject {
     self.titleDraft = book.title ?? ""
     self.authorDraft = book.author ?? ""
     self.isbnDraft = book.isbn?.stringValue ?? ""
-    self.reviewDraft = book.reviewDescription?.attributedString?.string ?? ""
+    self.reviewDraft = book.reviewDescription?.plainText ?? ""
     self.coverURLDraft = book.coverImage?.assetURL?.absoluteString ?? ""
     self.ratingDraft = book.rating?.intValue ?? 0
     observeBookChanges()
@@ -245,7 +245,7 @@ final class BookDetailViewModel: ObservableObject {
     titleDraft = book.title ?? ""
     authorDraft = book.author ?? ""
     isbnDraft = book.isbn?.stringValue ?? ""
-    reviewDraft = book.reviewDescription?.attributedString?.string ?? ""
+    reviewDraft = book.reviewDescription?.plainText ?? ""
     coverURLDraft = book.coverImage?.assetURL?.absoluteString ?? ""
     ratingDraft = book.rating?.intValue ?? 0
   }
