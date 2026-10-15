@@ -34,6 +34,16 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A1B2C3D4E5F6471890ABCD05"
+               BuildableName = "SagaTests.xctest"
+               BlueprintName = "SagaTests"
+               ReferencedContainer = "container:Saga.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "B20A17E4FF1C44608D0FD6B1"
                BuildableName = "SagaUITests.xctest"
                BlueprintName = "SagaUITests"

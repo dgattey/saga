@@ -1,5 +1,5 @@
 {
-  "originHash" : "1d0544883dbbec1a52a8f91f531545e030b896f0110ee27e61b6f96d51a2778b",
+  "originHash" : "f29ba2c9b51f903d8a01e6e9077e68fe484abf9625acc3ecc05fbfe5163a91e0",
   "pins" : [
     {
       "identity" : "contentful-persistence.swift",
@@ -29,12 +29,12 @@
       }
     },
     {
-      "identity" : "swiftcsv",
+      "identity" : "viewinspector",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/swiftcsv/SwiftCSV",
+      "location" : "https://github.com/nalexn/ViewInspector",
       "state" : {
-        "revision" : "6ab5d0fe9b6ef3c79d717eefa70862df389e74d9",
-        "version" : "0.10.0"
+        "revision" : "2dacb6e514be19379c605a5a11564d0f3fea89d9",
+        "version" : "0.10.5"
       }
     }
   ],

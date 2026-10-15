@@ -18,14 +18,9 @@ private struct CoverImageURLResponse: Decodable {
 }
 
 /// Provides methods for working with the BookcoverAPI service
-struct BookcoverAPIService: CoverImageURLProvider {
+struct BookcoverAPIService {
 
   private init() {}
-
-  /// Fetches one cover image URL from the BookcoverAPI, which uses Goodreads API under the hood
-  static func coverImageURL(forISBN isbn: String) async throws -> String? {
-    return try await coverImageCandidate(forISBN: isbn)?.url
-  }
 
   /// Fetches a cover image candidate from the BookcoverAPI, which uses Goodreads API under the hood
   static func coverImageCandidate(forISBN isbn: String) async throws -> CoverImageCandidate? {

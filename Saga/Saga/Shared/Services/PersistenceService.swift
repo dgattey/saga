@@ -11,12 +11,35 @@ import CoreData
 
 /// Handles syncing with Contentful – register new entry types in `PersistenceModel.swift` and ensure your `Config.xcconfig` is set up properly via directions in readme
 struct PersistenceService {
+  static var isRunningUnitTests: Bool {
+    let env = ProcessInfo.processInfo.environment
+    return env["XCTestConfigurationFilePath"] != nil
+      || env["XCTestSessionIdentifier"] != nil
+      || NSClassFromString("XCTestCase") != nil
+  }
+
+  static let managedObjectModel: NSManagedObjectModel = {
+    RichTextDocumentTransformer.register()
+    guard
+      let modelURL = Bundle.main.url(forResource: "Saga", withExtension: "momd"),
+      let model = NSManagedObjectModel(contentsOf: modelURL)
+    else {
+      fatalError("Failed to load Saga NSManagedObjectModel from main bundle")
+    }
+    return model
+  }()
+
   let container: NSPersistentContainer
   private var syncManager: SynchronizationManager
   private var client: Client
 
-  init() {
-    container = NSPersistentContainer(name: "Saga")
+  init(inMemory: Bool = Self.isRunningUnitTests) {
+    container = NSPersistentContainer(name: "Saga", managedObjectModel: Self.managedObjectModel)
+    if inMemory {
+      let description = NSPersistentStoreDescription()
+      description.url = URL(fileURLWithPath: "/dev/null")
+      container.persistentStoreDescriptions = [description]
+    }
     container.loadPersistentStores { (storeDescription, error) in
       if let error = error as NSError? {
         fatalError("Unresolved error \(error), \(error.userInfo)")

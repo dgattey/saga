@@ -39,10 +39,6 @@ enum ReadingStatus: String, CaseIterable {
   }
 }
 
-private struct NonSendableBox<T>: @unchecked Sendable {
-  let value: T
-}
-
 @objc(Book)
 final class Book: NSManagedObject, EntryPersistable, SearchableModel {
   static let contentTypeId = "book"
@@ -78,96 +74,6 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     return request
   }
 
-  /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.
-  static func add(
-    to context: NSManagedObjectContext,
-    title: String,
-    author: String,
-    getISBN: () async throws -> NSNumber?,
-    readDateStarted: Date?,
-    readDateFinished: Date?,
-    rating: NSNumber?,
-    reviewDescription: RichTextDocument?,
-    duplicateID: (() -> NSManagedObjectID?)? = nil
-  ) async throws {
-    let prefetchedDuplicateID = duplicateID?()
-    let duplicateInfo = try await context.perform {
-      let existingBook: Book?
-      if let prefetchedDuplicateID,
-        let book = try? context.existingObject(with: prefetchedDuplicateID) as? Book
-      {
-        existingBook = book
-      } else {
-        existingBook = try findDuplicate(in: context, title: title, author: author)
-      }
-      let currentISBN = existingBook?.isbn
-      let needsCoverImage = existingBook?.coverImage == nil
-      return (
-        existingBookID: existingBook?.objectID,
-        currentISBN: currentISBN,
-        needsCoverImage: needsCoverImage
-      )
-    }
-
-    let isbn: NSNumber?
-    if let currentISBN = duplicateInfo.currentISBN {
-      isbn = currentISBN
-    } else {
-      isbn = try await getISBN()
-    }
-
-    let coverAsset: Asset?
-    if duplicateInfo.needsCoverImage {
-      let coverImageURL = await getCoverImageURL(forISBN: isbn, title: title, author: author)
-      coverAsset = try await Asset.add(to: context, withURL: coverImageURL)
-    } else {
-      coverAsset = nil
-    }
-
-    // Snapshot non-Sendable values for use inside @Sendable closure
-    let reviewDescriptionBox = reviewDescription.map { NonSendableBox(value: $0) }
-    let coverAssetID = coverAsset?.objectID
-
-    await context.perform {
-      let coverAssetInContext: Asset? = {
-        if let coverAssetID {
-          return try? context.existingObject(with: coverAssetID) as? Asset
-        }
-        return nil
-      }()
-      if let existingBookID = duplicateInfo.existingBookID,
-        let existingBook = try? context.existingObject(with: existingBookID) as? Book
-      {
-        if existingBook.coverImage == nil {
-          existingBook.coverImage = coverAssetInContext
-        }
-        LoggerService.log(
-          "Found duplicate \"\(title)\"",
-          level: .debug,
-          surface: .booksImport
-        )
-        existingBook.title = title
-        existingBook.isbn ??= isbn
-        existingBook.readDateFinished ??= readDateFinished
-        existingBook.readDateStarted ??= readDateStarted
-        existingBook.rating ??= rating
-        existingBook.reviewDescription ??= reviewDescriptionBox?.value
-        existingBook.updatedAt = Date()
-      } else {
-        _ = Book(
-          context: context,
-          title: title,
-          author: author,
-          coverImage: coverAssetInContext,
-          isbn: isbn,
-          readDateStarted: readDateStarted,
-          readDateFinished: readDateFinished,
-          rating: rating,
-          reviewDescription: reviewDescriptionBox?.value)
-      }
-    }
-  }
-
   /// Returns the best cover image URL without creating an Asset.
   static func bestCoverImageURL(
     forISBN isbn: NSNumber?,
@@ -183,6 +89,7 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     title: String,
     author: String
   ) async -> String? {
+    guard !PersistenceService.isRunningUnitTests else { return nil }
     guard let isbn = isbn?.stringValue else {
       do {
         return try await OpenLibraryAPIService.coverImageURL(forTitle: title, author: author)
@@ -214,69 +121,6 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
         return nil
       }
     }
-  }
-
-  /// For local creation of book objects
-  private convenience init(
-    context: NSManagedObjectContext,
-    title: String?,
-    author: String?,
-    coverImage: Asset?,
-    isbn: NSNumber?,
-    readDateStarted: Date?,
-    readDateFinished: Date?,
-    rating: NSNumber?,
-    reviewDescription: RichTextDocument?
-  ) {
-    self.init(context: context)
-    self.id = UUID().uuidString
-    self.createdAt = Date()
-    self.updatedAt = self.createdAt
-    self.title = title
-    self.author = author
-    self.coverImage = coverImage
-    self.isbn = isbn
-    self.readDateStarted = readDateStarted
-    self.readDateFinished = readDateFinished
-    self.rating = rating
-    self.reviewDescription = reviewDescription
-  }
-
-  /// Finds a duplicate book if it exists so we can update it in place. Duplicate = same author and one of the two titles is contained within
-  /// the other. Compares in a case insensitive, localized way.
-  private static func findDuplicate(
-    in context: NSManagedObjectContext,
-    title: String,
-    author: String
-  ) throws -> Book? {
-    // Fetch books by author first for efficiency
-    let fetchRequest = NSFetchRequest<Book>(entityName: "Book")
-    fetchRequest.predicate = NSPredicate(format: "author ==[c] %@", author)
-    let existingBooks = try context.fetch(fetchRequest)
-
-    // Filter for the same titles between the two
-    return existingBooks.first(where: { existingBook in
-      guard let existingTitle = existingBook.title else {
-        return false
-      }
-      return title.localizedCaseInsensitiveContains(existingTitle)
-        || existingTitle.localizedCaseInsensitiveContains(title)
-    })
-  }
-
-  /// Gets a cover image URL + adds or fetches the existing Asset for it. Call this only when you're sure that you want to create a
-  /// new Asset for this ISBN because it doesn't already exist.
-  private static func getOrAddCoverImage(
-    to context: NSManagedObjectContext,
-    forISBN isbn: NSNumber?,
-    andTitle title: String,
-    author: String
-  ) async throws -> Asset? {
-    let fetchTask: Task<String?, Never> = Task.detached(priority: .background) {
-      await getCoverImageURL(forISBN: isbn, title: title, author: author)
-    }
-    let coverImageUrl = await fetchTask.value
-    return try await Asset.add(to: context, withURL: coverImageUrl)
   }
 
   /// Updates the cover image for a book, using either an override URL or a fallback lookup.
@@ -386,8 +230,8 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
       author: trimmedAuthor,
       isbn: isbn?.int64Value,
       rating: ratingInt,
-      readDateStarted: GoodreadsSyncService.isoDateString(from: readDateStarted),
-      readDateFinished: GoodreadsSyncService.isoDateString(from: readDateFinished),
+      readDateStarted: readDateStarted?.ISO8601Format(),
+      readDateFinished: readDateFinished?.ISO8601Format(),
       reviewPlainText: reviewDescription?.plainText,
       coverAssetId: existingCoverAssetId,
       coverImageUrl: sanitizedCoverURL

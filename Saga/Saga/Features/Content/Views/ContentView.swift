@@ -38,40 +38,38 @@ struct ContentView: View {
   }
 
   var body: some View {
-    GoodreadsUploadDropzoneContainer {
-      NavigationSplitView(
-        sidebar: {
-          VStack(alignment: .leading, spacing: 16) {
-            HomeSidebarRow(
-              entry: $entry,
-              makeHomeEntry: {
-                navigationHistory.makeHomeEntry(currentEntry: entry, scrollStore: scrollStore)
-              }
-            )
-            BooksListView(entry: $entry)
-          }
-        },
-        detail: {
-          Group {
-            switch entry?.selection {
-            case .book(let selectedBookID):
-              if let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book {
-                BookContentView(book: selectedBook, detailLayoutWidth: detailWidth)
-              } else {
-                HomeView(entry: $entry)
-              }
-            default:
+    NavigationSplitView(
+      sidebar: {
+        VStack(alignment: .leading, spacing: 16) {
+          HomeSidebarRow(
+            entry: $entry,
+            makeHomeEntry: {
+              navigationHistory.makeHomeEntry(currentEntry: entry, scrollStore: scrollStore)
+            }
+          )
+          BooksListView(entry: $entry)
+        }
+      },
+      detail: {
+        Group {
+          switch entry?.selection {
+          case .book(let selectedBookID):
+            if let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book {
+              BookContentView(book: selectedBook, detailLayoutWidth: detailWidth)
+            } else {
               HomeView(entry: $entry)
             }
-          }
-          .readSize { size in
-            if size.width != detailWidth {
-              detailWidth = size.width
-            }
+          default:
+            HomeView(entry: $entry)
           }
         }
-      )
-    }
+        .readSize { size in
+          if size.width != detailWidth {
+            detailWidth = size.width
+          }
+        }
+      }
+    )
     .environmentObject(navigationHistory)
     .environmentObject(scrollStore)
     .environmentObject(bookNavigationViewModel)

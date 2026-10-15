@@ -33,30 +33,7 @@ private enum ConfigDefaults {
   // the delivery key rather than the preview or management token also in the vault.
   static let spaceIDItem = "CONTENTFUL_SPACE_ID"
   static let accessTokenItem = "CONTENTFUL_DELIVERY_API_KEY"
-  static let goodreadsSyncURLItem = "GOODREADS_SYNC_URL"
-  static let goodreadsSyncSecretItem = "GOODREADS_SYNC_SECRET"
-}
-
-private func resolveOptionalSecret(
-  item: String,
-  envKeys: [String],
-  availableVaultItems: Set<String>?
-) -> String {
-  for key in envKeys {
-    if let raw = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(
-      in: .whitespacesAndNewlines),
-      !raw.isEmpty
-    {
-      return raw
-    }
-  }
-  if let availableVaultItems, !availableVaultItems.contains(item) {
-    return ""
-  }
-  if let secret = try? readOnePasswordSecret(vault: ConfigDefaults.opVault, item: item) {
-    return secret
-  }
-  return ""
+  static let sagaAPISecretItem = "SAGA_API_SECRET"
 }
 
 private func resolveConfigValues() throws -> AppConfigValues {
@@ -69,30 +46,25 @@ private func resolveConfigValues() throws -> AppConfigValues {
     vault: ConfigDefaults.opVault,
     item: ConfigDefaults.accessTokenItem
   )
-  let goodreadsSyncURL =
-    resolveOptionalSecret(
-      item: ConfigDefaults.goodreadsSyncURLItem,
-      envKeys: [
-        AppConfig.sagaServerURLKey,
-        AppConfig.goodreadsSyncURLKey,
-        AppConfig.goodreadsSyncWebhookURLKey,
-      ],
-      availableVaultItems: availableVaultItems
-    )
-  let goodreadsSyncSecret = resolveOptionalSecret(
-    item: ConfigDefaults.goodreadsSyncSecretItem,
-    envKeys: [
-      AppConfig.sagaAPISecretKey,
-      AppConfig.goodreadsSyncSecretKey,
-      AppConfig.cronSecretKey,
-    ],
-    availableVaultItems: availableVaultItems
-  )
+  let envSecret =
+    ProcessInfo.processInfo.environment[AppConfig.sagaAPISecretKey]?.trimmingCharacters(
+      in: .whitespacesAndNewlines
+    ) ?? ""
+  let sagaAPISecret: String
+  if !envSecret.isEmpty {
+    sagaAPISecret = envSecret
+  } else if availableVaultItems?.contains(ConfigDefaults.sagaAPISecretItem) != false,
+    let secret = try? readOnePasswordSecret(
+      vault: ConfigDefaults.opVault, item: ConfigDefaults.sagaAPISecretItem)
+  {
+    sagaAPISecret = secret
+  } else {
+    sagaAPISecret = ""
+  }
   return AppConfigValues(
     spaceID: spaceID,
     accessToken: accessToken,
-    goodreadsSyncURL: goodreadsSyncURL.isEmpty ? AppConfig.defaultServerOrigin : goodreadsSyncURL,
-    goodreadsSyncSecret: goodreadsSyncSecret
+    sagaAPISecret: sagaAPISecret
   )
 }
 

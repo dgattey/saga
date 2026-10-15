@@ -24,15 +24,22 @@ runs:
         set -euo pipefail
         ./run app --build-only --skip-signing
 
+    - name: Run unit tests
+      id: run_tests
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./run app --test --skip-signing
+
     - name: Record build result
       id: build_result
       if: always()
       shell: bash
       run: |
-        if [[ "${{ steps.run_build.outcome }}" == "success" ]]; then
+        if [[ "${{ steps.run_build.outcome }}" == "success" && "${{ steps.run_tests.outcome }}" == "success" ]]; then
           echo "result=pass" >> "$GITHUB_OUTPUT"
         else
           echo "result=fail" >> "$GITHUB_OUTPUT"
-          echo "::error::Build failed. Run './run app --build-only' locally to debug."
+          echo "::error::Build or unit tests failed. Run './run app --build-only' and './run app --test' locally to debug."
           exit 1
         fi

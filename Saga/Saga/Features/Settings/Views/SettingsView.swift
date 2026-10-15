@@ -65,7 +65,6 @@ struct SettingsView: View {
           }
         )
       }
-      SyncSettingsView()
       Section {
         allCachesRow
         localDataRow

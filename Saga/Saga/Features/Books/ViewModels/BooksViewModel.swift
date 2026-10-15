@@ -132,6 +132,11 @@ final class BooksViewModel: ObservableObject {
 
   /// Unfinished books at the top, then date descending with either finished or start, then title comparison. Most recent first.
   func sorted(from books: FetchedResults<Book>) -> [Book] {
+    sorted(from: Array(books))
+  }
+
+  /// Unfinished books at the top, then date descending with either finished or start, then title comparison. Most recent first.
+  func sorted<S: Sequence>(from books: S) -> [Book] where S.Element == Book {
     return books.sorted { a, b in
       // 1. Unfinished books come first
       let aUnfinished = a.readDateFinished == nil
@@ -152,4 +157,69 @@ final class BooksViewModel: ObservableObject {
     }
   }
 
+  // MARK: - Keyboard Navigation
+
+  /// Moves selection to the next book in `filteredBooks`, or to the first book when starting from Home / no selection.
+  @discardableResult
+  func navigateToNextBook(entry: inout NavigationEntry?) -> KeyPress.Result {
+    guard !filteredBooks.isEmpty else { return .ignored }
+
+    let nextBookID: NSManagedObjectID
+
+    switch entry?.selection {
+    case .home:
+      nextBookID = filteredBooks[0].model.objectID
+
+    case .book(let currentID):
+      guard let currentIndex = filteredBooks.firstIndex(where: { $0.model.objectID == currentID })
+      else {
+        nextBookID = filteredBooks[0].model.objectID
+        break
+      }
+      let nextIndex = currentIndex + 1
+      guard nextIndex < filteredBooks.count else {
+        return .handled
+      }
+      nextBookID = filteredBooks[nextIndex].model.objectID
+
+    case nil:
+      nextBookID = filteredBooks[0].model.objectID
+    }
+
+    guard entry?.selection != .book(nextBookID) else { return .handled }
+    let scrollContextID = entry?.scrollContextID ?? UUID()
+    entry = NavigationEntry(selection: .book(nextBookID), scrollContextID: scrollContextID)
+    return .handled
+  }
+
+  /// Moves selection to the previous book in `filteredBooks`, or back to Home when at the first book.
+  @discardableResult
+  func navigateToPreviousBook(entry: inout NavigationEntry?) -> KeyPress.Result {
+    guard !filteredBooks.isEmpty else { return .ignored }
+
+    switch entry?.selection {
+    case .home, nil:
+      return .ignored
+
+    case .book(let currentID):
+      guard let currentIndex = filteredBooks.firstIndex(where: { $0.model.objectID == currentID })
+      else {
+        return .ignored
+      }
+
+      let scrollContextID = entry?.scrollContextID ?? UUID()
+      if currentIndex == 0 {
+        let homeSelection =
+          entry?.selection.homeSelectionPreservingLast()
+          ?? .home(lastSelectedBookID: currentID)
+        entry = NavigationEntry(selection: homeSelection, scrollContextID: scrollContextID)
+        return .handled
+      }
+
+      let previousBookID = filteredBooks[currentIndex - 1].model.objectID
+      guard entry?.selection != .book(previousBookID) else { return .handled }
+      entry = NavigationEntry(selection: .book(previousBookID), scrollContextID: scrollContextID)
+      return .handled
+    }
+  }
 }

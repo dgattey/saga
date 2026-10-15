@@ -1,8 +1,5 @@
 xcuserdata
 *.xcconfig
 *.swp
-.env
-.env.*
-.vercel
 scripts/.build/
 /build/
