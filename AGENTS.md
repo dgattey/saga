@@ -50,13 +50,14 @@ shared UI/utilities.
 - App specific UI and models live in `Features/*`, each with their own set of folders for Models, Views, etc.
 
 ## Key Integration Points
-**Services**: `PersistenceService` (Core Data + Contentful), `LoggerService`,
+**Services**: `PersistenceService` (Core Data + Contentful), `GoodreadsSyncService` (pre-sync trigger for `/api/cron/goodreads-sync`), `LoggerService`,
 `ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`,
 book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`)
 **UI**: `ContentView` entry, `HomeView`/`BooksListView`, `ResponsiveLayout`,
-`PersistentScrollView`, `GlassOverlayModifier`, `MenuBarCommands`
+`PersistentScrollView`, `GlassOverlayModifier`, `MenuBarCommands`, `SyncSettingsView`
 **Data**: `Saga.xcdatamodeld` + `PersistenceModel` for Core Data entities; register new
 entities in both when adding models
+**Serverless**: `/api/cron/goodreads-sync.mjs` + `vercel.json` (daily Vercel Cron + app launch webhook that polls Goodreads RSS shelves and upserts/publishes changes to Contentful CMA)
 
 ## Workflow
 - Ask for clarification when requirements are ambiguous; surface 2–3 options when trade-offs matter
@@ -88,7 +89,7 @@ the standard verification loop.
 ## Environment
 - Requires Xcode + SwiftUI/Combine
 - `run bootstrap` writes `Saga/Saga/Config/Config.xcconfig` from 1Password; `run config`
- writes the same file from `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN`
+ writes the same file from `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` (plus optional `GOODREADS_SYNC_URL` and `GOODREADS_SYNC_SECRET`)
 - The file is gitignored and Xcode errors if it is missing, so any build needs it first
  (CI uses `run config --placeholder --if-missing`)
 - `swift-format` is listed in the repo `Brewfile` (install with `brew bundle`)

@@ -25,7 +25,7 @@ let cli = CLI(
     "run config --placeholder --if-missing",
   ],
   notes: [
-    "Reads \(AppConfig.spaceIDKey) and \(AppConfig.accessTokenKey) from the environment",
+    "Reads \(AppConfig.spaceIDKey) and \(AppConfig.accessTokenKey) (plus optional \(AppConfig.goodreadsSyncURLKey) and \(AppConfig.goodreadsSyncSecretKey)) from the environment",
     "Use --placeholder for build-only environments; compiling never contacts Contentful",
     "Use 'run bootstrap' to pull real credentials from 1Password",
   ]

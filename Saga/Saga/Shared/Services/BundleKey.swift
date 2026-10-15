@@ -11,9 +11,18 @@ import Foundation
 enum BundleKey: String {
   case spaceId = "ContentfulSpaceId"
   case accessToken = "ContentfulAccessToken"
+  case goodreadsSyncURL = "GoodreadsSyncURL"
+  case goodreadsSyncSecret = "GoodreadsSyncSecret"
 
   /// Use this to get the actual value from the app bundle
   var bundleValue: String {
-    return Bundle.main.object(forInfoDictionaryKey: self.rawValue) as? String ?? ""
+    guard let raw = Bundle.main.object(forInfoDictionaryKey: self.rawValue) as? String else {
+      return ""
+    }
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.hasPrefix("$("), trimmed.hasSuffix(")") {
+      return ""
+    }
+    return trimmed
   }
 }

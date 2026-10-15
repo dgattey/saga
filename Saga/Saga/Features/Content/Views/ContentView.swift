@@ -99,13 +99,16 @@ struct ContentView: View {
         cloneFromLast: false
       )
     }
+    .task {
+      await syncViewModel.syncWithContentful()
+    }
     #if os(macOS)
       .onReceive(
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
       ) { _ in
         // Scene phase doesn't consistently fire on macOS focus changes, so we sync on app activation.
         Task {
-          await syncViewModel.sync()
+          await syncViewModel.syncWithContentful()
         }
       }
       .frame(minWidth: 600, minHeight: 300)

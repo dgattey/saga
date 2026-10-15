@@ -14,6 +14,8 @@ final class SyncViewModel: ObservableObject {
   @Published var isSyncing = false
   @Published var isResetting = false
   @Published var resetToken = UUID()
+  @Published private(set) var lastGoodreadsSyncSummary: GoodreadsSyncResponse?
+  @Published private(set) var lastSyncDate: Date?
   private var syncTask: Task<Void, Never>?
 
   var viewContext: NSManagedObjectContext {
@@ -22,8 +24,14 @@ final class SyncViewModel: ObservableObject {
 
   // MARK: - Sync Operations
 
-  /// Syncs if there's no sync running already
+  /// Syncs with Goodreads (if configured) and Contentful if there's no sync running already.
   func sync() async {
+    await syncWithContentful()
+  }
+
+  /// Triggers the remote Goodreads → Contentful sync endpoint (when configured) and then
+  /// pulls the latest published Contentful entries into Core Data.
+  func syncWithContentful() async {
     LoggerService.log("Sync starting refresh", level: .notice, surface: .sync)
     await orchestrateSync(
       start: { [weak self] in
@@ -33,7 +41,16 @@ final class SyncViewModel: ObservableObject {
         self?.isSyncing = false
       },
       { [weak self] in
-        try await self?.controller.syncWithApi()
+        guard let self else { return }
+        if let response = await GoodreadsSyncService.triggerIfConfigured() {
+          await MainActor.run {
+            self.lastGoodreadsSyncSummary = response
+          }
+        }
+        try await self.controller.syncWithApi()
+        await MainActor.run {
+          self.lastSyncDate = Date()
+        }
       }
     )
   }
@@ -50,7 +67,16 @@ final class SyncViewModel: ObservableObject {
         self?.isResetting = false
       },
       { [weak self] in
-        try await self?.controller.resetAndSyncWithApi()
+        guard let self else { return }
+        if let response = await GoodreadsSyncService.triggerIfConfigured() {
+          await MainActor.run {
+            self.lastGoodreadsSyncSummary = response
+          }
+        }
+        try await self.controller.resetAndSyncWithApi()
+        await MainActor.run {
+          self.lastSyncDate = Date()
+        }
       }
     )
   }
@@ -61,11 +87,14 @@ final class SyncViewModel: ObservableObject {
     finish: @escaping () -> Void,
     _ syncFunction: @escaping () async throws -> Void
   ) async {
-    guard !isSyncing, !isResetting else { return }
-    syncTask = Task(priority: .background) {
-      await MainActor.run {
-        start()
-      }
+    let shouldStart = await MainActor.run {
+      guard !isSyncing, !isResetting else { return false }
+      start()
+      return true
+    }
+    guard shouldStart else { return }
+
+    let task = Task(priority: .utility) {
       do {
         try await syncFunction()
         await MainActor.run {
@@ -78,5 +107,7 @@ final class SyncViewModel: ObservableObject {
         LoggerService.log("Sync failed", error: error, surface: .sync)
       }
     }
+    syncTask = task
+    await task.value
   }
 }
