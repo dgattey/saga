@@ -273,9 +273,8 @@ private struct BookListRowView: View {
               Image(systemName: "bookmark.fill")
                 .font(.caption2)
                 .foregroundStyle(Color.botanicalSage)
-              Text("CURRENTLY READING")
-                .font(.caption2.weight(.bold))
-                .tracking(0.6)
+              Text("Currently reading")
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.botanicalSage)
             }
             Text(book.title ?? book.id)
