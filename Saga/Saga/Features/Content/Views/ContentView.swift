@@ -64,6 +64,7 @@ struct ContentView: View {
               HomeView(entry: $entry)
             }
           }
+          .backgroundExtensionEffect()
           .readSize { size in
             if size.width != detailWidth {
               detailWidth = size.width
@@ -85,9 +86,6 @@ struct ContentView: View {
         entry: $entry
       )
     }
-    #if os(macOS)
-      .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-    #endif
     .onChange(of: entry) { oldEntry, newEntry in
       navigationHistory.onNavigationChange(from: oldEntry, to: newEntry)
     }

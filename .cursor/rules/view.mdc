@@ -14,5 +14,5 @@ alwaysApply: false
   add `.scrollVelocityThrottle()` where applicable.
 - Use injected `animationSettings` where possible, or `AnimationSettings.shared.selectionSpring` outside of SwiftUI for selection animations to keep timing consistent.
 - Apply shared styling via `Shared/Views` and `Shared/Extensions`
-  (e.g., `windowBackground()`, `withGlassOverlay`, `defaultShadow()`).
+  (e.g., `windowBackground()`, `defaultShadow()`, `.glassEffect()`, `.scrollEdgeEffectStyle()`, `.backgroundExtensionEffect()`).
 - Gate platform-specific UI with `#if os(macOS)` / `#else`.

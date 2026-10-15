@@ -54,7 +54,7 @@ shared UI/utilities.
 `ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`, `UpdaterViewModel` (Sparkle automatic updates on macOS),
 book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`)
 **UI**: `ContentView` entry, `HomeView`/`BooksListView`, `ResponsiveLayout`,
-`PersistentScrollView`, `GlassOverlayModifier`, `MenuBarCommands`
+`PersistentScrollView`, `MenuBarCommands`
 **Data**: `Saga.xcdatamodeld` + `PersistenceModel` for Core Data entities; register new
 entities in both when adding models
 
