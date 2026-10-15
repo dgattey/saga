@@ -10,5 +10,9 @@
 	<string>$(GOODREADS_SYNC_SECRET)</string>
 	<key>GoodreadsSyncURL</key>
 	<string>$(GOODREADS_SYNC_URL)</string>
+	<key>SagaAPISecret</key>
+	<string>$(SAGA_API_SECRET)</string>
+	<key>SagaServerURL</key>
+	<string>$(SAGA_SERVER_URL)</string>
 </dict>
 </plist>

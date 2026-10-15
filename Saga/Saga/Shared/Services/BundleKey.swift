@@ -13,6 +13,8 @@ enum BundleKey: String {
   case accessToken = "ContentfulAccessToken"
   case goodreadsSyncURL = "GoodreadsSyncURL"
   case goodreadsSyncSecret = "GoodreadsSyncSecret"
+  case sagaServerURL = "SagaServerURL"
+  case sagaAPISecret = "SagaAPISecret"
 
   /// Use this to get the actual value from the app bundle
   var bundleValue: String {

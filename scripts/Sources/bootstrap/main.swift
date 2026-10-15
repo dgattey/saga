@@ -69,20 +69,29 @@ private func resolveConfigValues() throws -> AppConfigValues {
     vault: ConfigDefaults.opVault,
     item: ConfigDefaults.accessTokenItem
   )
-  let goodreadsSyncURL = resolveOptionalSecret(
-    item: ConfigDefaults.goodreadsSyncURLItem,
-    envKeys: [AppConfig.goodreadsSyncURLKey, AppConfig.goodreadsSyncWebhookURLKey],
-    availableVaultItems: availableVaultItems
-  )
+  let goodreadsSyncURL =
+    resolveOptionalSecret(
+      item: ConfigDefaults.goodreadsSyncURLItem,
+      envKeys: [
+        AppConfig.sagaServerURLKey,
+        AppConfig.goodreadsSyncURLKey,
+        AppConfig.goodreadsSyncWebhookURLKey,
+      ],
+      availableVaultItems: availableVaultItems
+    )
   let goodreadsSyncSecret = resolveOptionalSecret(
     item: ConfigDefaults.goodreadsSyncSecretItem,
-    envKeys: [AppConfig.goodreadsSyncSecretKey, AppConfig.cronSecretKey],
+    envKeys: [
+      AppConfig.sagaAPISecretKey,
+      AppConfig.goodreadsSyncSecretKey,
+      AppConfig.cronSecretKey,
+    ],
     availableVaultItems: availableVaultItems
   )
   return AppConfigValues(
     spaceID: spaceID,
     accessToken: accessToken,
-    goodreadsSyncURL: goodreadsSyncURL,
+    goodreadsSyncURL: goodreadsSyncURL.isEmpty ? AppConfig.defaultServerOrigin : goodreadsSyncURL,
     goodreadsSyncSecret: goodreadsSyncSecret
   )
 }

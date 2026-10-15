@@ -152,6 +152,7 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
         existingBook.readDateStarted ??= readDateStarted
         existingBook.rating ??= rating
         existingBook.reviewDescription ??= reviewDescriptionBox?.value
+        existingBook.updatedAt = Date()
       } else {
         _ = Book(
           context: context,
@@ -357,6 +358,40 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
       "rating": "rating",
       "reviewDescription": "reviewDescription",
     ]
+  }
+
+  /// Creates a `Sendable` snapshot of this book's fields for syncing to `dylangattey.com/api/books/sync`.
+  /// Must be called on the book's `NSManagedObjectContext` queue.
+  func toServerUpsertPayload(overrideCoverImageURL: String? = nil) -> BookServerUpsertPayload? {
+    let trimmedTitle = (title ?? "").cleanedWhitespace
+    guard !trimmedTitle.isEmpty else { return nil }
+    let trimmedAuthor = (author ?? "").cleanedWhitespace
+    let rawCoverURL = overrideCoverImageURL ?? coverImage?.urlString
+    let sanitizedCoverURL = GoodreadsSyncService.sanitizedCoverImageURL(rawCoverURL)
+    let existingCoverAssetId: String? = {
+      guard let assetId = coverImage?.id.trimmingCharacters(in: .whitespacesAndNewlines),
+        !assetId.isEmpty
+      else {
+        return nil
+      }
+      return assetId
+    }()
+    let ratingInt: Int? = {
+      guard let value = rating?.intValue, (1...5).contains(value) else { return nil }
+      return value
+    }()
+    return BookServerUpsertPayload(
+      id: id,
+      title: trimmedTitle,
+      author: trimmedAuthor,
+      isbn: isbn?.int64Value,
+      rating: ratingInt,
+      readDateStarted: GoodreadsSyncService.isoDateString(from: readDateStarted),
+      readDateFinished: GoodreadsSyncService.isoDateString(from: readDateFinished),
+      reviewPlainText: reviewDescription?.plainText,
+      coverAssetId: existingCoverAssetId,
+      coverImageUrl: sanitizedCoverURL
+    )
   }
 
   func toDTO() -> BookDTO {

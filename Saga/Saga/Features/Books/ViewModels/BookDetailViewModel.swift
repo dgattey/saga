@@ -111,6 +111,7 @@ final class BookDetailViewModel: ObservableObject {
     updateBookDraft { book in
       book.rating = newValue > 0 ? NSNumber(value: newValue) : nil
     }
+    commitRating()
   }
 
   func commitField(_ field: Field) {
@@ -184,7 +185,7 @@ final class BookDetailViewModel: ObservableObject {
         in: viewContext,
         overrideURL: overrideURL
       )
-      saveContextIfNeeded()
+      saveContextAndSyncBook(bookID: bookID, overrideCoverImageURL: overrideURL)
       await MainActor.run {
         self.coverURLDraft = self.book.coverImage?.assetURL?.absoluteString ?? ""
       }
@@ -206,15 +207,24 @@ final class BookDetailViewModel: ObservableObject {
         return
       }
       update(bookInContext)
-      guard viewContext.hasChanges else { return }
+      bookInContext.updatedAt = Date()
+      let payload = bookInContext.toServerUpsertPayload()
       do {
-        try viewContext.save()
+        if viewContext.hasChanges {
+          try viewContext.save()
+        }
       } catch {
         LoggerService.log(
           "Failed to save book edits: \(error)",
           level: .error,
           surface: .persistence
         )
+        return
+      }
+      if let payload {
+        Task(priority: .utility) {
+          await GoodreadsSyncService.pushBookUpsertIfConfigured(payload)
+        }
       }
     }
   }
@@ -225,18 +235,37 @@ final class BookDetailViewModel: ObservableObject {
     viewContext?.processPendingChanges()
   }
 
-  private func saveContextIfNeeded() {
+  private func saveContextAndSyncBook(
+    bookID: NSManagedObjectID,
+    overrideCoverImageURL: String? = nil
+  ) {
     guard let viewContext else { return }
     viewContext.perform {
-      guard viewContext.hasChanges else { return }
+      let payload: BookServerUpsertPayload?
+      if let bookInContext = try? viewContext.existingObject(with: bookID) as? Book {
+        bookInContext.updatedAt = Date()
+        payload = bookInContext.toServerUpsertPayload(
+          overrideCoverImageURL: overrideCoverImageURL
+        )
+      } else {
+        payload = nil
+      }
       do {
-        try viewContext.save()
+        if viewContext.hasChanges {
+          try viewContext.save()
+        }
       } catch {
         LoggerService.log(
           "Failed to save book edits: \(error)",
           level: .error,
           surface: .persistence
         )
+        return
+      }
+      if let payload {
+        Task(priority: .utility) {
+          await GoodreadsSyncService.pushBookUpsertIfConfigured(payload)
+        }
       }
     }
   }

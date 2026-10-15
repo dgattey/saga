@@ -26,10 +26,13 @@ public enum AppConfig {
   /// Env var names shared by `run bootstrap`, `run config`, and the 1Password vault items.
   public static let spaceIDKey = "CONTENTFUL_SPACE_ID"
   public static let accessTokenKey = "CONTENTFUL_ACCESS_TOKEN"
+  public static let sagaServerURLKey = "SAGA_SERVER_URL"
   public static let goodreadsSyncURLKey = "GOODREADS_SYNC_URL"
   public static let goodreadsSyncWebhookURLKey = "GOODREADS_SYNC_WEBHOOK_URL"
+  public static let sagaAPISecretKey = "SAGA_API_SECRET"
   public static let goodreadsSyncSecretKey = "GOODREADS_SYNC_SECRET"
   public static let cronSecretKey = "CRON_SECRET"
+  public static let defaultServerOrigin = "https://dylangattey.com"
 
   /// Stand-in values for build-only environments (CI) that never talk to Contentful.
   /// Real credentials are only needed to *run* the app, not to compile it.
@@ -62,11 +65,13 @@ public enum AppConfig {
       return nil
     }
     let goodreadsSyncURL =
-      environmentValue(goodreadsSyncURLKey)
+      environmentValue(sagaServerURLKey)
+      ?? environmentValue(goodreadsSyncURLKey)
       ?? environmentValue(goodreadsSyncWebhookURLKey)
-      ?? ""
+      ?? defaultServerOrigin
     let goodreadsSyncSecret =
-      environmentValue(goodreadsSyncSecretKey)
+      environmentValue(sagaAPISecretKey)
+      ?? environmentValue(goodreadsSyncSecretKey)
       ?? environmentValue(cronSecretKey)
       ?? ""
     return AppConfigValues(
@@ -124,6 +129,8 @@ public enum AppConfig {
       \(accessTokenKey) = \(values.accessToken)
       \(goodreadsSyncURLKey) = \(escapedSyncURL)
       \(goodreadsSyncSecretKey) = \(values.goodreadsSyncSecret)
+      \(sagaServerURLKey) = \(escapedSyncURL)
+      \(sagaAPISecretKey) = \(values.goodreadsSyncSecret)
       """
   }
 }

@@ -127,20 +127,34 @@ struct GoodreadsCSVParser {
     totalSteps: Binding<Int>
   ) async throws {
     let csv = try NamedCSV(url: csvFileURL)
+    let importStartedAt = Date()
     let importContext = makeImportContext(from: context)
     try await parseRows(
       into: importContext,
       from: csv.rows,
       completedSteps: completedSteps,
       totalSteps: totalSteps)
-    try await importContext.perform {
+    let syncedPayloads: [BookServerUpsertPayload] = try await importContext.perform {
       if importContext.hasChanges {
         try importContext.save()
       }
+      let fetchRequest = NSFetchRequest<Book>(entityName: "Book")
+      fetchRequest.predicate = NSPredicate(
+        format: "updatedAt >= %@",
+        importStartedAt as NSDate
+      )
+      fetchRequest.relationshipKeyPathsForPrefetching = ["coverImage"]
+      let importedBooks = (try? importContext.fetch(fetchRequest)) ?? []
+      return importedBooks.compactMap { $0.toServerUpsertPayload() }
     }
     try await context.perform {
       if context.hasChanges {
         try context.save()
+      }
+    }
+    if !syncedPayloads.isEmpty {
+      Task(priority: .utility) {
+        await GoodreadsSyncService.pushBookUpsertsIfConfigured(syncedPayloads)
       }
     }
   }

@@ -13,12 +13,8 @@ struct SyncSettingsView: View {
   @AppStorage(GoodreadsSyncService.syncURLStorageKey) private var syncURLOverride = ""
   @AppStorage(GoodreadsSyncService.syncSecretStorageKey) private var syncSecretOverride = ""
 
-  private var effectiveSyncURL: String {
-    GoodreadsSyncService.configuredSyncURLString
-  }
-
   private var isConfigured: Bool {
-    !effectiveSyncURL.isEmpty
+    GoodreadsSyncService.isConfigured
   }
 
   var body: some View {
@@ -28,7 +24,7 @@ struct SyncSettingsView: View {
       secretRow
       syncNowRow
     } header: {
-      Text("Goodreads Sync")
+      Text("Goodreads & Contentful Server")
         .font(.headline)
     }
   }
@@ -48,11 +44,11 @@ struct SyncSettingsView: View {
         }
       } else if let summary = syncViewModel.lastGoodreadsSyncSummary {
         Text(
-          "Synced (+\(summary.createdCount ?? 0), Δ\(summary.updatedCount ?? 0), =\(summary.skippedCount ?? 0))"
+          "Synced (+\(summary.effectiveCreatedCount), Δ\(summary.effectiveUpdatedCount), =\(summary.effectiveSkippedCount))"
         )
         .foregroundStyle(.secondary)
       } else {
-        Text(isConfigured ? "Configured" : "Not configured")
+        Text(isConfigured ? "Configured (HMAC-SHA256)" : "Secret not configured")
           .foregroundStyle(.secondary)
       }
     }
@@ -60,11 +56,11 @@ struct SyncSettingsView: View {
 
   private var endpointURLRow: some View {
     TextField(
-      "Endpoint URL",
+      "Server URL",
       text: $syncURLOverride,
       prompt: Text(
         BundleKey.goodreadsSyncURL.bundleValue.isEmpty
-          ? "https://<app>.vercel.app/api/cron/goodreads-sync"
+          ? GoodreadsSyncService.defaultServerOrigin
           : BundleKey.goodreadsSyncURL.bundleValue
       )
     )
@@ -73,11 +69,11 @@ struct SyncSettingsView: View {
 
   private var secretRow: some View {
     SecureField(
-      "Bearer secret",
+      "API secret",
       text: $syncSecretOverride,
       prompt: Text(
         BundleKey.goodreadsSyncSecret.bundleValue.isEmpty
-          ? "Optional CRON_SECRET"
+          ? "SAGA_API_SECRET / CRON_SECRET"
           : "Configured via Config.xcconfig"
       )
     )

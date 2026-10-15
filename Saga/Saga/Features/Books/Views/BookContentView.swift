@@ -58,6 +58,9 @@ struct BookContentView: View {
     .onChange(of: focusedField) { _, newValue in
       viewModel.handleFocusChange(to: newValue)
     }
+    .onDisappear {
+      viewModel.handleFocusChange(to: nil)
+    }
     .onChange(of: book.objectID) { _, _ in
       viewModel.setBook(book)
     }
