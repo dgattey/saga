@@ -56,10 +56,17 @@ extension Color {
     )
   }
 
+  static var botanicalBackground: Color {
+    adaptiveColor(
+      light: (0.915, 0.945, 0.928),
+      dark: (0.055, 0.105, 0.082)
+    )
+  }
+
   static var botanicalSurfaceTint: Color {
     adaptiveColor(
-      light: (0.935, 0.955, 0.945),
-      dark: (0.065, 0.110, 0.088)
+      light: (0.915, 0.945, 0.928),
+      dark: (0.065, 0.115, 0.090)
     )
   }
 

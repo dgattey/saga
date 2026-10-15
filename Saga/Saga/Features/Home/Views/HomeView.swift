@@ -42,6 +42,7 @@ struct HomeView: View {
     .accessibilityIdentifier(AccessibilityID.Home.scroll)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .navigationTitle("Home")
+    .botanicalPageBackground()
     .accessibilityIdentifier(AccessibilityID.Home.view)
     .accessibilityElement(children: .contain)
     #if os(macOS)

@@ -20,12 +20,35 @@ extension View {
         }
       }
     #else
-      self.containerBackground(for: .navigationSplitView) {
-        ZStack {
-          Rectangle().fill(.ultraThinMaterial)
-          Color.botanicalSurfaceTint.opacity(0.45)
+      self
+        .scrollContentBackground(.hidden)
+        .background(Color.botanicalBackground.ignoresSafeArea())
+        .containerBackground(for: .navigationSplitView) {
+          ZStack {
+            Color.botanicalBackground
+            Rectangle().fill(.ultraThinMaterial)
+            Color.botanicalSurfaceTint.opacity(0.65)
+          }
         }
-      }
+    #endif
+  }
+
+  /// Applies the shared botanical surface background on iOS while letting macOS
+  /// use its translucent window container background.
+  func botanicalPageBackground() -> some View {
+    #if os(iOS)
+      self
+        .scrollContentBackground(.hidden)
+        .background {
+          ZStack {
+            Color.botanicalBackground
+            Rectangle().fill(.ultraThinMaterial)
+            Color.botanicalSurfaceTint.opacity(0.65)
+          }
+          .ignoresSafeArea()
+        }
+    #else
+      self
     #endif
   }
 

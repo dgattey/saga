@@ -52,6 +52,7 @@ struct ContentView: View {
             )
             BooksListView(entry: $entry)
           }
+          .botanicalPageBackground()
         },
         detail: {
           Group {
@@ -66,6 +67,7 @@ struct ContentView: View {
               HomeView(entry: $entry)
             }
           }
+          .botanicalPageBackground()
           .backgroundExtensionEffect()
           .readSize { size in
             if size.width != detailWidth {

@@ -62,6 +62,7 @@ struct BookContentView: View {
       viewModel.setBook(book)
     }
     .navigationTitle(viewModel.displayTitle)
+    .botanicalPageBackground()
     #if os(macOS)
       .navigationSubtitle(viewModel.displayAuthor)
       .toolbar(removing: .title)
