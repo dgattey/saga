@@ -26,7 +26,6 @@ struct HomeView: View {
       ),
       onRestore: notifyScrollRestored
     ) {
-      ScrollVelocityReader()
       LazyVStack(alignment: .leading) {
         ForEach(sections) { section in
           Section {

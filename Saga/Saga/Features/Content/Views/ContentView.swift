@@ -44,7 +44,7 @@ struct ContentView: View {
     NavigationSplitView(
       preferredCompactColumn: $preferredCompactColumn,
       sidebar: {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
           HStack(spacing: 8) {
             HomeSidebarRow(
               entry: $entry,
@@ -112,9 +112,9 @@ struct ContentView: View {
     #else
       .sheet(isPresented: $isShowingSettings) {
         SettingsView()
-          .environmentObject(syncViewModel)
-          .environmentObject(cachesViewModel)
-          .environmentObject(animationSettings)
+        .environmentObject(syncViewModel)
+        .environmentObject(cachesViewModel)
+        .environmentObject(animationSettings)
       }
     #endif
     .onChange(of: entry) { oldEntry, newEntry in

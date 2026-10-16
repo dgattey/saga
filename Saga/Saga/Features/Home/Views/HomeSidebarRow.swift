@@ -59,7 +59,9 @@ struct HomeSidebarRow: View {
     .accessibilityIdentifier(AccessibilityID.Sidebar.homeButton)
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal, SidebarLayout.rowHorizontalPadding)
-    .padding(.top, 8)
+    #if !os(macOS)
+      .padding(.top, 8)
+    #endif
   }
 
   private var selectionBackgroundColor: Color {
