@@ -49,17 +49,23 @@ struct HomeSidebarRow: View {
     .buttonStyle(.plain)
     .background {
       if isSelected {
-        Color.clear
-          .glassEffect(
-            .regular.tint(selectionBackgroundColor).interactive(),
-            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-          )
+        ZStack {
+          RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(selectionBackgroundColor)
+          Color.clear
+            .glassEffect(
+              .regular.tint(selectionBackgroundColor).interactive(),
+              in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
+        }
       }
     }
     .accessibilityIdentifier(AccessibilityID.Sidebar.homeButton)
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal, SidebarLayout.rowHorizontalPadding)
-    .padding(.top, 8)
+    #if !os(macOS)
+      .padding(.top, 8)
+    #endif
   }
 
   private var selectionBackgroundColor: Color {

@@ -28,12 +28,11 @@ struct BooksListView: View {
   @StateObject private var navThrottle = NavigationThrottle()
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: 4) {
       BookListHeaderView()
 
       ScrollViewReader { proxy in
         PersistentScrollView(scrollKey: ScrollKey(scope: .sidebarBooks, region: "list")) {
-          ScrollVelocityReader()
           LazyVStack(alignment: .leading, spacing: 4) {
             if viewModel.filteredBooks.isEmpty, hasActiveSearch {
               BookListEmptyStateView()
@@ -55,7 +54,7 @@ struct BooksListView: View {
               }
             }
           }
-          .padding(.vertical, 4)
+          .padding(.bottom, 4)
         }
         .scrollVelocityThrottle()
         .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
@@ -239,11 +238,15 @@ private struct BookListRowView: View {
     .buttonStyle(.plain)
     .background {
       if isSelected {
-        Color.clear
-          .glassEffect(
-            .regular.tint(selectionBackgroundColor).interactive(),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-          )
+        ZStack {
+          RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(selectionBackgroundColor)
+          Color.clear
+            .glassEffect(
+              .regular.tint(selectionBackgroundColor).interactive(),
+              in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+        }
       }
     }
     .padding(.horizontal, SidebarLayout.rowHorizontalPadding)

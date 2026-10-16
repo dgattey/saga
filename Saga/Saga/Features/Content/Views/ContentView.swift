@@ -44,7 +44,7 @@ struct ContentView: View {
     NavigationSplitView(
       preferredCompactColumn: $preferredCompactColumn,
       sidebar: {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
           HStack(spacing: 8) {
             HomeSidebarRow(
               entry: $entry,
@@ -70,6 +70,7 @@ struct ContentView: View {
           }
           BooksListView(entry: $entry)
         }
+        .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 320)
         .botanicalPageBackground()
       },
       detail: {

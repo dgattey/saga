@@ -8,18 +8,6 @@
 import QuartzCore
 import SwiftUI
 
-struct ScrollVelocityReader: View {
-  var body: some View {
-    GeometryReader { proxy in
-      Color.clear.preference(
-        key: ScrollVelocityPreferenceKey.self,
-        value: proxy.frame(in: .named(ScrollVelocityThrottle.coordinateSpaceName)).minY
-      )
-    }
-    .frame(height: 0)
-  }
-}
-
 extension View {
   func scrollVelocityThrottle(
     velocityThreshold: CGFloat = 1200,
@@ -34,13 +22,6 @@ extension View {
   }
 }
 
-private struct ScrollVelocityPreferenceKey: PreferenceKey {
-  static var defaultValue: CGFloat = .zero
-  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-    value = nextValue()
-  }
-}
-
 private final class ThrottleState {
   var lastOffset: CGFloat = .zero
   var lastTimestamp: CFTimeInterval = 0
@@ -50,8 +31,6 @@ private final class ThrottleState {
 }
 
 private struct ScrollVelocityThrottle: ViewModifier {
-  static let coordinateSpaceName = "scroll-velocity"
-
   let velocityThreshold: CGFloat
   let pauseReleaseDelay: Duration
 
@@ -59,8 +38,10 @@ private struct ScrollVelocityThrottle: ViewModifier {
 
   func body(content: Content) -> some View {
     content
-      .coordinateSpace(name: Self.coordinateSpaceName)
-      .onPreferenceChange(ScrollVelocityPreferenceKey.self) { newOffset in
+      .onScrollGeometryChange(for: CGFloat.self) { geometry in
+        let rawOffset = geometry.contentOffset.y
+        return rawOffset.isFinite ? rawOffset : .zero
+      } action: { _, newOffset in
         let now = CACurrentMediaTime()
         guard state.lastTimestamp > 0 else {
           state.lastTimestamp = now
