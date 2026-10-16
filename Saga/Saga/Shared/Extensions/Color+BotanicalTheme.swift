@@ -84,16 +84,41 @@ extension Color {
     )
   }
 
+  /// Muted olive-forest used for the sidebar Home badge.
+  static var botanicalOlive: Color {
+    adaptiveColor(
+      light: (0.361, 0.431, 0.345),
+      dark: (0.490, 0.561, 0.475)
+    )
+  }
+
+  /// Warm cream glyph color for icons drawn on top of botanical badges.
+  static var botanicalCream: Color {
+    adaptiveColor(
+      light: (0.961, 0.949, 0.902),
+      dark: (0.961, 0.949, 0.902)
+    )
+  }
+
+  /// Deep moss control tint for switches and sliders, chosen to avoid any emerald/neon green.
+  static var botanicalDeepMoss: Color {
+    adaptiveColor(
+      light: (0.231, 0.353, 0.278),
+      dark: (0.431, 0.549, 0.471)
+    )
+  }
+
+  /// Warm stone selection pill: neutral like stock macOS selection, with no green in the fill.
   static func sidebarSelectionFill(isActiveWindow: Bool = true) -> Color {
     if isActiveWindow {
       return adaptiveColor(
-        light: (0.149, 0.306, 0.227, 0.18),
-        dark: (0.220, 0.415, 0.328, 0.26)
+        light: (0.282, 0.243, 0.188, 0.085),
+        dark: (1.0, 0.965, 0.902, 0.10)
       )
     }
     return adaptiveColor(
-      light: (0.210, 0.330, 0.268, 0.10),
-      dark: (0.235, 0.385, 0.315, 0.14)
+      light: (0.282, 0.243, 0.188, 0.055),
+      dark: (1.0, 0.965, 0.902, 0.065)
     )
   }
 

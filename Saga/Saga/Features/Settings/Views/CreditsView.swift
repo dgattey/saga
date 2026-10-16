@@ -7,37 +7,17 @@
 
 import SwiftUI
 
-/// Displays Saga's About header, Data & API attributions, and Open Source library acknowledgements.
+/// Data source and open source attributions as grouped form sections.
 struct CreditsView: View {
   var body: some View {
-    VStack(alignment: .leading, spacing: 20) {
-      SettingsCard {
-        AppInformationView()
-      }
-
-      SettingsCard(
-        title: "Data & APIs",
-        subtitle: "Book metadata, cover art resolution, and cloud sync services",
-        systemImage: "network"
-      ) {
-        ForEach(Array(CreditItem.dataAndAPIs.enumerated()), id: \.element.id) { index, item in
-          if index > 0 {
-            SettingsCardDivider()
-          }
+    Form {
+      Section("Data") {
+        ForEach(CreditItem.dataAndAPIs) { item in
           CreditRowView(item: item)
         }
       }
-
-      SettingsCard(
-        title: "Open Source Libraries",
-        subtitle: "Saga is built on these open source Swift packages and tools",
-        systemImage: "chevron.left.forwardslash.chevron.right"
-      ) {
-        ForEach(Array(CreditItem.openSourceLibraries.enumerated()), id: \.element.id) {
-          index, item in
-          if index > 0 {
-            SettingsCardDivider()
-          }
+      Section("Open Source") {
+        ForEach(CreditItem.openSourceLibraries) { item in
           CreditRowView(item: item)
         }
       }
@@ -46,121 +26,54 @@ struct CreditsView: View {
   }
 }
 
-/// A single Luminare-style attribution row with icon badge, version pill, role subtitle, and links.
+/// A single attribution row: name, version and role on the left, license badge and link on the
+/// right.
 struct CreditRowView: View {
   let item: CreditItem
-  @State private var isHovering = false
 
   var body: some View {
-    HStack(spacing: 12) {
-      iconBadge
-
-      VStack(alignment: .leading, spacing: 3) {
-        HStack(spacing: 6) {
-          Link(destination: item.url) {
-            Text(item.name)
-              .font(.subheadline.weight(.semibold))
-              .foregroundStyle(.primary)
-          }
-          .buttonStyle(.plain)
-          #if os(macOS)
-            .pointerStyle(.link)
-          #endif
-
-          if let version = item.version {
-            Text(version == "Debug" ? version : "v\(version)")
-              .font(.caption2.monospaced())
-              .foregroundStyle(.secondary)
-              .padding(.horizontal, 6)
-              .padding(.vertical, 2)
-              .background(Capsule().fill(.quaternary.opacity(0.6)))
-          }
-        }
-
-        Text(item.subtitle)
-          .font(.footnote)
-          .foregroundStyle(.secondary)
-          .lineLimit(2)
-      }
-
-      Spacer(minLength: 8)
-
-      HStack(spacing: 6) {
-        badgeView
-
+    LabeledContent {
+      HStack(spacing: 10) {
+        badge
         Link(destination: item.url) {
           Image(systemName: "arrow.up.right")
             .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .frame(width: 24, height: 24)
-            .background(
-              Circle()
-                .fill(.quaternary.opacity(isHovering ? 0.9 : 0.45))
-            )
         }
-        .buttonStyle(.plain)
+        .accessibilityLabel("Open \(item.name)")
         #if os(macOS)
           .pointerStyle(.link)
         #endif
-        .accessibilityLabel("Open \(item.name)")
       }
-    }
-    .padding(.horizontal, 14)
-    .padding(.vertical, 10)
-    .background {
-      if isHovering {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .fill(Color.botanicalLeaf.opacity(0.06))
-          .padding(.horizontal, 4)
-          .padding(.vertical, 2)
-      }
-    }
-    .onHover { hovering in
-      withAnimation(.easeOut(duration: 0.15)) {
-        isHovering = hovering
+    } label: {
+      Label {
+        Text(title)
+        Text(item.subtitle)
+      } icon: {
+        Image(systemName: item.systemImage)
+          .foregroundStyle(item.tintColor)
       }
     }
   }
 
-  private var iconBadge: some View {
-    Image(systemName: item.systemImage)
-      .font(.system(size: 14, weight: .semibold))
-      .foregroundStyle(item.tintColor)
-      .frame(width: 32, height: 32)
-      .background {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-          .fill(item.tintColor.opacity(0.14))
-      }
-      .glassEffect(
-        .regular.tint(item.tintColor.opacity(0.12)),
-        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-      )
+  private var title: String {
+    guard let version = item.version else {
+      return item.name
+    }
+    return version == "Debug" ? "\(item.name) · Debug" : "\(item.name) · v\(version)"
   }
 
   @ViewBuilder
-  private var badgeView: some View {
+  private var badge: some View {
     if let badgeURL = item.badgeURL {
-      Link(destination: badgeURL) {
-        badgeLabel
-      }
-      .buttonStyle(.plain)
-      #if os(macOS)
-        .pointerStyle(.link)
-      #endif
+      Link(item.badge, destination: badgeURL)
+        .font(.callout.monospaced())
+        #if os(macOS)
+          .pointerStyle(.link)
+        #endif
     } else {
-      badgeLabel
+      Text(item.badge)
+        .font(.callout.monospaced())
+        .foregroundStyle(.secondary)
     }
-  }
-
-  private var badgeLabel: some View {
-    Text(item.badge)
-      .font(.caption2.monospaced().weight(.medium))
-      .foregroundStyle(Color.botanicalLeaf)
-      .padding(.horizontal, 8)
-      .padding(.vertical, 3)
-      .glassEffect(
-        .regular.tint(Color.botanicalLeaf.opacity(0.09)),
-        in: Capsule()
-      )
   }
 }

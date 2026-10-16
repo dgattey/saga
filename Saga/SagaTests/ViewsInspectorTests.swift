@@ -73,31 +73,12 @@ struct ViewsInspectorTests {
     #expect(try empty.inspect().text().string() == "No results")
   }
 
-  @Test("SettingsSliderView renders label, formatted value pill, slider, and optional subtitle")
-  @MainActor
-  func settingsSliderViewInspection() throws {
-    var sliderValue = 250.0
-    let binding = Binding(get: { sliderValue }, set: { sliderValue = $0 })
-
-    let viewWithSubtitle = SettingsSliderView(
-      label: "Image cache limit",
-      formattedValue: "250 MB",
-      value: binding,
-      range: 50...1000,
-      step: 50,
-      subtitle: "Current usage",
-      subtitleValue: "42 MB"
-    )
-
-    let inspected = try viewWithSubtitle.inspect()
-    #expect(try inspected.find(text: "Image cache limit").string() == "Image cache limit")
-    #expect(try inspected.find(text: "250 MB").string() == "250 MB")
-    #expect(try inspected.find(text: "Current usage").string() == "Current usage")
-    #expect(try inspected.find(text: "42 MB").string() == "42 MB")
-
-    let slider = try inspected.find(ViewType.Slider.self)
-    try slider.setValue(0.5)
-    #expect(sliderValue > 250.0)
+  @Test("CacheLimitRow formats limits and usage for display")
+  func cacheLimitRowFormatting() {
+    #expect(CacheLimitRow.formatLimit(0) == "Unlimited")
+    #expect(CacheLimitRow.formatLimit(0.5) == "500 MB")
+    #expect(CacheLimitRow.formatLimit(5) == "5 GB")
+    #expect(CacheLimitRow.limitOptions.contains(5))
   }
 
   @Test("HomeSidebarRow renders Home label and triggers makeHomeEntry when not on Home")
@@ -127,13 +108,9 @@ struct ViewsInspectorTests {
 
   @Test("SettingsPane exposes expected metadata for all settings categories")
   func settingsPaneMetadataInspection() {
-    #expect(SettingsPane.allCases == [.general, .storage, .credits])
-    #expect(SettingsPane.general.title == "General")
-    #expect(SettingsPane.storage.title == "Storage")
-    #expect(SettingsPane.credits.title == "Credits & About")
-    #expect(SettingsPane.credits.shortTitle == "Credits")
+    #expect(SettingsPane.allCases == [.general, .storage, .credits, .about])
+    #expect(SettingsPane.allCases.map(\.title) == ["General", "Storage", "Credits", "About"])
     for pane in SettingsPane.allCases {
-      #expect(!pane.subtitle.isEmpty)
       #expect(!pane.systemImage.isEmpty)
       #expect(pane.id == pane.rawValue)
     }
@@ -166,81 +143,25 @@ struct ViewsInspectorTests {
     }
   }
 
-  @Test("SettingsHeaderView and SettingsCard render titles, subtitles, and inner content")
+  @Test("AboutView and CreditsView render app identity, links, data sources, and libraries")
   @MainActor
-  func settingsHeaderAndCardInspection() throws {
-    let header = SettingsHeaderView(
-      title: "Credits & About",
-      subtitle: "About Saga, data sources & open source",
-      systemImage: "sparkles",
-      backgroundColor: .botanicalLeaf
-    )
-    let inspectedHeader = try header.inspect()
-    #expect(try inspectedHeader.find(text: "Credits & About").string() == "Credits & About")
+  func aboutAndCreditsViewInspection() throws {
+    let inspectedAbout = try AboutView().inspect()
+    #expect(try inspectedAbout.find(text: "Saga").string() == "Saga")
     #expect(
-      try inspectedHeader.find(text: "About Saga, data sources & open source").string()
-        == "About Saga, data sources & open source"
-    )
-
-    let card = SettingsCard(
-      title: "Data & APIs",
-      subtitle: "External services",
-      systemImage: "globe.americas.fill"
-    ) {
-      Text("Open Library")
-      SettingsCardDivider()
-      Text("Goodreads")
-    }
-    let inspectedCard = try card.inspect()
-    #expect(try inspectedCard.find(text: "Data & APIs").string() == "Data & APIs")
-    #expect(try inspectedCard.find(text: "External services").string() == "External services")
-    #expect(try inspectedCard.find(text: "Open Library").string() == "Open Library")
-    #expect(try inspectedCard.find(text: "Goodreads").string() == "Goodreads")
-  }
-
-  @Test("AppInformationView and CreditsView render app identity, quick links, APIs, and libraries")
-  @MainActor
-  func appInformationAndCreditsViewInspection() throws {
-    let appInfo = AppInformationView()
-    let inspectedAppInfo = try appInfo.inspect()
-    #expect(try inspectedAppInfo.find(text: "Saga").string() == "Saga")
-    #expect(
-      try inspectedAppInfo.find(text: "Crafted by Dylan Gattey").string()
+      try inspectedAbout.find(text: "Crafted by Dylan Gattey").string()
         == "Crafted by Dylan Gattey")
-    #expect(try inspectedAppInfo.find(text: "Website").string() == "Website")
-    #expect(try inspectedAppInfo.find(text: "GitHub").string() == "GitHub")
-    #expect(try inspectedAppInfo.find(text: "More by Dylan").string() == "More by Dylan")
+    #expect(try inspectedAbout.find(text: "Website").string() == "Website")
+    #expect(try inspectedAbout.find(text: "GitHub").string() == "GitHub")
+    #expect(try inspectedAbout.find(text: "More by Dylan").string() == "More by Dylan")
 
-    let creditsView = CreditsView()
-    let inspectedCredits = try creditsView.inspect()
-    #expect(try inspectedCredits.find(text: "Data & APIs").string() == "Data & APIs")
-    #expect(
-      try inspectedCredits.find(text: "Open Source Libraries").string()
-        == "Open Source Libraries"
-    )
+    let inspectedCredits = try CreditsView().inspect()
+    #expect(try inspectedCredits.find(text: "Data").string() == "Data")
+    #expect(try inspectedCredits.find(text: "Open Source").string() == "Open Source")
     #expect(try inspectedCredits.find(text: "Open Library").string() == "Open Library")
     #expect(try inspectedCredits.find(text: "Bookcover API").string() == "Bookcover API")
-    #expect(try inspectedCredits.find(text: "Ifrit").string() == "Ifrit")
-    #expect(try inspectedCredits.find(text: "Sparkle").string() == "Sparkle")
+    #expect(
+      try inspectedCredits.find(text: "Fast fuzzy search for books and authors by Ukushu")
+        .string() == "Fast fuzzy search for books and authors by Ukushu")
   }
-
-  #if os(macOS)
-    @Test("SettingsSidebarView renders all panes and updates selectedPane binding on tap")
-    @MainActor
-    func settingsSidebarViewInspection() throws {
-      var selected: SettingsPane = .general
-      let binding = Binding(get: { selected }, set: { selected = $0 })
-      let sidebar = SettingsSidebarView(selectedPane: binding)
-        .environmentObject(AnimationSettings.shared)
-
-      let inspected = try sidebar.inspect()
-      #expect(try inspected.find(text: "General").string() == "General")
-      #expect(try inspected.find(text: "Storage").string() == "Storage")
-      #expect(try inspected.find(text: "Credits & About").string() == "Credits & About")
-
-      let creditsButton = try inspected.find(button: "Credits & About")
-      try creditsButton.tap()
-      #expect(selected == .credits)
-    }
-  #endif
 }

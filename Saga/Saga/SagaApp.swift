@@ -39,21 +39,6 @@ struct SagaApp: App {
             window.orderOut(nil)
           }
         }
-        return
-      }
-
-      // Close any restored settings window after app finishes launching
-      NotificationCenter.default.addObserver(
-        forName: NSApplication.didFinishLaunchingNotification,
-        object: nil,
-        queue: .main
-      ) { _ in
-        NSAnimationContext.runAnimationGroup { context in
-          context.duration = 0
-          for window in NSApp.windows where window.title == "Settings" {
-            window.close()
-          }
-        }
       }
     #endif
   }
@@ -88,13 +73,13 @@ struct SagaApp: App {
     .defaultSize(width: 1000, height: 600)
 
     #if os(macOS)
-      WindowGroup("Settings", id: "settings") {
+      Window("Settings", id: "settings") {
         SettingsView()
-          .windowBackground()
           .hotReloadable()
       }
       .windowResizability(.contentSize)
-      .defaultSize(width: 680, height: 560)
+      .defaultSize(width: 680, height: 520)
+      .restorationBehavior(.disabled)
       .handlesExternalEvents(matching: ["settings"])
       .environmentObject(syncViewModel)
       .environmentObject(cachesViewModel)

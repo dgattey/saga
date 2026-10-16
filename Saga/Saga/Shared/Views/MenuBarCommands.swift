@@ -7,10 +7,6 @@
 
 import SwiftUI
 
-#if os(macOS)
-  import AppKit
-#endif
-
 struct MenuBarCommands: Commands {
   @EnvironmentObject var syncViewModel: SyncViewModel
   @EnvironmentObject var cachesViewModel: CachesViewModel
@@ -57,26 +53,12 @@ struct MenuBarCommands: Commands {
 
     #if os(macOS)
       CommandGroup(replacing: .appSettings) {
+        // `Window` scenes are single-instance, so this focuses an already open Settings window.
         Button("Settings...") {
-          showSettingsWindow()
+          openWindow(id: "settings")
         }
         .keyboardShortcut(",", modifiers: [.command])
       }
     #endif
   }
-
-  #if os(macOS)
-    private func showSettingsWindow() {
-      // Find existing settings window and bring it to front
-      if let settingsWindow = NSApp.windows.first(where: { $0.title == "Settings" }) {
-        if settingsWindow.isMiniaturized {
-          settingsWindow.deminiaturize(nil)
-        }
-        settingsWindow.makeKeyAndOrderFront(nil)
-      } else {
-        // Open new window if none exists
-        openWindow(id: "settings")
-      }
-    }
-  #endif
 }

@@ -27,15 +27,12 @@ struct HomeSidebarRow: View {
       }
     } label: {
       HStack(spacing: 8) {
-        ZStack {
-          RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(Color.botanicalLeaf.opacity(isSelected ? 0.22 : 0.12))
-            .frame(width: 36, height: 36)
-          Image(systemName: "books.vertical.fill")
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(isSelected ? Color.botanicalLeaf : .secondary)
-        }
-        .frame(width: 42, height: 36, alignment: .center)
+        Image(systemName: "books.vertical.fill")
+          .font(.system(size: 15, weight: .semibold))
+          .foregroundStyle(Color.botanicalCream)
+          .frame(width: 32, height: 32)
+          .background(Color.botanicalOlive, in: .rect(cornerRadius: 8, style: .continuous))
+          .frame(width: 42, height: 36, alignment: .center)
 
         Text("Home")
           .font(.title3.weight(.semibold))
@@ -49,15 +46,8 @@ struct HomeSidebarRow: View {
     .buttonStyle(.plain)
     .background {
       if isSelected {
-        ZStack {
-          RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(selectionBackgroundColor)
-          Color.clear
-            .glassEffect(
-              .regular.tint(selectionBackgroundColor).interactive(),
-              in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-            )
-        }
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+          .fill(selectionBackgroundColor)
       }
     }
     .accessibilityIdentifier(AccessibilityID.Sidebar.homeButton)
