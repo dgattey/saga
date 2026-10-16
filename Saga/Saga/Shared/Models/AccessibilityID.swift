@@ -5,6 +5,7 @@ public enum AccessibilityID {
     public static let backButton = "toolbar.backButton"
     public static let forwardButton = "toolbar.forwardButton"
     public static let syncButton = "toolbar.syncButton"
+    public static let settingsButton = "toolbar.settingsButton"
   }
 
   public enum Sidebar {
@@ -28,10 +29,16 @@ public enum AccessibilityID {
 
   public enum Settings {
     public static let view = "settings.view"
+    public static let sidebar = "settings.sidebar"
+    public static let creditsView = "settings.creditsView"
     public static let clearCaches = "settings.clearCaches"
     public static let clearCachesAndData = "settings.clearCachesAndData"
     public static let checkForUpdates = "settings.checkForUpdates"
     public static let automaticallyCheckForUpdates = "settings.automaticallyCheckForUpdates"
     public static let automaticallyDownloadUpdates = "settings.automaticallyDownloadUpdates"
+
+    public static func pane(_ id: String) -> String {
+      "settings.pane.\(id)"
+    }
   }
 }

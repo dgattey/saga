@@ -15,8 +15,10 @@ import SwiftUI
 struct ContentView: View {
   @Environment(\.managedObjectContext) private var viewContext
   @EnvironmentObject private var syncViewModel: SyncViewModel
+  @EnvironmentObject private var cachesViewModel: CachesViewModel
   @EnvironmentObject private var animationSettings: AnimationSettings
   @State private var entry: NavigationEntry?
+  @State private var isShowingSettings = false
   @StateObject private var navigationHistory: NavigationHistory
   @StateObject private var scrollStore = ScrollPositionStore()
   @StateObject private var bookNavigationViewModel: BookNavigationViewModel
@@ -43,12 +45,29 @@ struct ContentView: View {
       preferredCompactColumn: $preferredCompactColumn,
       sidebar: {
         VStack(alignment: .leading, spacing: 16) {
-          HomeSidebarRow(
-            entry: $entry,
-            makeHomeEntry: {
-              navigationHistory.makeHomeEntry(currentEntry: entry, scrollStore: scrollStore)
-            }
-          )
+          HStack(spacing: 8) {
+            HomeSidebarRow(
+              entry: $entry,
+              makeHomeEntry: {
+                navigationHistory.makeHomeEntry(currentEntry: entry, scrollStore: scrollStore)
+              }
+            )
+            #if !os(macOS)
+              Button {
+                isShowingSettings = true
+              } label: {
+                Image(systemName: "gearshape")
+                  .font(.headline)
+                  .foregroundStyle(Color.botanicalLeaf)
+                  .frame(width: 32, height: 32)
+                  .glassEffect(.regular.interactive(), in: Circle())
+              }
+              .buttonStyle(.plain)
+              .accessibilityLabel("Settings")
+              .padding(.trailing, SidebarLayout.rowHorizontalPadding)
+              .padding(.top, 8)
+            #endif
+          }
           BooksListView(entry: $entry)
         }
         .botanicalPageBackground()
@@ -85,9 +104,18 @@ struct ContentView: View {
     .toolbar {
       ContentViewToolbar(
         navigationHistory: navigationHistory,
-        entry: $entry
+        entry: $entry,
+        isShowingSettings: $isShowingSettings
       )
     }
+    #if !os(macOS)
+      .sheet(isPresented: $isShowingSettings) {
+        SettingsView()
+        .environmentObject(syncViewModel)
+        .environmentObject(cachesViewModel)
+        .environmentObject(animationSettings)
+      }
+    #endif
     .onChange(of: entry) { oldEntry, newEntry in
       navigationHistory.onNavigationChange(from: oldEntry, to: newEntry)
       if newEntry != nil {

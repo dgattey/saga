@@ -13,6 +13,17 @@ struct ContentViewToolbar: ToolbarContent {
   @EnvironmentObject var animationSettings: AnimationSettings
   @ObservedObject var navigationHistory: NavigationHistory
   @Binding var entry: NavigationEntry?
+  @Binding var isShowingSettings: Bool
+
+  init(
+    navigationHistory: NavigationHistory,
+    entry: Binding<NavigationEntry?>,
+    isShowingSettings: Binding<Bool> = .constant(false)
+  ) {
+    self.navigationHistory = navigationHistory
+    self._entry = entry
+    self._isShowingSettings = isShowingSettings
+  }
 
   var body: some ToolbarContent {
     ToolbarItemGroup(placement: .navigation) {
@@ -42,7 +53,7 @@ struct ContentViewToolbar: ToolbarContent {
     ToolbarItem(placement: .principal) {
       Spacer()
     }
-    ToolbarItem(placement: .primaryAction) {
+    ToolbarItemGroup(placement: .primaryAction) {
       Button(action: {
         Task {
           await viewModel.sync()
@@ -53,6 +64,16 @@ struct ContentViewToolbar: ToolbarContent {
       }
       .disabled(viewModel.isSyncing || viewModel.isResetting)
       .accessibilityIdentifier(AccessibilityID.Toolbar.syncButton)
+
+      #if !os(macOS)
+        Button {
+          isShowingSettings = true
+        } label: {
+          Label("Settings", systemImage: "gearshape")
+        }
+        .accessibilityLabel("Settings")
+        .accessibilityIdentifier(AccessibilityID.Toolbar.settingsButton)
+      #endif
     }
   }
 }
