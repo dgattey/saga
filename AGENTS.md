@@ -25,7 +25,6 @@ shared UI/utilities.
 - `run checks` (format + lint), `run checks --format`, `run checks --lint`
 - `run bootstrap` to set up shell completions for `run`
 - `run config` to write `Config.xcconfig` (`--placeholder` for build-only environments)
-- `run drop-bot-commits` for version bump conflicts
 - `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml`)
 
 ## Code Style

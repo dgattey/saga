@@ -40,7 +40,6 @@ Swift-based scripts live in `scripts/Sources/` and are run via the `run` wrapper
 | `app` | Build, launch, or run UI tests |
 | `bootstrap` | Set up shell completions and pull secrets from 1Password |
 | `config` | Write `Saga/Saga/Config/Config.xcconfig` from the environment (or placeholders) |
-| `drop-bot-commits` | Drop version bump commits on branch and rebase onto main |
 | `checks` | Run Swift format and/or lint checks |
 | `clean` | Remove build artifacts and derived data |
 | `version-and-release` | Manage version tags and Github releases |
@@ -99,18 +98,11 @@ When adding a new Core Data model:
 
 ## Releases
 
-GitHub Actions automatically bump versions on PRs and create releases on merge:
+GitHub Actions automatically compute versions and create releases when PRs merge to `main`:
 
 - PRs include release type checkboxes (Major/Minor/Patch, default Patch) and a `# What changed?` section for release notes
-- On PR open/edit, the workflow reads the base version from `main`, computes the next version, sets the build number, and commits the bump
-- On merge, it creates a GitHub Release using the `# What changed?` text as release notes
-
-### Version conflicts
-
-If there are multiple branches, each with their own version bump, then one merges, there will be a
-conflict in `project.pbxproj`. To fix, `run drop-bot-commits` to remove bot-authored version bumps
-and rebase onto `origin/main`. Force pushing the branch should then recreate a new version bump
-commit and you're good.
+- CI checks run in parallel on PR branches without pushing version bump commits to the branch, avoiding `project.pbxproj` merge conflicts across open PRs
+- On merge, `release.yml` computes the next semantic version and Sparkle build number from the latest release tag and PR release type, packages and signs the macOS app, updates `appcast.xml`, and publishes a GitHub Release using the `# What changed?` text as release notes
 
 ### Manual management
 

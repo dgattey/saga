@@ -21,15 +21,13 @@ enum Constants {
 
 enum Command: String, CLISubcommandType, CaseIterable {
   case read
-  case bump
   case extractNotes = "extract-notes"
   case prComment = "pr-comment"
   case package
 
   var description: String {
     switch self {
-    case .read: "Read version/build from project file"
-    case .bump: "Bump PR branch (event + base ref + path)"
+    case .read: "Read or compute version/build from project file and optional release event"
     case .extractNotes: "Extract release notes from PR body"
     case .prComment: "Upsert PR version comment (will-be|released)"
     case .package: "Build, sign, zip, and generate Sparkle appcast.xml for macOS release"
@@ -42,8 +40,8 @@ let cli = SimpleCLI(
   subcommands: Command.allCases.map { ($0.rawValue, $0.description) },
   examples: [
     "run version-and-release read --path project.pbxproj",
-    "run version-and-release bump --event event.json --path project.pbxproj --base-ref origin/main",
-    "run version-and-release pr-comment --event event.json --version 2.0.0 --state will-be",
+    "run version-and-release read --path project.pbxproj --event event.json",
+    "run version-and-release pr-comment --event event.json --version 2.0.0 --state released",
     "run version-and-release package --version 2.1.0 --build 1042 --output-dir dist/release",
   ]
 )
@@ -234,25 +232,58 @@ func extractNotes(from body: String, preferConcise: Bool = false) -> String {
 
 // MARK: - Latest tag
 
-/// Returns the latest semantic version tag (e.g. v1.2.3) from the repo.
+/// Returns all semantic version tags sorted descending by version.
 /// Caller must run `git fetch --tags` first.
-func latestTagVersion() -> String? {
+func allSemverTags() -> [(major: Int, minor: Int, patch: Int)] {
   guard
     let output = try? runCommand(
       "git", ["tag", "--list", "--sort=-v:refname"],
       emitOutput: false
     )
-  else { return nil }
+  else { return [] }
   let tags = output.split(separator: "\n").map { String($0).trimmingCharacters(in: .whitespaces) }
+  var result: [(major: Int, minor: Int, patch: Int)] = []
   for tag in tags where !tag.isEmpty {
     let trimmed = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
     let parts = trimmed.split(separator: ".").map { String($0) }
     guard parts.count >= 3,
-      Int(parts[0]) != nil, Int(parts[1]) != nil, Int(parts[2]) != nil
+      let major = Int(parts[0]),
+      let minor = Int(parts[1]),
+      let patch = Int(parts[2])
     else { continue }
-    return trimmed
+    result.append((major, minor, patch))
   }
-  return nil
+  return result
+}
+
+/// Queries the latest published appcast.xml to find the highest live Sparkle build number.
+func latestAppcastBuildNumber(repoSlug: String) -> Int? {
+  guard !repoSlug.isEmpty,
+    let url = URL(string: "https://github.com/\(repoSlug)/releases/latest/download/appcast.xml")
+  else { return nil }
+  var request = URLRequest(url: url)
+  request.timeoutInterval = 10
+  guard let (data, response) = try? urlSessionSyncData(for: request),
+    let http = response as? HTTPURLResponse,
+    (200...299).contains(http.statusCode),
+    let xml = String(data: data, encoding: .utf8)
+  else { return nil }
+  let pattern = "<sparkle:version>\\s*(\\d+)\\s*</sparkle:version>"
+  guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+  let range = NSRange(xml.startIndex..<xml.endIndex, in: xml)
+  let matches = regex.matches(in: xml, range: range)
+  var highest: Int?
+  for match in matches {
+    guard let valueRange = Range(match.range(at: 1), in: xml),
+      let buildNum = Int(xml[valueRange])
+    else { continue }
+    if let current = highest {
+      highest = max(current, buildNum)
+    } else {
+      highest = buildNum
+    }
+  }
+  return highest
 }
 
 // MARK: - PR event loading
@@ -260,17 +291,28 @@ func latestTagVersion() -> String? {
 struct PullRequestEvent: Decodable {
   struct PullRequest: Decodable {
     let body: String?
+    let mergedAt: String?
     let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
       case body
+      case mergedAt = "merged_at"
       case updatedAt = "updated_at"
     }
   }
+  struct Repository: Decodable {
+    struct Owner: Decodable {
+      let login: String?
+    }
+    let owner: Owner?
+    let name: String?
+  }
   let pullRequest: PullRequest
+  let repository: Repository?
 
   enum CodingKeys: String, CodingKey {
     case pullRequest = "pull_request"
+    case repository
   }
 }
 
@@ -282,94 +324,83 @@ func loadPullRequestEvent(from path: String) throws -> PullRequestEvent {
 // MARK: - Commands
 
 func runRead(arguments: Arguments) throws {
-  let path = try arguments.require("--path")
+  let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
+  let defaultPbxproj = "\(repoRoot)/Saga/Saga.xcodeproj/project.pbxproj"
+  let path: String
+  if let customPath = arguments.value(for: "--path"), !customPath.isEmpty {
+    path = customPath
+  } else {
+    path = defaultPbxproj
+  }
   let fileURL = URL(fileURLWithPath: path)
   let content = try String(contentsOf: fileURL, encoding: .utf8)
   guard var version = extractValue(for: Constants.marketingVersionKey, in: content) else {
     throw ScriptError("MARKETING_VERSION not found")
   }
-  guard let build = extractValue(for: Constants.buildVersionKey, in: content) else {
+  guard var build = extractValue(for: Constants.buildVersionKey, in: content) else {
     throw ScriptError("CURRENT_PROJECT_VERSION not found")
   }
 
-  if let eventPath = arguments.value(for: "--event"), !eventPath.isEmpty,
-    let event = try? loadPullRequestEvent(from: eventPath),
-    let latestTag = latestTagVersion()
-  {
+  if let eventPath = arguments.value(for: "--event"), !eventPath.isEmpty {
+    let event = try loadPullRequestEvent(from: eventPath)
     let selectedReleaseType = releaseType(from: event.pullRequest.body ?? "")
     let currentSemver = try normalizedSemver(from: version)
-    let tagSemver = try normalizedSemver(from: latestTag)
-    let bumpedFromTag = try bumpVersion(tagSemver, releaseType: selectedReleaseType)
-    let resolvedSemver = maxSemver(currentSemver, bumpedFromTag)
+    let pbxprojBuild = Int(build) ?? 1
+    let semverTags = allSemverTags()
+
+    let resolvedSemver: (major: Int, minor: Int, patch: Int)
+    let alreadyBumpedInPbxproj: Bool
+    if let latestTag = semverTags.first {
+      alreadyBumpedInPbxproj = isSemverHigher(currentSemver, than: latestTag)
+      let bumpedFromTag = try bumpVersion(latestTag, releaseType: selectedReleaseType)
+      resolvedSemver = maxSemver(currentSemver, bumpedFromTag)
+    } else {
+      alreadyBumpedInPbxproj = false
+      resolvedSemver = try bumpVersion(currentSemver, releaseType: selectedReleaseType)
+    }
     let resolvedVersion = formatSemver(resolvedSemver)
-    if resolvedVersion != version {
-      let updatedContent = try replacingValue(
+
+    // Compute a strictly increasing Sparkle build number across sequential merges:
+    // 1. Half-hours since repo inception (preserves Saga's 22xxx build scale)
+    // 2. pbxproj build + count of tags newer than pbxproj + 1 (if not already bumped in pbxproj)
+    // 3. Live appcast.xml sparkle:version + 1 (if reachable)
+    let repoInception = 1_751_838_521
+    let eventEpoch =
+      (event.pullRequest.mergedAt.flatMap { try? epochSeconds(from: $0) })
+      ?? (event.pullRequest.updatedAt.flatMap { try? epochSeconds(from: $0) })
+      ?? Int(Date().timeIntervalSince1970)
+    let halfHoursSinceInception = (eventEpoch - repoInception) / 1800
+
+    let tagsNewerThanPbxproj = semverTags.filter { isSemverHigher($0, than: currentSemver) }.count
+    let pbxprojFloor =
+      alreadyBumpedInPbxproj
+      ? pbxprojBuild
+      : (pbxprojBuild + tagsNewerThanPbxproj + 1)
+
+    let envRepo = ProcessInfo.processInfo.environment["SAGA_REPO"] ?? "dgattey/saga"
+    let eventRepo: String? = {
+      guard let owner = event.repository?.owner?.login, !owner.isEmpty,
+        let name = event.repository?.name, !name.isEmpty
+      else { return nil }
+      return "\(owner)/\(name)"
+    }()
+    let repoSlug = eventRepo ?? envRepo
+    let liveAppcastFloor = (latestAppcastBuildNumber(repoSlug: repoSlug) ?? -1) + 1
+
+    let resolvedBuild = String(max(pbxprojFloor, halfHoursSinceInception, liveAppcastFloor))
+    if resolvedVersion != version || resolvedBuild != build {
+      let updatedVersionContent = try replacingValue(
         for: Constants.marketingVersionKey, with: resolvedVersion, in: content)
+      let updatedContent = try replacingValue(
+        for: Constants.buildVersionKey, with: resolvedBuild, in: updatedVersionContent)
       try updatedContent.write(to: fileURL, atomically: true, encoding: .utf8)
       version = resolvedVersion
+      build = resolvedBuild
     }
   }
 
   print("VERSION=\(version)")
   print("BUILD=\(build)")
-}
-
-func runBump(arguments: Arguments) throws {
-  let eventPath = try arguments.require("--event")
-  let path = try arguments.require("--path")
-  let baseRef = try arguments.require("--base-ref")
-
-  let event = try loadPullRequestEvent(from: eventPath)
-  let body = event.pullRequest.body ?? ""
-  guard let updatedAt = event.pullRequest.updatedAt else {
-    throw ScriptError("pull_request.updated_at missing")
-  }
-  let releaseType = releaseType(from: body)
-  let updatedEpoch = try epochSeconds(from: updatedAt)
-
-  let baseContent = try runCommand(
-    "git", ["show", "\(baseRef):\(path)"],
-    emitOutput: false
-  )
-  guard let baseVersionRaw = extractValue(for: Constants.marketingVersionKey, in: baseContent),
-    let baseBuildRaw = extractValue(for: Constants.buildVersionKey, in: baseContent)
-  else {
-    throw ScriptError("Could not read version/build from \(baseRef):\(path)")
-  }
-  guard let baseBuild = Int(baseBuildRaw) else {
-    throw ScriptError("Invalid base build: \(baseBuildRaw)")
-  }
-
-  let baseSemver = try normalizedSemver(from: baseVersionRaw)
-  let versionBase = latestTagVersion() ?? baseVersionRaw
-  let versionSemver = try normalizedSemver(from: versionBase)
-  let bumpedSemver = try bumpVersion(versionSemver, releaseType: releaseType)
-  let resolvedSemver = maxSemver(bumpedSemver, baseSemver)
-  let fromVersion = versionBase
-  let toVersion = formatSemver(resolvedSemver)
-
-  let repoInception = 1_751_838_521
-  let halfHoursSinceInception = (updatedEpoch - repoInception) / 1800
-  let isNewFormat = baseBuild < 100000
-  let toBuild = isNewFormat ? max(baseBuild + 1, halfHoursSinceInception) : halfHoursSinceInception
-
-  let fileURL = URL(fileURLWithPath: path)
-  let content = try String(contentsOf: fileURL, encoding: .utf8)
-  let newContent = try replacingValue(
-    for: Constants.marketingVersionKey, with: toVersion, in: content)
-  let finalContent = try replacingValue(
-    for: Constants.buildVersionKey, with: String(toBuild), in: newContent)
-
-  let changed = finalContent != content
-  if changed {
-    try finalContent.write(to: fileURL, atomically: true, encoding: .utf8)
-  }
-
-  print("VERSION_FROM=\(fromVersion)")
-  print("VERSION_TO=\(toVersion)")
-  print("BUILD_FROM=\(baseBuild)")
-  print("BUILD_TO=\(toBuild)")
-  print("CHANGED=\(changed ? "1" : "0")")
 }
 
 func runExtractNotes(arguments: Arguments) throws {
@@ -503,8 +534,13 @@ func upsertPrComment(
   throws
 {
   let base = "https://api.github.com"
-  var request = URLRequest(
-    url: URL(string: "\(base)/repos/\(owner)/\(repo)/issues/\(issueNumber)/comments?per_page=100")!)
+  guard
+    let listURL = URL(
+      string: "\(base)/repos/\(owner)/\(repo)/issues/\(issueNumber)/comments?per_page=100")
+  else {
+    throw ScriptError("Invalid GitHub comments URL")
+  }
+  var request = URLRequest(url: listURL)
   request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
   request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
   request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -519,18 +555,17 @@ func upsertPrComment(
     let id: Int
     let body: String?
   }
-  struct CommentList: Decodable {
-    let list: [Comment]
-    init(from decoder: Decoder) throws {
-      list = try [Comment](from: decoder)
-    }
-  }
   let comments = try JSONDecoder().decode([Comment].self, from: data)
   let existing = comments.first { ($0.body ?? "").contains(marker) }
 
   if let comment = existing {
-    var patchRequest = URLRequest(
-      url: URL(string: "\(base)/repos/\(owner)/\(repo)/issues/comments/\(comment.id)")!)
+    guard
+      let patchURL = URL(
+        string: "\(base)/repos/\(owner)/\(repo)/issues/comments/\(comment.id)")
+    else {
+      throw ScriptError("Invalid GitHub comment PATCH URL")
+    }
+    var patchRequest = URLRequest(url: patchURL)
     patchRequest.httpMethod = "PATCH"
     patchRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     patchRequest.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -544,8 +579,13 @@ func upsertPrComment(
       throw ScriptError("GitHub API PATCH error: \(msg)")
     }
   } else {
-    var postRequest = URLRequest(
-      url: URL(string: "\(base)/repos/\(owner)/\(repo)/issues/\(issueNumber)/comments")!)
+    guard
+      let postURL = URL(
+        string: "\(base)/repos/\(owner)/\(repo)/issues/\(issueNumber)/comments")
+    else {
+      throw ScriptError("Invalid GitHub comment POST URL")
+    }
+    var postRequest = URLRequest(url: postURL)
     postRequest.httpMethod = "POST"
     postRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
     postRequest.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -579,7 +619,6 @@ struct VersionAndReleaseCommand {
 
       switch command {
       case .read: try runRead(arguments: arguments)
-      case .bump: try runBump(arguments: arguments)
       case .extractNotes: try runExtractNotes(arguments: arguments)
       case .prComment: try runPrComment(arguments: arguments)
       case .package: try runPackage(arguments: arguments)

@@ -7,98 +7,29 @@ on:
 jobs:
   bump:
     name: 📦 Bump version
-    # Only run for same-repo PRs, not forks
-    if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: macos-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    outputs:
-      head-sha: ${{ steps.head.outputs.sha }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
-          token: ${{ secrets.PAT_FOR_ACTIONS }}
-
-      - name: Fetch main and tags
-        run: |
-          git fetch origin main
-          git fetch --tags
-
-      - name: Check if last commit is bot
-        id: check-bot
+      - name: Verify PR release info
         env:
-          EVENT_ACTION: ${{ github.event.action }}
-          EVENT_ACTOR: ${{ github.actor }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set -euo pipefail
-          LAST_AUTHOR=$(git log -1 --format='%an')
-          if [ "$EVENT_ACTOR" = "github-actions[bot]" ]; then
-            echo "Triggered by bot actor. Skipping bump steps."
-            echo "SKIP=true" >> "$GITHUB_OUTPUT"
-          elif [ "$EVENT_ACTION" != "edited" ] && [ "$LAST_AUTHOR" = "github-actions[bot]" ]; then
-            echo "Last commit was by bot on non-edit event. Skipping bump steps."
-            echo "SKIP=true" >> "$GITHUB_OUTPUT"
+          if printf '%s\n' "$PR_BODY" | grep -qiE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Major\b'; then
+            release_type="major"
+          elif printf '%s\n' "$PR_BODY" | grep -qiE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Minor\b'; then
+            release_type="minor"
           else
-            echo "SKIP=false" >> "$GITHUB_OUTPUT"
+            release_type="patch"
           fi
-
-      - name: Bump version
-        id: bump
-        if: steps.check-bot.outputs.SKIP != 'true'
-        run: |
-          set -euo pipefail
-          bump_output="$(./run version-and-release bump \
-            --event "$GITHUB_EVENT_PATH" \
-            --path "${{ vars.PBXPROJ_PATH }}" \
-            --base-ref origin/main)"
-          echo "version_from=$(echo "$bump_output" | awk -F= '/^VERSION_FROM=/{print $2}')" >> "$GITHUB_OUTPUT"
-          echo "version_to=$(echo "$bump_output" | awk -F= '/^VERSION_TO=/{print $2}')" >> "$GITHUB_OUTPUT"
-          echo "build_from=$(echo "$bump_output" | awk -F= '/^BUILD_FROM=/{print $2}')" >> "$GITHUB_OUTPUT"
-          echo "build_to=$(echo "$bump_output" | awk -F= '/^BUILD_TO=/{print $2}')" >> "$GITHUB_OUTPUT"
-          echo "changed=$(echo "$bump_output" | awk -F= '/^CHANGED=/{print $2}')" >> "$GITHUB_OUTPUT"
-
-      - name: Commit version bump
-        id: commit
-        if: steps.check-bot.outputs.SKIP != 'true' && github.actor != 'github-actions[bot]' && steps.bump.outputs.changed == '1'
-        run: |
-          set -euo pipefail
-          if git diff --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          git add "${{ vars.PBXPROJ_PATH }}"
-          git -c user.name="github-actions[bot]" \
-            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            commit -m "Bump version to ${{ steps.bump.outputs.version_to }} (${{ steps.bump.outputs.build_to }})"
-          git remote set-url origin "https://x-access-token:${{ secrets.PAT_FOR_ACTIONS }}@github.com/${{ github.repository }}.git"
-          git push origin "HEAD:${{ github.head_ref }}"
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Get HEAD SHA
-        id: head
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Post PR version comment
-        if: steps.check-bot.outputs.SKIP != 'true' && github.actor != 'github-actions[bot]' && (steps.bump.outputs.changed == '1' || github.event.action == 'edited')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.bump.outputs.version_to }}
-        run: |
-          ./run version-and-release pr-comment --event "$GITHUB_EVENT_PATH" --version "$VERSION" --state will-be
+          echo "Release bump type: ${release_type} (version and build are computed at release time on merge)"
 
   format:
     name: 🎨 Format
-    needs: bump
     runs-on: macos-latest
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.bump.outputs.head-sha }}
           fetch-depth: 0
 
       - name: Check formatting
@@ -106,13 +37,11 @@ jobs:
 
   lint:
     name: 🔍 Lint
-    needs: bump
     runs-on: macos-latest
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.bump.outputs.head-sha }}
           fetch-depth: 0
 
       - name: Lint
@@ -120,13 +49,11 @@ jobs:
 
   build:
     name: 🔨 Build
-    needs: bump
     runs-on: macos-latest
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.bump.outputs.head-sha }}
           fetch-depth: 0
 
       - name: Build
