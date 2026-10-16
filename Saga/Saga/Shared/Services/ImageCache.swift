@@ -59,10 +59,25 @@ enum ImageCache {
   // MARK: Private State
 
   /// In-memory cache keyed by content hash (e.g., "isbn:123:200")
-  private static let imageCache = NSCache<NSString, CGImage>()
+  private static let imageCache: NSCache<NSString, CGImage> = {
+    let cache = NSCache<NSString, CGImage>()
+    cache.countLimit = 512
+    return cache
+  }()
 
   /// In-memory cache keyed by URL for fast lookups when URL is known
-  private static let urlImageCache = NSCache<NSString, CGImage>()
+  private static let urlImageCache: NSCache<NSString, CGImage> = {
+    let cache = NSCache<NSString, CGImage>()
+    cache.countLimit = 512
+    return cache
+  }()
+
+  /// Options forcing ImageIO to decode disk-cached PNGs on the background thread
+  private static let diskDecodeOptions: CFDictionary =
+    [
+      kCGImageSourceShouldCache: true,
+      kCGImageSourceShouldCacheImmediately: true,
+    ] as CFDictionary
 
   /// Memoizes SHA256 disk cache file URLs by cache key to avoid repeated hashing and string formatting
   private static let fileURLCache = NSCache<NSString, NSURL>()
@@ -309,7 +324,7 @@ enum ImageCache {
     return url
   }
 
-  /// Loads an image from disk cache, if it exists.
+  /// Loads an image from disk cache, if it exists, decoding immediately on the current background thread.
   private static func loadDiskCachedImage(for key: NSString) -> CGImage? {
     let url = cacheFileURL(for: key)
     guard FileManager.default.fileExists(atPath: url.path) else {
@@ -318,7 +333,7 @@ enum ImageCache {
     guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
       return nil
     }
-    return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    return CGImageSourceCreateImageAtIndex(source, 0, diskDecodeOptions)
   }
 
   /// Saves an image to disk cache as PNG, then schedules coalesced size limit enforcement.
@@ -344,13 +359,15 @@ enum ImageCache {
   // MARK: - Image Processing (Private)
 
   /// Downsamples image data to fit within maxPixelSize while preserving aspect ratio.
-  /// Uses ImageIO for memory-efficient loading (doesn't decode full image).
+  /// Uses ImageIO for memory-efficient loading and immediate background bitmap decoding.
   private static func downsampleImage(from data: Data, maxPixelSize: CGFloat) -> CGImage? {
     let options =
       [
         kCGImageSourceCreateThumbnailFromImageAlways: true,
         kCGImageSourceThumbnailMaxPixelSize: Int(maxPixelSize),
         kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceShouldCache: true,
+        kCGImageSourceShouldCacheImmediately: true,
       ] as CFDictionary
     guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
       return nil

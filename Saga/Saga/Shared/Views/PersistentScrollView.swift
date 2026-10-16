@@ -44,6 +44,12 @@ struct PersistentScrollView<Content: View>: View {
   }
 }
 
+private final class ScrollLifecycleState {
+  var isRestoring = false
+  var didNotifyRestore = false
+  var pendingRestoreNotify = false
+}
+
 private struct PersistentScrollViewBody<Content: View>: View {
   @ObservedObject var scrollStore: ScrollPositionStore
 
@@ -54,9 +60,7 @@ private struct PersistentScrollViewBody<Content: View>: View {
   let content: () -> Content
 
   @State private var position: ScrollPosition
-  @State private var isRestoring = false
-  @State private var didNotifyRestore = false
-  @State private var pendingRestoreNotify = false
+  @State private var lifecycle = ScrollLifecycleState()
 
   init(
     scrollStore: ScrollPositionStore,
@@ -91,18 +95,17 @@ private struct PersistentScrollViewBody<Content: View>: View {
     }
     .scrollContentBackground(.hidden)
     .scrollPosition($position)
-    .onScrollGeometryChange(for: Double.self) { geometry in
-      if axis.contains(.vertical) {
-        return Double(geometry.contentOffset.y)
-      }
-      return Double(geometry.contentOffset.x)
+    .onScrollGeometryChange(for: Int.self) { geometry in
+      let rawOffset = axis.contains(.vertical) ? geometry.contentOffset.y : geometry.contentOffset.x
+      guard rawOffset.isFinite else { return 0 }
+      return Int(rawOffset.rounded())
     } action: { _, newValue in
-      if pendingRestoreNotify {
-        pendingRestoreNotify = false
+      if lifecycle.pendingRestoreNotify {
+        lifecycle.pendingRestoreNotify = false
         notifyRestoreIfNeeded()
       }
-      guard !isRestoring, newValue.isFinite else { return }
-      scrollStore.update(newValue, for: scrollKey)
+      guard !lifecycle.isRestoring else { return }
+      scrollStore.update(Double(newValue), for: scrollKey)
     }
     .onChange(of: scrollStore.resetToken) {
       restorePosition()
@@ -112,12 +115,12 @@ private struct PersistentScrollViewBody<Content: View>: View {
       restorePosition()
     }
     .onAppear {
-      pendingRestoreNotify = true
+      lifecycle.pendingRestoreNotify = true
     }
   }
 
   private func restorePosition() {
-    isRestoring = true
+    lifecycle.isRestoring = true
     if let storedPosition = scrollStore.position(for: scrollKey) {
       if axis.contains(.vertical) {
         position = ScrollPosition(y: CGFloat(storedPosition))
@@ -128,15 +131,16 @@ private struct PersistentScrollViewBody<Content: View>: View {
       position = ScrollPosition(edge: axis.contains(.vertical) ? .top : .leading)
     }
 
+    let currentLifecycle = lifecycle
     DispatchQueue.main.async {
-      isRestoring = false
-      pendingRestoreNotify = true
+      currentLifecycle.isRestoring = false
+      currentLifecycle.pendingRestoreNotify = true
     }
   }
 
   private func notifyRestoreIfNeeded() {
-    guard !didNotifyRestore else { return }
-    didNotifyRestore = true
+    guard !lifecycle.didNotifyRestore else { return }
+    lifecycle.didNotifyRestore = true
     onRestore?()
   }
 }

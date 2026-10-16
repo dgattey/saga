@@ -53,26 +53,20 @@ struct DownsampledAsyncImage: View {
         sizeUpdateTask?.cancel()
         sizeUpdateTask = nil
         if let activeCacheKey {
+          let keyToUnregister = activeCacheKey
+          self.activeCacheKey = nil
           Task {
-            await ImageCache.unregisterRequest(for: activeCacheKey, id: requestID)
+            await ImageCache.unregisterRequest(for: keyToUnregister, id: requestID)
           }
         }
-        activeCacheKey = nil
       }
       .background(sizeReaderView)
-      .onAppear {
-        if let resolvedTargetSize {
-          applyTargetSize(resolvedTargetSize)
-        }
-      }
       .onChange(of: targetSize) { _, newValue in
         guard let newValue, newValue != .zero else { return }
         applyTargetSize(newValue)
       }
       .onChange(of: displayScale) { _, _ in
-        if let resolvedTargetSize {
-          applyTargetSize(resolvedTargetSize)
-        } else {
+        if resolvedTargetSize == nil {
           scheduleTargetSizeUpdate(lastMeasuredSize)
         }
       }
@@ -92,12 +86,10 @@ struct DownsampledAsyncImage: View {
       placeholder
     } else {
       ZStack {
-        Color.clear
-          .glassEffect(
-            .regular.tint(Color.botanicalLeaf.opacity(0.08)),
-            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-          )
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+          .fill(Color.botanicalLeaf.opacity(0.08))
         ProgressView()
+          .controlSize(.small)
       }
     }
   }
@@ -157,11 +149,11 @@ struct DownsampledAsyncImage: View {
   }
 
   private var effectiveMaxPixelSize: CGFloat {
-    if targetMaxPixelSize > 0 {
-      return targetMaxPixelSize
-    }
     if let resolvedTargetSize {
       return bucketedMaxPixelSize(for: resolvedTargetSize)
+    }
+    if targetMaxPixelSize > 0 {
+      return targetMaxPixelSize
     }
     return 0
   }
@@ -175,17 +167,30 @@ struct DownsampledAsyncImage: View {
   }
 
   private func loadImage(cacheKey: NSString, maxPixelSize: CGFloat, urlKey: String) async {
-    if activeURLKey != urlKey {
-      activeURLKey = urlKey
-      renderedImage = nil
-      didFail = false
-    }
     guard maxPixelSize > 0 else { return }
     guard !Task.isCancelled else { return }
+
+    // Fast path: if already in memory cache, `cachedImage` renders synchronously in `contentView`
+    // without needing any @State mutation unless stale state from a previous URL exists.
     if let memoryCached = ImageCache.memoryCachedImage(for: cacheKey) {
-      renderedImage = Image(decorative: memoryCached, scale: displayScale)
-      didFail = false
+      if activeURLKey != nil && activeURLKey != urlKey {
+        activeURLKey = urlKey
+        renderedImage = Image(decorative: memoryCached, scale: displayScale)
+      }
+      if didFail {
+        didFail = false
+      }
       return
+    }
+
+    if activeURLKey != urlKey {
+      activeURLKey = urlKey
+      if renderedImage != nil {
+        renderedImage = nil
+      }
+      if didFail {
+        didFail = false
+      }
     }
     if let previousKey = activeCacheKey,
       previousKey != cacheKey
