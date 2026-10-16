@@ -62,6 +62,7 @@ jobs:
       - name: Build and package macOS release + Sparkle appcast
         id: package
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SPARKLE_ED_PRIVATE_KEY_BASE64: ${{ secrets.SPARKLE_ED_PRIVATE_KEY_BASE64 }}
           SAGA_RELEASE_NOTES: ${{ steps.notes.outputs.sparkle_notes }}
           SAGA_REPO: ${{ github.repository }}

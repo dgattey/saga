@@ -25,7 +25,7 @@ shared UI/utilities.
 - `run checks` (format + lint), `run checks --format`, `run checks --lint`
 - `run bootstrap` to set up shell completions for `run`
 - `run config` to write `Config.xcconfig` (`--placeholder` for build-only environments)
-- `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml`)
+- `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml` via `scripts/generate-appcast.sh` and `scripts/release-notes.sh` with cumulative release notes capped at the last 10 versions)
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)

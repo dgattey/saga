@@ -1,19 +1,25 @@
 #!/usr/bin/env bash
-# Generate a Sparkle 2 appcast.xml with clean, scannable HTML release notes inside CDATA.
+# Generate a Sparkle 2 appcast.xml with cumulative versioned HTML release notes inside CDATA.
 #
-# Converts Markdown release notes (`# Release notes`, `# Highlights`, or `# What changed?`)
-# into styled HTML (`<ul><li style="margin-bottom: 6px; line-height: 1.45;">...</li></ul>`,
-# `<code>...</code>`, `<strong>...</strong>`) and wraps them in `<description><![CDATA[...]]></description>`.
+# Delegates cumulative HTML release-notes formatting (new version `<h3>` + carried-forward
+# prior versions capped at 10) to `scripts/release-notes.sh`, signs or verifies the release
+# archive with Sparkle's tools, and emits `<sparkle:fullReleaseNotesLink>` alongside any
+# `generate_appcast --full-release-notes-url` invocation.
 #
 # Usage:
 #   ./scripts/generate-appcast.sh <version> <build> <zip-path-or-bytes> <output-appcast-path> [pub-date]
 #
 # Environment variables:
-#   SAGA_RELEASE_NOTES            — Markdown or HTML release notes for the update item
-#   SAGA_REPO                     — GitHub repository (default: dgattey/saga)
-#   SPARKLE_ED_KEY_FILE           — Optional path to Sparkle EdDSA private key file for signing
-#   SPARKLE_ED_PRIVATE_KEY_BASE64 — Optional base64-encoded Sparkle EdDSA private key
-#   DERIVED_DATA                  — Optional DerivedData directory to locate Sparkle's sign_update
+#   SAGA_RELEASE_NOTES              — Markdown or HTML release notes for the update item
+#   SAGA_PREVIOUS_APPCAST           — Optional path or URL to previous `appcast.xml`
+#   SAGA_RELEASES_JSON              — Optional path or JSON string of GitHub Releases
+#   SAGA_FETCH_PREVIOUS_NOTES       — Set to `0` to disable network fetches for prior notes (default: `1`)
+#   SAGA_MAX_RELEASE_NOTES_VERSIONS — Maximum cumulative versions to keep (default: `10`)
+#   SAGA_FULL_RELEASE_NOTES_URL     — Full release notes URL (default: `https://github.com/dgattey/saga/releases`)
+#   SAGA_REPO                       — GitHub repository (default: `dgattey/saga`)
+#   SPARKLE_ED_KEY_FILE             — Optional path to Sparkle EdDSA private key file for signing
+#   SPARKLE_ED_PRIVATE_KEY_BASE64   — Optional base64-encoded Sparkle EdDSA private key
+#   DERIVED_DATA                    — Optional DerivedData directory to locate Sparkle's tools
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,6 +32,7 @@ ZIP_INPUT="${3:?generate-appcast: zip path or byte length is required (arg 3)}"
 APPCAST_PATH="${4:-$ROOT/dist/release/appcast.xml}"
 PUB_DATE="${5:-$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')}"
 REPO="${SAGA_REPO:-dgattey/saga}"
+FULL_RELEASE_NOTES_URL="${SAGA_FULL_RELEASE_NOTES_URL:-https://github.com/${REPO}/releases}"
 
 if [[ -f "$ZIP_INPUT" ]]; then
   ZIP_PATH="$ZIP_INPUT"
@@ -73,148 +80,16 @@ elif [[ -z "${SPARKLE_ED_KEY_FILE:-}" && -f "$ROOT/.cert/sparkle_ed.key" ]]; the
   export SPARKLE_ED_KEY_FILE="$ROOT/.cert/sparkle_ed.key"
 fi
 
-# Format Markdown release notes into clean, scannable HTML suitable for Sparkle's WebKit view.
-format_release_notes_html() {
-  python3 - "$VERSION" <<'PY'
-import html
-import os
-import re
-import sys
+# If APPCAST_PATH already exists locally and SAGA_PREVIOUS_APPCAST is unset, preserve it as the previous appcast source
+if [[ -z "${SAGA_PREVIOUS_APPCAST:-}" && -f "$APPCAST_PATH" ]]; then
+  PREV_APPCAST_COPY="$(mktemp /tmp/saga-prev-appcast.XXXXXX.xml)"
+  cleanup_files+=("$PREV_APPCAST_COPY")
+  cp "$APPCAST_PATH" "$PREV_APPCAST_COPY"
+  export SAGA_PREVIOUS_APPCAST="$PREV_APPCAST_COPY"
+fi
 
-version = sys.argv[1]
-raw = os.environ.get("SAGA_RELEASE_NOTES", "").strip()
-
-# Strip HTML comments (e.g. CURSOR_AGENT_PR_BODY markers)
-raw = re.sub(r"<!--[\s\S]*?-->", "", raw).strip()
-
-# If full PR body was passed, prefer # Release notes -> # Highlights -> # What changed?
-def extract_section(text: str, heading: str) -> str:
-    lines = text.splitlines()
-    in_section = False
-    collected = []
-    heading_re = re.compile(rf"^#+\s*{re.escape(heading)}\s*$", re.IGNORECASE)
-    any_heading_re = re.compile(r"^#+\s+\S")
-    hr_re = re.compile(r"^-+\s*$")
-    for line in lines:
-        if heading_re.match(line.strip()):
-            in_section = True
-            continue
-        if in_section:
-            if any_heading_re.match(line.strip()) or hr_re.match(line.strip()):
-                break
-            collected.append(line)
-    # Filter out bare '-' placeholder lines
-    cleaned = [l for l in collected if not re.match(r"^\s*[-*]\s*$", l)]
-    return "\n".join(cleaned).strip()
-
-for section_name in ("Release notes", "Highlights", "What changed?"):
-    extracted = extract_section(raw, section_name)
-    if extracted:
-        raw = extracted
-        break
-
-# If already HTML with <ul> or <p>, keep it as-is
-if re.search(r"<(ul|ol|li|p)\b", raw, re.IGNORECASE):
-    print(raw)
-    sys.exit(0)
-
-PATH_EXT_RE = re.compile(
-    r"^("
-    r"[/\.]\S+|"
-    r"(?:Saga|scripts|server|\.github)/\S*|"
-    r"\S+\.(?:swift|ts|tsx|js|mjs|css|json|yml|yaml|sh|md|plist|entitlements|pbxproj|xcframework|png|jpg|jpeg|svg|ico|xml)|"
-    r"npm\s+test"
-    r")$"
-)
-
-def is_noise_paren(inner: str) -> bool:
-    # Split on ',', 'and', 'or' and check if all parts are backticked/bare repo file paths
-    cleaned = inner.strip()
-    if not cleaned:
-        return True
-    parts = re.split(r"\s*(?:,|\band\b|\bor\b)\s*", cleaned)
-    for part in parts:
-        token = part.strip().strip("`").strip()
-        if not token or not PATH_EXT_RE.match(token):
-            return False
-    return True
-
-def strip_file_path_parens(text: str) -> str:
-    def repl(match: re.Match) -> str:
-        inner = match.group(1)
-        if is_noise_paren(inner):
-            return ""
-        return match.group(0)
-    out = re.sub(r"\s*\(([^()]+)\)", repl, text)
-    # Collapse double spaces before punctuation
-    out = re.sub(r"\s+([,.;:])", r"\1", out)
-    out = re.sub(r"  +", " ", out)
-    return out.strip()
-
-def render_inline(text: str) -> str:
-    text = strip_file_path_parens(text)
-    escaped = html.escape(text, quote=False)
-    # Convert markdown links [label](https://...)
-    escaped = re.sub(
-        r"\[([^\]]+)\]\((https?://[^\s)]+)\)",
-        r'<a href="\2">\1</a>',
-        escaped,
-    )
-    # Convert **bold**
-    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
-    # Convert `code`
-    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
-    return escaped
-
-lines = raw.splitlines()
-bullets = []
-paragraphs = []
-current_bullet = None
-
-for line in lines:
-    stripped = line.strip()
-    if not stripped:
-        if current_bullet is not None:
-            bullets.append(current_bullet)
-            current_bullet = None
-        continue
-    # Skip standalone markdown images or raw image/video tags
-    if re.match(r"^!\[[^\]]*\]\([^)]+\)$", stripped) or re.match(r"^<(?:img|video)\b", stripped, re.IGNORECASE):
-        continue
-    # Skip markdown headings
-    if re.match(r"^#+\s+", stripped):
-        continue
-    bullet_match = re.match(r"^[-*]\s+(.+)$", stripped)
-    if bullet_match:
-        if current_bullet is not None:
-            bullets.append(current_bullet)
-        current_bullet = bullet_match.group(1).strip()
-    elif current_bullet is not None:
-        current_bullet = f"{current_bullet} {stripped}"
-    else:
-        paragraphs.append(stripped)
-
-if current_bullet is not None:
-    bullets.append(current_bullet)
-
-out_parts = []
-if paragraphs:
-    for p in paragraphs:
-        out_parts.append(f'<p style="margin: 0 0 8px 0; line-height: 1.45;">{render_inline(p)}</p>')
-if bullets:
-    out_parts.append("<ul>")
-    for b in bullets:
-        out_parts.append(f'  <li style="margin-bottom: 6px; line-height: 1.45;">{render_inline(b)}</li>')
-    out_parts.append("</ul>")
-
-if not out_parts:
-    out_parts.append(f'<p style="margin: 0; line-height: 1.45;">Release v{html.escape(version)}</p>')
-
-print("\n".join(out_parts))
-PY
-}
-
-NOTES_HTML="$(format_release_notes_html)"
+# Format cumulative HTML release notes (new version at top + carried-forward prior versions capped at 10)
+NOTES_HTML="$("$ROOT/scripts/release-notes.sh" "$VERSION")"
 
 # Sign the archive with Sparkle's sign_update (via explicit key file or macOS Keychain)
 ED_SIGNATURE_ATTR=""
@@ -229,6 +104,32 @@ if [[ -n "$ZIP_PATH" ]]; then
     elif [[ "${ALLOW_KEYCHAIN_SPARKLE_SIGN:-1}" == "1" ]]; then
       if ED_SIG="$("$SU_TOOL" -p "$ZIP_PATH" 2>/dev/null | tr -d '[:space:]')" && [[ -n "$ED_SIG" ]]; then
         ED_SIGNATURE_ATTR=" sparkle:edSignature=\"${ED_SIG}\""
+      fi
+    fi
+  fi
+
+  # If Sparkle's generate_appcast binary is available and we still need a signature (or to validate flags),
+  # pass --full-release-notes-url "https://github.com/dgattey/saga/releases" when supported by generate_appcast -h.
+  GA_TOOL="$(find_sparkle_tool generate_appcast "${DERIVED_DATA:-}" || find_sparkle_tool generate_appcast || true)"
+  if [[ -n "$GA_TOOL" && -x "$GA_TOOL" ]]; then
+    GA_ARGS=()
+    if "$GA_TOOL" -h 2>&1 | grep -q -- '--full-release-notes-url'; then
+      GA_ARGS+=(--full-release-notes-url "$FULL_RELEASE_NOTES_URL")
+    fi
+    if [[ -z "$ED_SIGNATURE_ATTR" ]]; then
+      GA_WORK_DIR="$(mktemp -d /tmp/saga-gen-appcast.XXXXXX)"
+      cleanup_files+=("$GA_WORK_DIR")
+      cp "$ZIP_PATH" "$GA_WORK_DIR/"
+      GA_KEY_ARGS=()
+      if [[ -n "${SPARKLE_ED_KEY_FILE:-}" && -f "${SPARKLE_ED_KEY_FILE}" ]]; then
+        GA_KEY_ARGS+=(--ed-key-file "$SPARKLE_ED_KEY_FILE")
+      fi
+      if "$GA_TOOL" "${GA_KEY_ARGS[@]}" "${GA_ARGS[@]}" "$GA_WORK_DIR" >/dev/null 2>&1 && [[ -f "$GA_WORK_DIR/appcast.xml" ]]; then
+        GA_SIG="$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' "$GA_WORK_DIR/appcast.xml" | head -n 1)"
+        if [[ -n "$GA_SIG" ]]; then
+          ED_SIG="$GA_SIG"
+          ED_SIGNATURE_ATTR=" sparkle:edSignature=\"${ED_SIG}\""
+        fi
       fi
     fi
   fi
@@ -278,6 +179,7 @@ cat >"$APPCAST_PATH" <<XML
       <sparkle:version>${BUILD_NUMBER}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <sparkle:fullReleaseNotesLink>${FULL_RELEASE_NOTES_URL}</sparkle:fullReleaseNotesLink>
       <description><![CDATA[${NOTES_HTML}]]></description>
       <enclosure url="${DOWNLOAD_URL}" length="${ZIP_BYTES}" type="application/octet-stream"${ED_SIGNATURE_ATTR}/>
     </item>
