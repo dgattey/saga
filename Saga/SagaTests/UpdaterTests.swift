@@ -16,7 +16,7 @@ import ViewInspector
 struct UpdaterTests {
   private static let validFeedURL =
     "https://github.com/dgattey/saga/releases/latest/download/appcast.xml"
-  private static let validEDKey = "xqyI+DpKoEgJzi94SyA18QmwbcwnavEwpYrUGO//UAA="
+  private static let validEDKey = "p7SwMco+T0cqVfWgj0I99JtCoRX8a/NeM72wkLTvODM="
 
   @Test("UpdaterConfiguration validates HTTPS feed URL and 32-byte Ed25519 public key")
   func updaterConfigurationValidation() {

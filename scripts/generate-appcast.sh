@@ -58,6 +58,8 @@ if [[ -z "${SPARKLE_ED_KEY_FILE:-}" && -n "${SPARKLE_ED_PRIVATE_KEY_BASE64:-}" ]
   cleanup_files+=("$KEY_FILE")
   decode_secret_b64 "$SPARKLE_ED_PRIVATE_KEY_BASE64" >"$KEY_FILE"
   export SPARKLE_ED_KEY_FILE="$KEY_FILE"
+elif [[ -z "${SPARKLE_ED_KEY_FILE:-}" && -f "$ROOT/.cert/sparkle_ed.key" ]]; then
+  export SPARKLE_ED_KEY_FILE="$ROOT/.cert/sparkle_ed.key"
 fi
 
 # Format Markdown release notes into clean, scannable HTML suitable for Sparkle's WebKit view.
@@ -203,13 +205,46 @@ PY
 
 NOTES_HTML="$(format_release_notes_html)"
 
-# Optionally sign the archive with Sparkle's sign_update when a private key file is provided
+# Sign the archive with Sparkle's sign_update (via explicit key file or macOS Keychain)
 ED_SIGNATURE_ATTR=""
-if [[ -n "$ZIP_PATH" && -n "${SPARKLE_ED_KEY_FILE:-}" && -f "${SPARKLE_ED_KEY_FILE}" ]]; then
+ED_SIG=""
+if [[ -n "$ZIP_PATH" ]]; then
   SU_TOOL="$(find_sparkle_tool sign_update "${DERIVED_DATA:-}" || find_sparkle_tool sign_update || true)"
   if [[ -n "$SU_TOOL" && -x "$SU_TOOL" ]]; then
-    if ED_SIG="$("$SU_TOOL" --ed-key-file "$SPARKLE_ED_KEY_FILE" -p "$ZIP_PATH" 2>/dev/null | tr -d '[:space:]')" && [[ -n "$ED_SIG" ]]; then
-      ED_SIGNATURE_ATTR=" sparkle:edSignature=\"${ED_SIG}\""
+    if [[ -n "${SPARKLE_ED_KEY_FILE:-}" && -f "${SPARKLE_ED_KEY_FILE}" ]]; then
+      if ED_SIG="$("$SU_TOOL" --ed-key-file "$SPARKLE_ED_KEY_FILE" -p "$ZIP_PATH" 2>/dev/null | tr -d '[:space:]')" && [[ -n "$ED_SIG" ]]; then
+        ED_SIGNATURE_ATTR=" sparkle:edSignature=\"${ED_SIG}\""
+      fi
+    elif [[ "${ALLOW_KEYCHAIN_SPARKLE_SIGN:-1}" == "1" ]]; then
+      if ED_SIG="$("$SU_TOOL" -p "$ZIP_PATH" 2>/dev/null | tr -d '[:space:]')" && [[ -n "$ED_SIG" ]]; then
+        ED_SIGNATURE_ATTR=" sparkle:edSignature=\"${ED_SIG}\""
+      fi
+    fi
+  fi
+
+  if [[ "${REQUIRE_SPARKLE_SIGNATURE:-0}" == "1" && -z "$ED_SIGNATURE_ATTR" ]]; then
+    echo "generate-appcast: failed to generate sparkle:edSignature for $ZIP_PATH (ensure SPARKLE_ED_PRIVATE_KEY_BASE64, SPARKLE_ED_KEY_FILE, or Keychain key is configured and sign_update is available)" >&2
+    exit 1
+  fi
+
+  # Verify the generated Ed25519 signature against SUPublicEDKey in Info.plist when OpenSSL 3+ is available
+  INFO_PLIST="$ROOT/Saga/Saga/Config/Info.plist"
+  if [[ -n "$ED_SIG" && -f "$INFO_PLIST" && -x /usr/libexec/PlistBuddy ]] && openssl version 2>/dev/null | grep -q '^OpenSSL'; then
+    PUB_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$INFO_PLIST" 2>/dev/null | tr -d '[:space:]' || true)"
+    if [[ -n "$PUB_KEY" ]]; then
+      TMP_PUB="$(mktemp /tmp/saga-sparkle-pub.XXXXXX.pem)"
+      TMP_SIG="$(mktemp /tmp/saga-sparkle-sig.XXXXXX.bin)"
+      cleanup_files+=("$TMP_PUB" "$TMP_SIG")
+      {
+        echo "-----BEGIN PUBLIC KEY-----"
+        printf '302a300506032b6570032100%s' "$(decode_secret_b64 "$PUB_KEY" | xxd -p -c 64)" | xxd -r -p | base64
+        echo "-----END PUBLIC KEY-----"
+      } >"$TMP_PUB"
+      decode_secret_b64 "$ED_SIG" >"$TMP_SIG"
+      if ! openssl pkeyutl -verify -pubin -inkey "$TMP_PUB" -rawin -in "$ZIP_PATH" -sigfile "$TMP_SIG" >/dev/null 2>&1; then
+        echo "generate-appcast: Ed25519 signature does not verify against SUPublicEDKey in $INFO_PLIST (private/public key mismatch)" >&2
+        exit 1
+      fi
     fi
   fi
 fi
