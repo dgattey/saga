@@ -101,22 +101,13 @@ struct BookContentView: View {
         .copyable([coverImageURLText])
         .help(coverImageURLText)
       #endif
-      .background {
-        Color.clear
-          .frame(width: detailCoverSize.width + 28, height: detailCoverSize.width + 28)
-          .glassEffect(
-            .regular.tint(Color.botanicalLeaf.opacity(0.18)),
-            in: Circle()
-          )
-          .defaultShadow()
-      }
   }
 
   @ViewBuilder
   private var coverImageBase: some View {
     let coverImage = BookCoverImageView(book: book, targetSize: detailCoverSize)
       .frame(width: detailCoverSize.width, height: detailCoverSize.height)
-      .defaultShadow()
+      .physicalCoverShadow()
     if let coverNamespace {
       coverImage
         .matchedGeometryEffect(id: coverID, in: coverNamespace)
@@ -182,44 +173,7 @@ struct BookContentView: View {
   var content: some View {
     LazyVStack(alignment: .leading, spacing: 16) {
       metadataStack
-      labeledField("Rating") {
-        StarRatingView(
-          rating: Binding(
-            get: { viewModel.ratingDraft },
-            set: { newValue in
-              viewModel.updateRatingDraft(newValue)
-              focusedField = .rating
-            }
-          )
-        )
-      }
-      labeledField("ISBN") {
-        TextField("ISBN-13", text: $viewModel.isbnDraft)
-          .textFieldStyle(.plain)
-          .padding(.horizontal, 10)
-          .padding(.vertical, 6)
-          .glassEffect(
-            .regular.tint(Color.botanicalLeaf.opacity(0.05)),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-          )
-          .focused($focusedField, equals: .isbn)
-          .onChange(of: viewModel.isbnDraft) { _, newValue in
-            viewModel.updateISBNDraft(newValue)
-          }
-          .onSubmit { viewModel.commitField(.isbn) }
-      }
-      labeledField("Image URL") {
-        TextField("Cover image URL", text: $viewModel.coverURLDraft)
-          .textFieldStyle(.plain)
-          .padding(.horizontal, 10)
-          .padding(.vertical, 6)
-          .glassEffect(
-            .regular.tint(Color.botanicalLeaf.opacity(0.05)),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-          )
-          .focused($focusedField, equals: .coverURL)
-          .onSubmit { viewModel.commitField(.coverURL) }
-      }
+      metadataBox
       BookReadingStatusView(book: book)
       labeledField("Description") {
         TextEditor(text: $viewModel.reviewDraft)
@@ -262,6 +216,57 @@ struct BookContentView: View {
         viewModel.updateAuthorDraft(newValue)
       }
       .onSubmit { viewModel.commitField(.author) }
+  }
+
+  /// Rating, ISBN, and cover URL as one quiet group of trailing-aligned rows.
+  private var metadataBox: some View {
+    GroupBox {
+      VStack(spacing: 0) {
+        metadataRow("Rating") {
+          StarRatingView(
+            rating: Binding(
+              get: { viewModel.ratingDraft },
+              set: { newValue in
+                viewModel.updateRatingDraft(newValue)
+                focusedField = .rating
+              }
+            )
+          )
+        }
+        Divider()
+        metadataRow("ISBN") {
+          TextField("ISBN-13", text: $viewModel.isbnDraft)
+            .textFieldStyle(.plain)
+            .multilineTextAlignment(.trailing)
+            .focused($focusedField, equals: .isbn)
+            .onChange(of: viewModel.isbnDraft) { _, newValue in
+              viewModel.updateISBNDraft(newValue)
+            }
+            .onSubmit { viewModel.commitField(.isbn) }
+        }
+        Divider()
+        metadataRow("Cover") {
+          TextField("Image URL", text: $viewModel.coverURLDraft)
+            .textFieldStyle(.plain)
+            .multilineTextAlignment(.trailing)
+            .lineLimit(1)
+            .focused($focusedField, equals: .coverURL)
+            .onSubmit { viewModel.commitField(.coverURL) }
+        }
+      }
+    }
+  }
+
+  private func metadataRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content)
+    -> some View
+  {
+    LabeledContent {
+      content()
+    } label: {
+      Text(label)
+        .foregroundStyle(.secondary)
+    }
+    .padding(.vertical, 6)
   }
 
   private func labeledField<Content: View>(_ label: String, @ViewBuilder content: () -> Content)

@@ -52,9 +52,13 @@ extension View {
     #endif
   }
 
-  /// Our default shadow across the whole app
-  func defaultShadow() -> some View {
-    self.shadow(color: .black.opacity(0.1), radius: 8)
+  /// Layered contact, key, and ambient shadows so a book cover reads as a physical object
+  /// resting on the page.
+  func physicalCoverShadow() -> some View {
+    self
+      .shadow(color: .black.opacity(0.18), radius: 1, y: 1)
+      .shadow(color: .black.opacity(0.14), radius: 4, y: 4)
+      .shadow(color: .black.opacity(0.20), radius: 14, y: 14)
   }
 
   /// Randomly rotates a view based on some hash
