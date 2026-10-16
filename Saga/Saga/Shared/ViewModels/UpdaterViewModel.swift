@@ -117,33 +117,15 @@ final class SparkleUpdateSession {
     }
   }
 
-  /// Bridges `SPUUpdater` callbacks to `LoggerService` and triggers the interactive update sheet
-  /// when a silent launch probe discovers a valid update.
+  /// Bridges `SPUUpdater` callbacks to `LoggerService`.
   final class SparkleUpdaterDelegate: NSObject, SPUUpdaterDelegate {
-    /// Set by `UpdaterViewModel.checkForUpdatesOnLaunch()` before calling
-    /// `checkForUpdateInformation()` so `didFindValidUpdate` knows to present the update UI.
-    @MainActor var launchProbeActive = false
-
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
-      Task { @MainActor [weak self] in
-        guard let self, self.launchProbeActive else { return }
-        self.launchProbeActive = false
+      Task { @MainActor in
         LoggerService.log(
-          "Sparkle launch probe found update \(item.displayVersionString) (\(item.versionString)); presenting update UI",
+          "Sparkle found valid update \(item.displayVersionString) (\(item.versionString))",
           level: .notice,
           surface: .updates
         )
-        updater.checkForUpdates()
-      }
-    }
-
-    func updater(
-      _ updater: SPUUpdater,
-      didFinishUpdateCycleFor updateCheck: SPUUpdateCheck,
-      error: (any Error)?
-    ) {
-      Task { @MainActor [weak self] in
-        self?.launchProbeActive = false
       }
     }
 
@@ -236,6 +218,13 @@ final class SparkleUpdateSession {
           .sink { [weak self] canCheck in
             self?.canCheckForUpdates = canCheck
           }
+
+        // Trigger a background update check shortly after launch if automatic checks are enabled
+        // so newly published releases are detected immediately on app startup.
+        Task { @MainActor [weak self] in
+          try? await Task.sleep(for: .seconds(1))
+          self?.checkForUpdatesOnLaunch()
+        }
       } else if !configuration.isReleaseConfigured {
         LoggerService.log(
           "Sparkle disabled for this build (missing or invalid SUFeedURL / SUPublicEDKey)",
@@ -245,11 +234,11 @@ final class SparkleUpdateSession {
       }
     }
 
-    /// Schedules a one-time silent update probe once the main window has appeared and Sparkle is ready.
+    /// Schedules a one-time background update check once the main window has appeared and Sparkle is ready.
     func mainWindowDidAppear() {
       guard !didScheduleLaunchCheck else { return }
       didScheduleLaunchCheck = true
-      guard isConfigured else { return }
+      guard isConfigured, automaticallyChecksForUpdates else { return }
 
       if canCheckForUpdates {
         checkForUpdatesOnLaunch()
@@ -265,14 +254,19 @@ final class SparkleUpdateSession {
         }
     }
 
-    /// Runs a silent `checkForUpdateInformation()` probe on launch; if a valid update is found,
-    /// `SparkleUpdaterDelegate` escalates to `checkForUpdates()` to present the update sheet.
+    /// Runs `checkForUpdatesInBackground()` once per launch when automatic update checks are enabled,
+    /// presenting Sparkle's standard update dialog if a newer version is available.
     func checkForUpdatesOnLaunch() {
-      guard isConfigured, !didCheckOnLaunch else { return }
+      guard isConfigured, automaticallyChecksForUpdates, !didCheckOnLaunch else { return }
       didCheckOnLaunch = true
       guard shouldStartUpdater else { return }
-      sparkleDelegate.launchProbeActive = true
-      controller.updater.checkForUpdateInformation()
+      guard !controller.updater.sessionInProgress else { return }
+      LoggerService.log(
+        "Checking for updates in background on launch",
+        level: .notice,
+        surface: .updates
+      )
+      controller.updater.checkForUpdatesInBackground()
     }
 
     /// Triggers an interactive update check from the menu bar or Settings window.

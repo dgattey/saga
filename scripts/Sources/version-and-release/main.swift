@@ -8,6 +8,8 @@ import Foundation
 enum Constants {
   static let marketingVersionKey = "MARKETING_VERSION"
   static let buildVersionKey = "CURRENT_PROJECT_VERSION"
+  static let releaseNotesHeading = "Release notes"
+  static let highlightsHeading = "Highlights"
   static let whatChangedHeading = "What changed?"
   static let releaseTypeHeading = "Release info"
   static let releaseTypeMajor = "Major"
@@ -171,7 +173,7 @@ func epochSeconds(from iso8601: String) throws -> Int {
 }
 
 func isHeading(_ line: String, heading: String) -> Bool {
-  let pattern = "^#\\s*\(NSRegularExpression.escapedPattern(for: heading))\\s*$"
+  let pattern = "^#+\\s*\(NSRegularExpression.escapedPattern(for: heading))\\s*$"
   guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
     return false
   }
@@ -179,26 +181,55 @@ func isHeading(_ line: String, heading: String) -> Bool {
   return regex.firstMatch(in: line, range: range) != nil
 }
 
-func extractNotes(from body: String) -> String {
+func isAnyHeading(_ line: String) -> Bool {
+  line.range(of: "^#+\\s+\\S", options: .regularExpression) != nil
+}
+
+func extractSection(named heading: String, from body: String) -> String {
   let lines = body.components(separatedBy: .newlines)
   var inSection = false
   var collected: [String] = []
   for line in lines {
-    if isHeading(line, heading: Constants.whatChangedHeading) {
+    if isHeading(line, heading: heading) {
       inSection = true
       continue
     }
     if inSection {
-      if isHeading(line, heading: Constants.releaseTypeHeading)
+      if isAnyHeading(line)
         || line.range(of: "^-+\\s*$", options: .regularExpression) != nil
         || line.contains("<!-- CURSOR_AGENT_PR_BODY_END -->")
       {
         break
       }
+      if line.range(of: "^\\s*[-*]\\s*$", options: .regularExpression) != nil {
+        continue
+      }
       collected.append(line)
     }
   }
   return collected.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+func extractNotes(from body: String, preferConcise: Bool = false) -> String {
+  let headings =
+    preferConcise
+    ? [
+      Constants.releaseNotesHeading,
+      Constants.highlightsHeading,
+      Constants.whatChangedHeading,
+    ]
+    : [
+      Constants.whatChangedHeading,
+      Constants.releaseNotesHeading,
+      Constants.highlightsHeading,
+    ]
+  for heading in headings {
+    let section = extractSection(named: heading, from: body)
+    if !section.isEmpty {
+      return section
+    }
+  }
+  return ""
 }
 
 // MARK: - Latest tag
@@ -343,8 +374,9 @@ func runBump(arguments: Arguments) throws {
 
 func runExtractNotes(arguments: Arguments) throws {
   let eventPath = try arguments.require("--event")
+  let preferConcise = arguments.value(for: "--sparkle") != nil
   let event = try loadPullRequestEvent(from: eventPath)
-  print(extractNotes(from: event.pullRequest.body ?? ""))
+  print(extractNotes(from: event.pullRequest.body ?? "", preferConcise: preferConcise))
 }
 
 func runPrComment(arguments: Arguments) throws {

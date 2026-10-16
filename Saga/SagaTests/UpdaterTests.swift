@@ -144,6 +144,13 @@ struct UpdaterTests {
       #expect(viewModel.automaticallyDownloadsUpdates)
       viewModel.checkForUpdates()
 
+      // When automatic checks are disabled, checkForUpdatesOnLaunch is skipped
+      let disabledAutoViewModel = UpdaterViewModel(configuration: configured, startUpdater: false)
+      disabledAutoViewModel.automaticallyChecksForUpdates = false
+      disabledAutoViewModel.mainWindowDidAppear()
+      disabledAutoViewModel.checkForUpdatesOnLaunch()
+      #expect(!disabledAutoViewModel.didCheckOnLaunch)
+
       let unconfigured = UpdaterViewModel(
         configuration: UpdaterConfiguration(feedURLString: "", publicEDKey: ""),
         startUpdater: false

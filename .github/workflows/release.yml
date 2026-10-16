@@ -41,18 +41,23 @@ jobs:
         run: |
           set -euo pipefail
           notes="$(./run version-and-release extract-notes --event "$GITHUB_EVENT_PATH")"
+          sparkle_notes="$(./run version-and-release extract-notes --event "$GITHUB_EVENT_PATH" --sparkle)"
           delimiter="NOTES_$(uuidgen)"
+          sparkle_delimiter="SPARKLE_NOTES_$(uuidgen)"
           {
             echo "notes<<$delimiter"
             echo "$notes"
             echo "$delimiter"
+            echo "sparkle_notes<<$sparkle_delimiter"
+            echo "$sparkle_notes"
+            echo "$sparkle_delimiter"
           } >> "$GITHUB_OUTPUT"
 
       - name: Build and package macOS release + Sparkle appcast
         id: package
         env:
           SPARKLE_ED_PRIVATE_KEY_BASE64: ${{ secrets.SPARKLE_ED_PRIVATE_KEY_BASE64 }}
-          SAGA_RELEASE_NOTES: ${{ steps.notes.outputs.notes }}
+          SAGA_RELEASE_NOTES: ${{ steps.notes.outputs.sparkle_notes }}
           SAGA_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
