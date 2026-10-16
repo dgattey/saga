@@ -41,6 +41,17 @@ decode_secret_b64() {
   printf '%s' "$1" | tr -d '[:space:]' | base64 -D 2>/dev/null || printf '%s' "$1" | tr -d '[:space:]' | base64 -d
 }
 
+write_sparkle_key_file() {
+  local raw_secret="$1" out_file="$2" trimmed decoded_len
+  trimmed="$(printf '%s' "$raw_secret" | tr -d '[:space:]')"
+  decoded_len="$(decode_secret_b64 "$trimmed" 2>/dev/null | wc -c | tr -d ' ')"
+  if [[ "$decoded_len" == "32" || "$decoded_len" == "64" ]]; then
+    printf '%s\n' "$trimmed" > "$out_file"
+  else
+    decode_secret_b64 "$trimmed" > "$out_file"
+  fi
+}
+
 cleanup_files=()
 cleanup() {
   for f in "${cleanup_files[@]:-}"; do
@@ -56,7 +67,7 @@ trap cleanup EXIT
 if [[ -z "${SPARKLE_ED_KEY_FILE:-}" && -n "${SPARKLE_ED_PRIVATE_KEY_BASE64:-}" ]]; then
   KEY_FILE="$(mktemp /tmp/saga-sparkle-ed.XXXXXX.key)"
   cleanup_files+=("$KEY_FILE")
-  decode_secret_b64 "$SPARKLE_ED_PRIVATE_KEY_BASE64" > "$KEY_FILE"
+  write_sparkle_key_file "$SPARKLE_ED_PRIVATE_KEY_BASE64" "$KEY_FILE"
   export SPARKLE_ED_KEY_FILE="$KEY_FILE"
 elif [[ -z "${SPARKLE_ED_KEY_FILE:-}" && -f "$ROOT/.cert/sparkle_ed.key" ]]; then
   export SPARKLE_ED_KEY_FILE="$ROOT/.cert/sparkle_ed.key"
