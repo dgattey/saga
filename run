@@ -15,8 +15,8 @@ set -euo pipefail
 #
 # Examples:
 #   run bootstrap
-#   run format
-#   run drop-bot-commits --dry-run
+#   run checks
+#   run version-and-release read
 #
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
