@@ -52,12 +52,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# 1. Optional CI Sparkle EdDSA private key decode
+# 1. Resolve Sparkle EdDSA private key (CI secret -> explicit file -> repo-local .cert/sparkle_ed.key)
 if [[ -z "${SPARKLE_ED_KEY_FILE:-}" && -n "${SPARKLE_ED_PRIVATE_KEY_BASE64:-}" ]]; then
   KEY_FILE="$(mktemp /tmp/saga-sparkle-ed.XXXXXX.key)"
   cleanup_files+=("$KEY_FILE")
   decode_secret_b64 "$SPARKLE_ED_PRIVATE_KEY_BASE64" > "$KEY_FILE"
   export SPARKLE_ED_KEY_FILE="$KEY_FILE"
+elif [[ -z "${SPARKLE_ED_KEY_FILE:-}" && -f "$ROOT/.cert/sparkle_ed.key" ]]; then
+  export SPARKLE_ED_KEY_FILE="$ROOT/.cert/sparkle_ed.key"
 fi
 
 # 2. Ensure Config.xcconfig exists before building
@@ -175,7 +177,13 @@ if [[ ! -f "$ENTITLEMENTS" ]]; then
   echo "package-release: entitlements file not found at $ENTITLEMENTS" >&2
   exit 1
 fi
-csign --entitlements "$ENTITLEMENTS" "$APP"
+# When ad-hoc signing ('-'), pin the outer app's designated requirement to its bundle identifier
+# rather than the default cdhash so Sparkle's SUCodeSigningVerifier matches old and new builds.
+if [[ "$SIGN_ID" == "-" ]]; then
+  csign --entitlements "$ENTITLEMENTS" -r='designated => identifier "com.dylangattey.Saga"' "$APP"
+else
+  csign --entitlements "$ENTITLEMENTS" "$APP"
+fi
 
 codesign --verify --deep --strict "$APP"
 
@@ -185,9 +193,11 @@ ZIP_PATH="$OUT_DIR/$ZIP_NAME"
 ditto -c -k --keepParent "$APP" "$ZIP_PATH"
 rm -rf "$STAGE_DIR"
 
-# 6. Generate appcast.xml with clean HTML release notes inside CDATA (and optional EdDSA signature)
+# 6. Generate appcast.xml with clean HTML release notes inside CDATA and required EdDSA signature
 APPCAST_PATH="$OUT_DIR/appcast.xml"
-DERIVED_DATA="$DERIVED_DATA" "$ROOT/scripts/generate-appcast.sh" "$VERSION" "$BUILD_NUMBER" "$ZIP_PATH" "$APPCAST_PATH"
+REQUIRE_SPARKLE_SIGNATURE="${REQUIRE_SPARKLE_SIGNATURE:-1}" \
+  DERIVED_DATA="$DERIVED_DATA" \
+  "$ROOT/scripts/generate-appcast.sh" "$VERSION" "$BUILD_NUMBER" "$ZIP_PATH" "$APPCAST_PATH"
 
 rm -rf "$DERIVED_DATA"
 

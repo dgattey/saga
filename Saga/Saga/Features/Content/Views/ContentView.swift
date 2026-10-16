@@ -112,9 +112,9 @@ struct ContentView: View {
     #else
       .sheet(isPresented: $isShowingSettings) {
         SettingsView()
-          .environmentObject(syncViewModel)
-          .environmentObject(cachesViewModel)
-          .environmentObject(animationSettings)
+        .environmentObject(syncViewModel)
+        .environmentObject(cachesViewModel)
+        .environmentObject(animationSettings)
       }
     #endif
     .onChange(of: entry) { oldEntry, newEntry in
