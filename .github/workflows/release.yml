@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [closed]
 
+concurrency:
+  group: release-macos
+  cancel-in-progress: false
+
 jobs:
   release:
     name: 🚀 Release
@@ -22,15 +26,17 @@ jobs:
       - name: Fetch tags
         run: git fetch --tags
 
-      - name: Read version/build from project
+      - name: Compute release version and build number
         id: version
+        env:
+          SAGA_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           read_output="$(./run version-and-release read --path "${{ vars.PBXPROJ_PATH }}" --event "$GITHUB_EVENT_PATH")"
           version="$(echo "$read_output" | awk -F= '/^VERSION=/{print $2}')"
           build="$(echo "$read_output" | awk -F= '/^BUILD=/{print $2}')"
           if [[ -z "$version" || -z "$build" ]]; then
-            echo "Failed to read version/build" >&2
+            echo "Failed to compute version/build" >&2
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
