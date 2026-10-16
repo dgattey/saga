@@ -49,8 +49,8 @@ struct HomeBooksSectionView: View {
         ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
           HomeBookThumbnailView(
             book: result.model,
-            entry: $entry,
-            gridItemSize: gridItemSize
+            gridItemSize: gridItemSize,
+            onSelect: selectBook
           )
         }
       }
@@ -61,6 +61,13 @@ struct HomeBooksSectionView: View {
       if size.width != gridWidth {
         gridWidth = size.width
       }
+    }
+  }
+
+  private func selectBook(_ bookID: NSManagedObjectID) {
+    guard entry?.selection != .book(bookID) else { return }
+    withAnimation(AnimationSettings.shared.selectionSpring) {
+      entry = NavigationEntry(selection: .book(bookID))
     }
   }
 
@@ -93,17 +100,13 @@ struct HomeBooksSectionView: View {
 /// Renders a single book thumbnail for the Home grid
 struct HomeBookThumbnailView: View {
   @Environment(\.coverNamespace) private var coverNamespace
-  @EnvironmentObject private var animationSettings: AnimationSettings
   let book: Book
-  @Binding var entry: NavigationEntry?
   let gridItemSize: CGSize
+  let onSelect: (NSManagedObjectID) -> Void
 
   var body: some View {
     Button {
-      guard entry?.selection != .book(book.objectID) else { return }
-      withAnimation(animationSettings.selectionSpring) {
-        entry = NavigationEntry(selection: .book(book.objectID))
-      }
+      onSelect(book.objectID)
     } label: {
       coverImageView
     }
@@ -123,7 +126,11 @@ struct HomeBookThumbnailView: View {
   private var coverImageBase: some View {
     BookCoverImageView(book: book, targetSize: gridItemSize)
       .frame(width: gridItemSize.width, height: gridItemSize.height)
-      .defaultShadow()
+      .background {
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+          .fill(.black.opacity(0.12))
+          .shadow(color: .black.opacity(0.12), radius: 7, y: 3)
+      }
   }
 
   private var coverID: String {

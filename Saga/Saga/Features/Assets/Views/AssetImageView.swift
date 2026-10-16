@@ -33,15 +33,12 @@ struct AssetImageView: View {
   }
 
   private var placeholderView: some View {
-    Color.clear
+    RoundedRectangle(cornerRadius: 6, style: .continuous)
+      .fill(Color.botanicalLeaf.opacity(0.10))
       .overlay {
         Image(systemName: "book.closed.fill")
           .font(.title2)
           .foregroundStyle(Color.botanicalSage.opacity(0.75))
       }
-      .glassEffect(
-        .regular.tint(Color.botanicalLeaf.opacity(0.12)),
-        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-      )
   }
 }

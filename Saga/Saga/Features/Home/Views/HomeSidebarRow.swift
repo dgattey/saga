@@ -27,17 +27,23 @@ struct HomeSidebarRow: View {
       }
     } label: {
       HStack(spacing: 8) {
-        Image(systemName: "books.vertical")
-          .font(.headline)
-          .imageScale(.medium)
-          .foregroundStyle(isSelected ? Color.botanicalLeaf : .secondary)
+        ZStack {
+          RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(Color.botanicalLeaf.opacity(isSelected ? 0.22 : 0.12))
+            .frame(width: 36, height: 36)
+          Image(systemName: "books.vertical.fill")
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(isSelected ? Color.botanicalLeaf : .secondary)
+        }
+        .frame(width: 42, height: 36, alignment: .center)
+
         Text("Home")
-          .font(.headline)
+          .font(.title3.weight(.semibold))
         Spacer(minLength: 0)
       }
-      .padding(.vertical, 8)
+      .padding(.vertical, 6)
       .padding(.horizontal, 8)
-      .frame(maxWidth: .infinity, minHeight: 32, maxHeight: 32, alignment: .leading)
+      .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48, alignment: .leading)
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
@@ -46,7 +52,7 @@ struct HomeSidebarRow: View {
         Color.clear
           .glassEffect(
             .regular.tint(selectionBackgroundColor).interactive(),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
           )
       }
     }

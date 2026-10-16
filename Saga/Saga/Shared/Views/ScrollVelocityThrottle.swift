@@ -41,52 +41,62 @@ private struct ScrollVelocityPreferenceKey: PreferenceKey {
   }
 }
 
+private final class ThrottleState {
+  var lastOffset: CGFloat = .zero
+  var lastTimestamp: CFTimeInterval = 0
+  var isPaused = false
+  var lastScheduleTimestamp: CFTimeInterval = 0
+  var resumeTask: Task<Void, Never>?
+}
+
 private struct ScrollVelocityThrottle: ViewModifier {
   static let coordinateSpaceName = "scroll-velocity"
 
   let velocityThreshold: CGFloat
   let pauseReleaseDelay: Duration
 
-  @State private var lastOffset: CGFloat = .zero
-  @State private var lastTimestamp: CFTimeInterval = 0
-  @State private var isPaused = false
-  @State private var resumeTask: Task<Void, Never>?
+  @State private var state = ThrottleState()
 
   func body(content: Content) -> some View {
     content
       .coordinateSpace(name: Self.coordinateSpaceName)
       .onPreferenceChange(ScrollVelocityPreferenceKey.self) { newOffset in
         let now = CACurrentMediaTime()
-        guard lastTimestamp > 0 else {
-          lastTimestamp = now
-          lastOffset = newOffset
+        guard state.lastTimestamp > 0 else {
+          state.lastTimestamp = now
+          state.lastOffset = newOffset
           return
         }
-        let delta = abs(newOffset - lastOffset)
-        let dt = now - lastTimestamp
+        let delta = abs(newOffset - state.lastOffset)
+        let dt = now - state.lastTimestamp
         if dt > 0 {
           let velocity = delta / dt
           if velocity >= velocityThreshold {
-            if !isPaused {
-              isPaused = true
+            if !state.isPaused {
+              state.isPaused = true
               ImageCache.setDownloadsPaused(true)
             }
-            resumeTask?.cancel()
-            resumeTask = Task { @MainActor in
-              try? await Task.sleep(for: pauseReleaseDelay)
-              guard !Task.isCancelled else { return }
-              isPaused = false
-              ImageCache.setDownloadsPaused(false)
+            if now - state.lastScheduleTimestamp >= 0.05 {
+              state.lastScheduleTimestamp = now
+              state.resumeTask?.cancel()
+              let currentState = state
+              let delay = pauseReleaseDelay
+              state.resumeTask = Task { @MainActor in
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled else { return }
+                currentState.isPaused = false
+                ImageCache.setDownloadsPaused(false)
+              }
             }
           }
         }
-        lastOffset = newOffset
-        lastTimestamp = now
+        state.lastOffset = newOffset
+        state.lastTimestamp = now
       }
       .onDisappear {
-        resumeTask?.cancel()
-        if isPaused {
-          isPaused = false
+        state.resumeTask?.cancel()
+        if state.isPaused {
+          state.isPaused = false
           ImageCache.setDownloadsPaused(false)
         }
       }

@@ -9,6 +9,12 @@ import SwiftUI
 
 /// Renders the list preview version of a book
 struct BookListPreviewView: View {
+  private static let coverHeight: CGFloat = 64
+  private static let coverSize = CGSize(
+    width: coverHeight * BookCoverImageView.coverAspectRatio,
+    height: coverHeight
+  )
+
   var result: SearchHighlightResult<Book>
   @ObservedObject private var book: Book
 
@@ -19,8 +25,8 @@ struct BookListPreviewView: View {
 
   var body: some View {
     HStack(spacing: 8) {
-      BookCoverImageView(book: book)
-        .frame(height: 64, alignment: .center)
+      BookCoverImageView(book: book, targetSize: Self.coverSize)
+        .frame(width: Self.coverSize.width, height: Self.coverSize.height, alignment: .center)
         .controlSize(.small)
       VStack(alignment: .leading, spacing: 4) {
         if let highlightedTitle = result.highlighted(for: \.title) {
