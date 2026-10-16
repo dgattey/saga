@@ -238,11 +238,15 @@ private struct BookListRowView: View {
     .buttonStyle(.plain)
     .background {
       if isSelected {
-        Color.clear
-          .glassEffect(
-            .regular.tint(selectionBackgroundColor).interactive(),
-            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-          )
+        ZStack {
+          RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(selectionBackgroundColor)
+          Color.clear
+            .glassEffect(
+              .regular.tint(selectionBackgroundColor).interactive(),
+              in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+        }
       }
     }
     .padding(.horizontal, SidebarLayout.rowHorizontalPadding)

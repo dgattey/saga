@@ -70,6 +70,7 @@ struct ContentView: View {
           }
           BooksListView(entry: $entry)
         }
+        .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 320)
         .botanicalPageBackground()
       },
       detail: {
