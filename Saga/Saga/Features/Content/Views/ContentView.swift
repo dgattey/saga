@@ -44,7 +44,7 @@ struct ContentView: View {
     NavigationSplitView(
       preferredCompactColumn: $preferredCompactColumn,
       sidebar: {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
           HStack(spacing: 8) {
             HomeSidebarRow(
               entry: $entry,
@@ -86,7 +86,6 @@ struct ContentView: View {
           }
         }
         .botanicalPageBackground()
-        .backgroundExtensionEffect()
         .readSize { size in
           if size.width != detailWidth {
             detailWidth = size.width
@@ -108,12 +107,14 @@ struct ContentView: View {
         isShowingSettings: $isShowingSettings
       )
     }
-    #if !os(macOS)
+    #if os(macOS)
+      .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+    #else
       .sheet(isPresented: $isShowingSettings) {
         SettingsView()
-        .environmentObject(syncViewModel)
-        .environmentObject(cachesViewModel)
-        .environmentObject(animationSettings)
+          .environmentObject(syncViewModel)
+          .environmentObject(cachesViewModel)
+          .environmentObject(animationSettings)
       }
     #endif
     .onChange(of: entry) { oldEntry, newEntry in
