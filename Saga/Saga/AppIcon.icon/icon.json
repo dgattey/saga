@@ -1,8 +1,8 @@
 {
   "fill" : {
     "linear-gradient" : [
-      "srgb:0.96100,0.94500,0.91400,1.00000",
-      "srgb:0.93300,0.91000,0.86700,1.00000"
+      "srgb:0.96100,0.94900,0.90200,1.00000",
+      "srgb:0.92900,0.91000,0.85500,1.00000"
     ]
   },
   "groups" : [
@@ -10,25 +10,40 @@
       "blur-material" : null,
       "layers" : [
         {
-          "glass" : true,
-          "image-name" : "monstera-sprig.png",
-          "name" : "monstera-sprig"
-        },
-        {
           "glass" : false,
           "image-name" : "books-stack.png",
           "name" : "books-stack"
         }
       ],
-      "lighting" : "combined",
+      "lighting" : "individual",
       "shadow" : {
         "kind" : "layer-color",
         "opacity" : 0.35
       },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.0
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "glass" : true,
+          "image-name" : "monstera-sprig.png",
+          "name" : "monstera-sprig"
+        }
+      ],
+      "lighting" : "combined",
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.3
+      },
       "specular" : true,
       "translucency" : {
         "enabled" : true,
-        "value" : 0.2
+        "value" : 0.15
       }
     }
   ],
