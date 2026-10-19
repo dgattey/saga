@@ -11,6 +11,26 @@
       "layers" : [
         {
           "glass" : false,
+          "image-name" : "monstera-leaf.png",
+          "name" : "monstera-leaf"
+        }
+      ],
+      "lighting" : "individual",
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.35
+      },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.0
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "glass" : false,
           "image-name" : "books-stack.png",
           "name" : "books-stack"
         }
@@ -31,8 +51,8 @@
       "layers" : [
         {
           "glass" : false,
-          "image-name" : "monstera-sprig.png",
-          "name" : "monstera-sprig"
+          "image-name" : "vine-sprig.png",
+          "name" : "vine-sprig"
         }
       ],
       "lighting" : "individual",
