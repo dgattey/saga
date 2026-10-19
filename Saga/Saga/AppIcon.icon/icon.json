@@ -30,20 +30,20 @@
       "blur-material" : null,
       "layers" : [
         {
-          "glass" : true,
+          "glass" : false,
           "image-name" : "monstera-sprig.png",
           "name" : "monstera-sprig"
         }
       ],
-      "lighting" : "combined",
+      "lighting" : "individual",
       "shadow" : {
         "kind" : "layer-color",
         "opacity" : 0.3
       },
-      "specular" : true,
+      "specular" : false,
       "translucency" : {
-        "enabled" : true,
-        "value" : 0.15
+        "enabled" : false,
+        "value" : 0.0
       }
     }
   ],
