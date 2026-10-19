@@ -2,9 +2,10 @@
 # Generate a Sparkle 2 appcast.xml with cumulative versioned HTML release notes inside CDATA.
 #
 # Delegates cumulative HTML release-notes formatting (new version `<h3>` + carried-forward
-# prior versions capped at 10) to `scripts/release-notes.sh`, signs or verifies the release
-# archive with Sparkle's tools, and emits `<sparkle:fullReleaseNotesLink>` alongside any
-# `generate_appcast --full-release-notes-url` invocation.
+# prior versions capped at 10) to `scripts/release-notes.sh`, signs the release archive with
+# Sparkle's tools, takes `minimumSystemVersion` from `run release-check min-os`, and emits
+# `<sparkle:fullReleaseNotesLink>` alongside any `generate_appcast --full-release-notes-url`
+# invocation. `scripts/package-release.sh` verifies the result with `run release-check appcast`.
 #
 # Usage:
 #   ./scripts/generate-appcast.sh <version> <build> <zip-path-or-bytes> <output-appcast-path> [pub-date]
@@ -134,32 +135,12 @@ if [[ -n "$ZIP_PATH" ]]; then
     fi
   fi
 
-  if [[ "${REQUIRE_SPARKLE_SIGNATURE:-0}" == "1" && -z "$ED_SIGNATURE_ATTR" ]]; then
-    echo "generate-appcast: failed to generate sparkle:edSignature for $ZIP_PATH (ensure SPARKLE_ED_PRIVATE_KEY_BASE64, SPARKLE_ED_KEY_FILE, or Keychain key is configured and sign_update is available)" >&2
-    exit 1
-  fi
-
-  # Verify the generated Ed25519 signature against SUPublicEDKey in Info.plist when OpenSSL 3+ is available
-  INFO_PLIST="$ROOT/Saga/Saga/Config/Info.plist"
-  if [[ -n "$ED_SIG" && -f "$INFO_PLIST" && -x /usr/libexec/PlistBuddy ]] && openssl version 2>/dev/null | grep -q '^OpenSSL'; then
-    PUB_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$INFO_PLIST" 2>/dev/null | tr -d '[:space:]' || true)"
-    if [[ -n "$PUB_KEY" ]]; then
-      TMP_PUB="$(mktemp /tmp/saga-sparkle-pub.XXXXXX.pem)"
-      TMP_SIG="$(mktemp /tmp/saga-sparkle-sig.XXXXXX.bin)"
-      cleanup_files+=("$TMP_PUB" "$TMP_SIG")
-      {
-        echo "-----BEGIN PUBLIC KEY-----"
-        printf '302a300506032b6570032100%s' "$(decode_secret_b64 "$PUB_KEY" | xxd -p -c 64)" | xxd -r -p | base64
-        echo "-----END PUBLIC KEY-----"
-      } >"$TMP_PUB"
-      decode_secret_b64 "$ED_SIG" >"$TMP_SIG"
-      if ! openssl pkeyutl -verify -pubin -inkey "$TMP_PUB" -rawin -in "$ZIP_PATH" -sigfile "$TMP_SIG" >/dev/null 2>&1; then
-        echo "generate-appcast: Ed25519 signature does not verify against SUPublicEDKey in $INFO_PLIST (private/public key mismatch)" >&2
-        exit 1
-      fi
-    fi
+  if [[ -z "$ED_SIGNATURE_ATTR" ]]; then
+    echo "generate-appcast: could not sign $ZIP_PATH; configure SPARKLE_ED_PRIVATE_KEY_BASE64, SPARKLE_ED_KEY_FILE, or a Keychain key" >&2
   fi
 fi
+
+MIN_SYSTEM_VERSION="$("$ROOT/run" release-check min-os)"
 
 ZIP_NAME="Saga-${VERSION}.zip"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ZIP_NAME}"
@@ -178,7 +159,7 @@ cat >"$APPCAST_PATH" <<XML
       <link>${RELEASE_LINK}</link>
       <sparkle:version>${BUILD_NUMBER}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <sparkle:minimumSystemVersion>${MIN_SYSTEM_VERSION}</sparkle:minimumSystemVersion>
       <sparkle:fullReleaseNotesLink>${FULL_RELEASE_NOTES_URL}</sparkle:fullReleaseNotesLink>
       <description><![CDATA[${NOTES_HTML}]]></description>
       <enclosure url="${DOWNLOAD_URL}" length="${ZIP_BYTES}" type="application/octet-stream"${ED_SIGNATURE_ATTR}/>

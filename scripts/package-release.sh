@@ -204,11 +204,14 @@ ZIP_PATH="$OUT_DIR/$ZIP_NAME"
 ditto -c -k --keepParent "$APP" "$ZIP_PATH"
 rm -rf "$STAGE_DIR"
 
-# 6. Generate appcast.xml with clean HTML release notes inside CDATA and required EdDSA signature
+# 6. Generate appcast.xml with clean HTML release notes inside CDATA and an EdDSA signature
 APPCAST_PATH="$OUT_DIR/appcast.xml"
-REQUIRE_SPARKLE_SIGNATURE="${REQUIRE_SPARKLE_SIGNATURE:-1}" \
-  DERIVED_DATA="$DERIVED_DATA" \
+DERIVED_DATA="$DERIVED_DATA" \
   "$ROOT/scripts/generate-appcast.sh" "$VERSION" "$BUILD_NUMBER" "$ZIP_PATH" "$APPCAST_PATH"
+
+# 7. Fail closed unless the signature verifies against SUPublicEDKey, the minimum macOS matches
+# the deployment target, and the build is above the live feed's highest build
+"$ROOT/run" release-check appcast "$APPCAST_PATH" --archive "$ZIP_PATH"
 
 rm -rf "$DERIVED_DATA"
 
