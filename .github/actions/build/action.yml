@@ -17,6 +17,14 @@ runs:
         set -euo pipefail
         ./run config --placeholder --if-missing
 
+    # Compiles the release check that only runs at merge time, and fails on a bad
+    # SUPublicEDKey or SUFeedURL, or diverging MACOSX_DEPLOYMENT_TARGETs.
+    - name: Check release config
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./run release-check min-os
+
     - name: Build app
       id: run_build
       shell: bash

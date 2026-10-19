@@ -186,3 +186,14 @@ public func runMain(usage: @autoclosure () -> String, _ body: () throws -> Void)
     exit(1)
   }
 }
+
+/// Async variant of `runMain(_:)` for scripts that await network I/O.
+public func runAsyncMain(_ body: () async throws -> Void) async {
+  do {
+    try await body()
+  } catch {
+    let message = (error as? ScriptError)?.description ?? error.localizedDescription
+    FileHandle.standardError.write(Data("Error: \(message)\n".utf8))
+    exit(1)
+  }
+}

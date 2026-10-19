@@ -25,6 +25,7 @@ shared UI/utilities.
 - `run checks` (format + lint), `run checks --format`, `run checks --lint`
 - `run bootstrap` to set up shell completions for `run`
 - `run config` to write `Config.xcconfig` (`--placeholder` for build-only environments)
+- `run release-check appcast <appcast> --archive <zip>` verifies a Sparkle appcast before release (CryptoKit EdDSA check against `SUPublicEDKey`, `minimumSystemVersion` equals `MACOSX_DEPLOYMENT_TARGET`, build above the live `SUFeedURL` feed over HTTP); `package-release.sh` runs it fail-closed, and `run release-check min-os` prints the deployment target
 - `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml` via `scripts/generate-appcast.sh` and `scripts/release-notes.sh` with cumulative release notes capped at the last 10 versions)
 
 ## Code Style

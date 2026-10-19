@@ -13,6 +13,7 @@ let package = Package(
     .executableTarget(name: "checks", dependencies: ["Common"]),
     .executableTarget(name: "config", dependencies: ["Common"]),
     .executableTarget(name: "version-and-release", dependencies: ["Common"]),
+    .executableTarget(name: "release-check", dependencies: ["Common"]),
     .executableTarget(name: "app", dependencies: ["Common"]),
     .executableTarget(name: "clean", dependencies: ["Common"]),
   ]
