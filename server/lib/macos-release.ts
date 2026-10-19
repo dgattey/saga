@@ -4,7 +4,9 @@ import path from "path";
 export type MacOSRelease = {
   version: string;
   build: string;
-  /** Pathname for the zip, e.g. `/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip`. */
+  /** Sparkle `minimumSystemVersion`, e.g. `26.0`, from the app's deployment target. */
+  minimumSystemVersion: string;
+  /** Pathname for the zip, e.g. `/dgattey/saga/releases/download/v1.6.0/Saga-1.6.0.zip`. */
   zipPath: string;
   /** Absolute URL used for download redirects. */
   downloadUrl: string;
@@ -16,10 +18,11 @@ export const DEFAULT_APPCAST_URL =
   "https://github.com/dgattey/saga/releases/latest/download/appcast.xml";
 
 export const FALLBACK_MACOS_RELEASE: MacOSRelease = {
-  version: "1.4.1",
-  build: "22346",
-  zipPath: "/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip",
-  downloadUrl: "https://github.com/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip",
+  version: "1.6.0",
+  build: "22419",
+  minimumSystemVersion: "26.0",
+  zipPath: "/dgattey/saga/releases/download/v1.6.0/Saga-1.6.0.zip",
+  downloadUrl: "https://github.com/dgattey/saga/releases/download/v1.6.0/Saga-1.6.0.zip",
   downloadReady: true,
 };
 
@@ -28,6 +31,9 @@ export function parseAppcastXml(xml: string): Omit<MacOSRelease, "downloadReady"
     xml.match(/<sparkle:shortVersionString>([^<]+)<\/sparkle:shortVersionString>/)?.[1] ??
     xml.match(/<title>([^<]+)<\/title>/)?.[1];
   const build = xml.match(/<sparkle:version>([^<]+)<\/sparkle:version>/)?.[1] ?? "";
+  const minimumSystemVersion =
+    xml.match(/<sparkle:minimumSystemVersion>([^<]+)<\/sparkle:minimumSystemVersion>/)?.[1] ??
+    FALLBACK_MACOS_RELEASE.minimumSystemVersion;
   const enclosure = xml.match(/<enclosure\s+url="([^"]+)"/)?.[1];
   if (!version || !enclosure) return null;
 
@@ -42,7 +48,12 @@ export function parseAppcastXml(xml: string): Omit<MacOSRelease, "downloadReady"
     downloadUrl = `${getSiteOrigin()}${zipPath}`;
   }
 
-  return { version, build, zipPath, downloadUrl };
+  return { version, build, minimumSystemVersion, zipPath, downloadUrl };
+}
+
+/** Formats a Sparkle `minimumSystemVersion` for display, e.g. `26.0` → `macOS 26+`. */
+export function formatMinimumMacOS(minimumSystemVersion: string): string {
+  return `macOS ${minimumSystemVersion.replace(/(\.0)+$/, "")}+`;
 }
 
 export function getSiteOrigin(): string {
@@ -72,7 +83,7 @@ function readBundledAppcastXml(): string | null {
  * Fetches the latest Sparkle `appcast.xml` from GitHub Releases (revalidated every 60s)
  * so new releases published by `.github/workflows/release.yml` automatically update the
  * version label and `/download/macos` redirect without redeploying the site.
- * Falls back to bundled `public/appcast.xml` or `FALLBACK_MACOS_RELEASE` (`v1.4.1`).
+ * Falls back to bundled `public/appcast.xml` or `FALLBACK_MACOS_RELEASE` (`v1.6.0`).
  */
 export async function getMacOSRelease(): Promise<MacOSRelease> {
   try {

@@ -1,4 +1,4 @@
-import { getMacOSRelease } from "@/lib/macos-release";
+import { formatMinimumMacOS, getMacOSRelease } from "@/lib/macos-release";
 import styles from "./page.module.css";
 
 export const revalidate = 60;
@@ -32,7 +32,9 @@ export default async function HomePage() {
                 height={56}
                 className={styles.appIcon}
               />
-              <span className={styles.badge}>macOS 15+ · Apple Silicon</span>
+              <span className={styles.badge}>
+                {formatMinimumMacOS(release.minimumSystemVersion)} · Apple Silicon
+              </span>
             </div>
             <h1 className={styles.title}>Welcome to Saga</h1>
             <p className={styles.subtitle}>

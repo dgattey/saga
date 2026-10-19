@@ -2,20 +2,79 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <title>Saga</title>
-    <link>https://github.com/dgattey/saga/releases/tag/v1.4.1</link>
+    <link>https://github.com/dgattey/saga/releases/tag/v1.6.0</link>
     <item>
-      <title>1.4.1</title>
-      <pubDate>Thu, 15 Oct 2026 10:26:49 +0000</pubDate>
-      <link>https://github.com/dgattey/saga/releases/tag/v1.4.1</link>
-      <sparkle:version>22346</sparkle:version>
-      <sparkle:shortVersionString>1.4.1</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<ul>
-  <li style="margin-bottom: 6px; line-height: 1.45;">Switched macOS release packaging to ad-hoc code signing so quarantined downloads work cleanly with macOS Sequoia and Tahoe's <strong>Privacy &amp; Security → Open Anyway</strong> flow.</li>
-  <li style="margin-bottom: 6px; line-height: 1.45;">Added library validation and network client entitlements for embedded frameworks (<code>Sparkle.framework</code>, <code>Ifrit.framework</code>).</li>
-  <li style="margin-bottom: 6px; line-height: 1.45;">Updated release packaging and Sparkle 2 EdDSA update verification documentation.</li>
+      <title>1.6.0</title>
+      <pubDate>Fri, 16 Oct 2026 23:20:40 +0000</pubDate>
+      <link>https://github.com/dgattey/saga/releases/tag/v1.6.0</link>
+      <sparkle:version>22419</sparkle:version>
+      <sparkle:shortVersionString>1.6.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <sparkle:fullReleaseNotesLink>https://github.com/dgattey/saga/releases</sparkle:fullReleaseNotesLink>
+      <description><![CDATA[<h3 style="margin: 0 0 6px 0; font-size: 13px;">1.6.0</h3>
+<ul>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Settings is now a native macOS-style window with General, Storage, Credits, and About panes</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Sidebar selection uses a soft neutral highlight instead of green, and Home has a new olive badge</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Book covers rest on the page with a natural shadow, and Rating / ISBN / Cover are grouped together</li>
+</ul>
+<h3 style="margin: 14px 0 6px 0; font-size: 13px; opacity: 0.75;">1.5.5</h3>
+<ul>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Carry forward up to the last 10 versions of release notes inside <code>appcast.xml</code>'s <code>&lt;description&gt;&lt;![CDATA[...]]&gt;&lt;/description&gt;</code> via a new <code>scripts/release-notes.sh</code> helper so users who skip versions see all intermediate release notes directly inside Sparkle's update alert.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Render the latest version at the top under <code>&lt;h3 style="margin: 0 0 6px 0; font-size: 13px;"&gt;</code> and style carried-forward prior versions under <code>&lt;h3 style="margin: 14px 0 6px 0; font-size: 13px; opacity: 0.75;"&gt;</code>, wrapping headerless legacy <code>&lt;description&gt;</code> blocks with their <code>&lt;sparkle:shortVersionString&gt;</code> heading and backfilling from recent GitHub Releases.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Emit <code>&lt;sparkle:fullReleaseNotesLink&gt;https://github.com/dgattey/saga/releases&lt;/sparkle:fullReleaseNotesLink&gt;</code> in <code>scripts/generate-appcast.sh</code> (and pass <code>--full-release-notes-url</code> to Sparkle's <code>generate_appcast</code> binary when supported).</li>
+</ul>
+<h3 style="margin: 14px 0 6px 0; font-size: 13px; opacity: 0.75;">1.5.4</h3>
+<ul>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Tighten sidebar spacing between the search bar, Home row, and Books list</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Keep sidebar selection pills visible with a solid botanical tint backing layer</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Replace continuous 30Hz scroll-velocity timer polling with native scroll geometry tracking</li>
+</ul>
+<h3 style="margin: 14px 0 6px 0; font-size: 13px; opacity: 0.75;">1.5.3</h3>
+<ul>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Compute release version and Sparkle build number at merge time instead of committing version bumps to PR branches, eliminating <code>project.pbxproj</code> merge conflicts across parallel PRs</li>
+</ul>
+<h3 style="margin: 14px 0 6px 0; font-size: 13px; opacity: 0.75;">1.5.2</h3>
+<ul>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Fix Sparkle update signature validation so macOS updates install cleanly without signature verification errors</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Require and cryptographically verify <code>sparkle:edSignature</code> against <code>SUPublicEDKey</code> during release packaging</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Pin ad-hoc signed app bundles to a bundle-identifier designated requirement (<code>designated =&gt; identifier "com.dylangattey.Saga"</code>) so Sparkle's code-signature check succeeds across builds</li>
+</ul>
+<h3 style="margin: 14px 0 6px 0; font-size: 13px; opacity: 0.75;">1.5.1</h3>
+<ul>
+  <li style="margin-bottom: 6px; line-height: 1.45;"><strong>Restored floating transparent window toolbar &amp; clean sidebar backdrop</strong>: Removed <code>.backgroundExtensionEffect()</code> from the detail <code>Group</code> and restored <code>#if os(macOS).toolbarBackgroundVisibility(.hidden, for:.windowToolbar) #endif</code>. On macOS 26 Tahoe, <code>.backgroundExtensionEffect()</code> on the detail column clips the primary view to the safe area (exposing a solid white toolbar bar across the top of the detail pane) while projecting a blurred mirror reflection of adjacent book covers into the sidebar column and toolbar safe areas.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;"><strong>Rebalanced <code>Home</code> sidebar item proportions</strong>: Enlarged the <code>Home</code> row on both macOS and iOS with a 36×36pt rounded rectangle botanical badge inside a 42pt icon column (matching book cover column alignment), <code>books.vertical.fill</code> icon (<code>16pt</code> semibold), <code>.title3.weight</code> title typography, and a 48pt row height (<code>padding(.vertical, 6)</code>), giving it proper HIG visual weight next to the 64pt 2-line book rows.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;"><strong>Eliminated per-frame SwiftUI view invalidations during scrolling</strong>:</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Replaced <code>@State</code> properties mutated on every scroll geometry tick (<code>lastOffset</code>, <code>lastTimestamp</code>, <code>isPaused</code>, <code>isRestoring</code>, <code>didNotifyRestore</code>) with non-reactive reference state holders (<code>ThrottleState</code> and <code>ScrollLifecycleState</code>) and bucketed <code>onScrollGeometryChange</code> triggers so scrolling no longer invalidates the entire <code>ScrollView</code> subtree on every display frame.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Replaced <code>@Binding var entry: NavigationEntry?</code> in <code>HomeBookThumbnailView</code> with an <code>onSelect: (NSManagedObjectID) -&gt; Void</code> callback and a vector shadow backdrop so cells don't re-evaluate or rasterize alpha-composited image shadows during scroll.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;"><strong>Synchronous memory-cache hits &amp; background image decoding</strong>:</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Added <code>kCGImageSourceShouldCacheImmediately: true</code> and <code>kCGImageSourceShouldCache: true</code> when loading disk-cached PNGs so bitmap decompression happens on the <code>.utility</code> background queue instead of blocking the main thread on first render.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Passed explicit <code>targetSize</code> in <code>BookListPreviewView</code> to bypass <code>GeometryReader</code> async measurement passes in sidebar cells, and avoided redundant <code>@State</code> mutations in <code>DownsampledAsyncImage</code> when an image is already in memory cache.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Replaced heavy <code>.glassEffect()</code> loading placeholders inside grid cells with lightweight <code>RoundedRectangle</code> fills.</li>
+</ul>
+<h3 style="margin: 14px 0 6px 0; font-size: 13px; opacity: 0.75;">1.5.0</h3>
+<ul>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Redesigned Settings on macOS with a split sidebar layout (<code>General</code>, <code>Storage</code>, and <code>Credits &amp; About</code>) and Liquid Glass cards.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Added a <strong>Credits &amp; About</strong> pane with quick links (<code>Website</code>, <code>GitHub</code>, <code>More by Dylan</code>), <strong>Data &amp; APIs</strong> attributions, and <strong>Open Source Libraries</strong> with version and license badges.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Added a Settings button on iOS to adjust cache limits, spring animations, and view credits in an adaptive sheet.</li>
+</ul>
+<h3 style="margin: 14px 0 6px 0; font-size: 13px; opacity: 0.75;">1.4.3</h3>
+<ul>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Check for updates automatically when launching Saga on macOS (<code>SUEnableAutomaticChecks</code> and <code>checkForUpdatesInBackground()</code>).</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Render in-app Sparkle release notes as clean, scannable bullet lists instead of unformatted Markdown paragraphs.</li>
+</ul>
+<h3 style="margin: 14px 0 6px 0; font-size: 13px; opacity: 0.75;">1.4.2</h3>
+<ul>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Added the <strong>saga.gattey.com</strong> macOS download site with a collapsible <strong>System Settings → Privacy &amp; Security → Open Anyway</strong> first-launch guide.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Improved macOS app bundle signing and portable framework runtime paths (<code>LC_RPATH</code>) for cleaner launches after download.</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Connected <code>saga.gattey.com/download/macos</code> to the live Sparkle release feed so new updates are available immediately.</li>
+</ul>
+<h3 style="margin: 14px 0 6px 0; font-size: 13px; opacity: 0.75;">1.4.1</h3>
+<ul>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Switched CI and default non-Developer-ID macOS release signing in <code>scripts/lib/signing.sh</code>, <code>scripts/package-release.sh</code>, and <code>.github/workflows/release.yml</code> from a self-signed X.509 certificate (<code>SAGA_CODESIGN_P12_BASE64</code>) to ad-hoc (<code>-</code>) signing so quarantined release downloads work cleanly with macOS Sequoia / Tahoe's <strong>Privacy &amp; Security → Open Anyway</strong> flow without <code>syspolicyd</code> / <code>amfid</code> rejecting an untrusted X.509 certificate chain (<code>CSSMERR_TP_NOT_TRUSTED</code>) when loading <code>@rpath</code> frameworks (<code>Sparkle.framework</code>, <code>Ifrit.framework</code>).</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Added <code>com.apple.security.cs.disable-library-validation</code> and <code>com.apple.security.network.client</code> (<code>&lt;true/&gt;</code>) to <code>Saga/Saga/Config/Saga.entitlements</code> (matching <code>GatteyPhotos.local.entitlements</code>) and required <code>--entitlements</code> when signing <code>Saga.app</code> in <code>scripts/package-release.sh</code> (with <code>ENABLE_APP_SANDBOX=NO</code> during <code>CODE_SIGNING_ALLOWED=NO</code> builds).</li>
+  <li style="margin-bottom: 6px; line-height: 1.45;">Updated release packaging comments in <code>scripts/package-release.sh</code>, <code>scripts/lib/signing.sh</code>, and <code>scripts/export-ci-secrets.sh</code> to document ad-hoc (<code>-</code>) + Sparkle 2 EdDSA update verification.</li>
 </ul>]]></description>
-      <enclosure url="https://github.com/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip" length="5674479" type="application/octet-stream"/>
+      <enclosure url="https://github.com/dgattey/saga/releases/download/v1.6.0/Saga-1.6.0.zip" length="5698148" type="application/octet-stream" sparkle:edSignature="nyDRDkLrw9EvVcZVGYjULd3o5wwBKPv9G043cSQ3fLwHtORhzhw6As85opU8ng3o3ABymYiNSzwbAAFhlmbuDg=="/>
     </item>
   </channel>
 </rss>
