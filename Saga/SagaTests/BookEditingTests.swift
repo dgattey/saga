@@ -510,6 +510,7 @@ struct BookEditingTests {
     let png = try Self.pngData()
     viewModel.applyCoverInput(.imageData(png))
     #expect(viewModel.previewImageData == png)
+    #expect(viewModel.coverMessage == nil)
     viewModel.resetCover()
     #expect(viewModel.draft.cover == .none)
 

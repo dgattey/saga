@@ -151,7 +151,7 @@ final class BookEditorViewModel: ObservableObject {
         return
       }
       draft.cover = .image(data)
-      coverMessage = "Dropped and pasted images stay on this device."
+      coverMessage = nil
     case nil:
       coverMessage = "Nothing to use as a cover. Copy an image or image URL first."
     }
