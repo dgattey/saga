@@ -19,6 +19,7 @@ struct ContentView: View {
   @EnvironmentObject private var animationSettings: AnimationSettings
   @State private var entry: NavigationEntry?
   @State private var isShowingSettings = false
+  @State private var isCreatingBook = false
   @StateObject private var navigationHistory: NavigationHistory
   @StateObject private var scrollStore = ScrollPositionStore()
   @StateObject private var bookNavigationViewModel: BookNavigationViewModel
@@ -68,7 +69,7 @@ struct ContentView: View {
               .padding(.top, 8)
             #endif
           }
-          BooksListView(entry: $entry)
+          BooksListView(entry: $entry, onNewBook: { isCreatingBook = true })
         }
         .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 320)
         .botanicalPageBackground()
@@ -78,7 +79,11 @@ struct ContentView: View {
           switch entry?.selection {
           case .book(let selectedBookID):
             if let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book {
-              BookContentView(book: selectedBook, detailLayoutWidth: detailWidth)
+              BookContentView(
+                book: selectedBook,
+                detailLayoutWidth: detailWidth,
+                onDelete: navigateHome
+              )
             } else {
               HomeView(entry: $entry)
             }
@@ -118,6 +123,10 @@ struct ContentView: View {
         .environmentObject(animationSettings)
       }
     #endif
+    .focusedSceneValue(\.newBookAction, NewBookAction { isCreatingBook = true })
+    .sheet(isPresented: $isCreatingBook) {
+      newBookSheet
+    }
     .onChange(of: entry) { oldEntry, newEntry in
       navigationHistory.onNavigationChange(from: oldEntry, to: newEntry)
       if newEntry != nil {
@@ -148,4 +157,24 @@ struct ContentView: View {
     #endif
   }
 
+  // MARK: - New book
+
+  private var newBookSheet: some View {
+    NavigationStack {
+      BookEditorView(book: nil, context: viewContext) { outcome in
+        isCreatingBook = false
+        if case .saved(let bookID) = outcome {
+          entry = NavigationEntry(selection: .book(bookID))
+        }
+      }
+    }
+    .environmentObject(animationSettings)
+    #if os(macOS)
+      .frame(minWidth: 480, idealWidth: 540, minHeight: 560, idealHeight: 720)
+    #endif
+  }
+
+  private func navigateHome() {
+    entry = navigationHistory.makeHomeEntry(currentEntry: entry, scrollStore: scrollStore)
+  }
 }

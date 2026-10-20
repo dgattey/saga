@@ -14,6 +14,7 @@ struct MenuBarCommands: Commands {
     @EnvironmentObject var updaterViewModel: UpdaterViewModel
   #endif
   @Environment(\.openWindow) private var openWindow
+  @FocusedValue(\.newBookAction) private var newBookAction
 
   var body: some Commands {
     #if os(macOS)
@@ -21,6 +22,14 @@ struct MenuBarCommands: Commands {
         CheckForUpdatesMenuItem(updaterViewModel: updaterViewModel)
       }
     #endif
+
+    CommandGroup(replacing: .newItem) {
+      Button("New Book…") {
+        newBookAction?.callAsFunction()
+      }
+      .keyboardShortcut("n", modifiers: [.command])
+      .disabled(newBookAction == nil)
+    }
 
     CommandGroup(after: .newItem) {
       Divider()

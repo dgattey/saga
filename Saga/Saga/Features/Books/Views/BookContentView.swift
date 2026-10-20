@@ -15,27 +15,54 @@ private struct Constants {
   static let minCoverWidth: CGFloat = 96
   static let maxCoverWidth: CGFloat = 192
   static let maxContentWidth: CGFloat = 544
+  static let maxEditorWidth: CGFloat = 640
 }
 
-/// Renders the full version of a book
+/// Renders the full version of a book: a clean read mode, swapped for the editor on Edit.
 struct BookContentView: View {
   @ObservedObject var book: Book
   let detailLayoutWidth: CGFloat
+  /// Called after the book is deleted from the editor so the caller can navigate away.
+  var onDelete: () -> Void = {}
+  @Environment(\.managedObjectContext) private var viewContext
   @Environment(\.scrollContextID) private var scrollContextID
   @Environment(\.coverNamespace) private var coverNamespace
   @EnvironmentObject private var bookNavigationViewModel: BookNavigationViewModel
-  @StateObject private var viewModel: BookDetailViewModel
   @State private var containerWidth: CGFloat = 0
-
-  @FocusState private var focusedField: BookDetailViewModel.Field?
-
-  init(book: Book, detailLayoutWidth: CGFloat) {
-    self.book = book
-    self.detailLayoutWidth = detailLayoutWidth
-    _viewModel = StateObject(wrappedValue: BookDetailViewModel(book: book))
-  }
+  @State private var isEditing = false
 
   var body: some View {
+    Group {
+      if isEditing {
+        editor
+      } else {
+        readView
+      }
+    }
+    .botanicalPageBackground()
+    .onChange(of: book.objectID) { _, _ in
+      isEditing = false
+    }
+  }
+
+  // MARK: - Modes
+
+  private var editor: some View {
+    BookEditorView(book: book, context: viewContext) { outcome in
+      switch outcome {
+      case .cancelled, .saved:
+        isEditing = false
+      case .deleted:
+        isEditing = false
+        onDelete()
+      }
+    }
+    .id(book.objectID)
+    .frame(maxWidth: Constants.maxEditorWidth)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+  }
+
+  private var readView: some View {
     ResponsiveLayout(
       outsidePadding: Constants.outsidePadding,
       gap: Constants.columnGap,
@@ -51,30 +78,28 @@ struct BookContentView: View {
       }
     }
     .textSelection(.enabled)
-    .contentShape(Rectangle())
-    .simultaneousGesture(
-      TapGesture().onEnded { focusedField = nil }
-    )
-    .onChange(of: focusedField) { _, newValue in
-      viewModel.handleFocusChange(to: newValue)
-    }
-    .onDisappear {
-      viewModel.handleFocusChange(to: nil)
-    }
-    .onChange(of: book.objectID) { _, _ in
-      viewModel.setBook(book)
-    }
-    .navigationTitle(viewModel.displayTitle)
-    .botanicalPageBackground()
+    .navigationTitle(book.title ?? "Untitled book")
     #if os(macOS)
-      .navigationSubtitle(viewModel.displayAuthor)
+      .navigationSubtitle(book.author ?? "")
       .toolbar(removing: .title)
-      .onExitCommand { focusedField = nil }
     #endif
+    .toolbar {
+      ToolbarItem(placement: .primaryAction) {
+        Button {
+          isEditing = true
+        } label: {
+          Label("Edit", systemImage: "pencil")
+        }
+        .keyboardShortcut("e", modifiers: .command)
+        .help("Edit this book")
+      }
+    }
   }
 
+  // MARK: - Cover column
+
   /// The "sidebar" of the two column view - shows less info and stays sticky in view
-  var sidebar: some View {
+  private var sidebar: some View {
     coverImageView
       .frame(
         minWidth: Constants.minCoverWidth,
@@ -84,8 +109,8 @@ struct BookContentView: View {
       .rotationEffect(bookNavigationViewModel.coverRotation, anchor: .center)
   }
 
-  var coverImageView: some View {
-    let coverImageURLText = book.coverImage?.assetURL?.absoluteString ?? "No image URL"
+  private var coverImageView: some View {
+    let coverImageURLText = book.displayCoverURL?.absoluteString ?? "No image URL"
     return
       coverImageBase
       .contextMenu {
@@ -160,124 +185,14 @@ struct BookContentView: View {
     book.objectID.uriRepresentation().absoluteString
   }
 
-  /// The top level metadata stack
-  var metadataStack: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      titleField
-      authorField
-    }
-  }
+  // MARK: - Content column
 
-  /// The right hand content view that grows to a max width of the two column view. Has
-  /// a lot of data and is scrollable.
-  var content: some View {
-    LazyVStack(alignment: .leading, spacing: 16) {
-      metadataStack
-      metadataBox
-      BookReadingStatusView(book: book)
-      labeledField("Description") {
-        TextEditor(text: $viewModel.reviewDraft)
-          .scrollContentBackground(.hidden)
-          .padding(10)
-          .glassEffect(
-            .regular.tint(Color.botanicalLeaf.opacity(0.05)),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-          )
-          .focused($focusedField, equals: .review)
-          .onChange(of: viewModel.reviewDraft) { _, newValue in
-            viewModel.updateReviewDraft(newValue)
-          }
-          .frame(minHeight: 120)
-      }
-    }
-    .frame(
-      maxWidth: Constants.maxContentWidth,
-      alignment: .topLeading
-    )
+  /// The right hand content view that grows to a max width of the two column view.
+  private var content: some View {
+    BookReadDetailsView(book: book)
+      .frame(
+        maxWidth: Constants.maxContentWidth,
+        alignment: .topLeading
+      )
   }
-
-  private var titleField: some View {
-    TextField("Title", text: $viewModel.titleDraft)
-      .font(.largeTitleBold)
-      .textFieldStyle(.plain)
-      .focused($focusedField, equals: .title)
-      .onChange(of: viewModel.titleDraft) { _, newValue in
-        viewModel.updateTitleDraft(newValue)
-      }
-      .onSubmit { viewModel.commitField(.title) }
-  }
-
-  private var authorField: some View {
-    TextField("Author", text: $viewModel.authorDraft)
-      .font(.title2)
-      .textFieldStyle(.plain)
-      .focused($focusedField, equals: .author)
-      .onChange(of: viewModel.authorDraft) { _, newValue in
-        viewModel.updateAuthorDraft(newValue)
-      }
-      .onSubmit { viewModel.commitField(.author) }
-  }
-
-  /// Rating, ISBN, and cover URL as one quiet group of trailing-aligned rows.
-  private var metadataBox: some View {
-    GroupBox {
-      VStack(spacing: 0) {
-        metadataRow("Rating") {
-          StarRatingView(
-            rating: Binding(
-              get: { viewModel.ratingDraft },
-              set: { newValue in
-                viewModel.updateRatingDraft(newValue)
-                focusedField = .rating
-              }
-            )
-          )
-        }
-        Divider()
-        metadataRow("ISBN") {
-          TextField("ISBN-13", text: $viewModel.isbnDraft)
-            .textFieldStyle(.plain)
-            .multilineTextAlignment(.trailing)
-            .focused($focusedField, equals: .isbn)
-            .onChange(of: viewModel.isbnDraft) { _, newValue in
-              viewModel.updateISBNDraft(newValue)
-            }
-            .onSubmit { viewModel.commitField(.isbn) }
-        }
-        Divider()
-        metadataRow("Cover") {
-          TextField("Image URL", text: $viewModel.coverURLDraft)
-            .textFieldStyle(.plain)
-            .multilineTextAlignment(.trailing)
-            .lineLimit(1)
-            .focused($focusedField, equals: .coverURL)
-            .onSubmit { viewModel.commitField(.coverURL) }
-        }
-      }
-    }
-  }
-
-  private func metadataRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content)
-    -> some View
-  {
-    LabeledContent {
-      content()
-    } label: {
-      Text(label)
-        .foregroundStyle(.secondary)
-    }
-    .padding(.vertical, 6)
-  }
-
-  private func labeledField<Content: View>(_ label: String, @ViewBuilder content: () -> Content)
-    -> some View
-  {
-    VStack(alignment: .leading, spacing: 4) {
-      Text(label)
-        .font(.caption)
-        .foregroundStyle(.secondary)
-      content()
-    }
-  }
-
 }
