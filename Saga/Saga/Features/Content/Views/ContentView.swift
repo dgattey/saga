@@ -24,7 +24,6 @@ struct ContentView: View {
   @StateObject private var scrollStore = ScrollPositionStore()
   @StateObject private var bookNavigationViewModel: BookNavigationViewModel
   @State private var preferredCompactColumn: NavigationSplitViewColumn = .sidebar
-  @State private var detailWidth: CGFloat = 0
   @Namespace private var coverNamespace
 
   init() {
@@ -79,11 +78,7 @@ struct ContentView: View {
           switch entry?.selection {
           case .book(let selectedBookID):
             if let selectedBook = try? viewContext.existingObject(with: selectedBookID) as? Book {
-              BookContentView(
-                book: selectedBook,
-                detailLayoutWidth: detailWidth,
-                onDelete: navigateHome
-              )
+              BookContentView(book: selectedBook, onDelete: navigateHome)
             } else {
               HomeView(entry: $entry)
             }
@@ -92,11 +87,6 @@ struct ContentView: View {
           }
         }
         .botanicalPageBackground()
-        .readSize { size in
-          if size.width != detailWidth {
-            detailWidth = size.width
-          }
-        }
       }
     )
     .environmentObject(navigationHistory)
@@ -170,7 +160,7 @@ struct ContentView: View {
     }
     .environmentObject(animationSettings)
     #if os(macOS)
-      .frame(minWidth: 480, idealWidth: 540, minHeight: 560, idealHeight: 720)
+      .frame(minWidth: 680, idealWidth: 820, minHeight: 560, idealHeight: 660)
     #endif
   }
 

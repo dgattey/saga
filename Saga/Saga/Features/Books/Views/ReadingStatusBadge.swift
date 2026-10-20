@@ -20,6 +20,18 @@ extension ReadingStatus {
     }
   }
 
+  /// Compact shelf names for the segmented shelf picker.
+  var shortTitle: String {
+    switch self {
+    case .notStarted:
+      return "Want to Read"
+    case .reading:
+      return "Reading"
+    case .read:
+      return "Read"
+    }
+  }
+
   var systemImage: String {
     switch self {
     case .notStarted:

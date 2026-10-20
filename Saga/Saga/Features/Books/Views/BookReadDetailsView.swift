@@ -39,17 +39,21 @@ enum ReadingDuration {
   }
 }
 
-/// The read-mode title, author, status, metadata, and notes for a book. Empty fields are
-/// hidden rather than shown as placeholders.
+/// The read-mode details column: serif title, author, shelf and rating, a horizontal metadata
+/// strip, and borderless editorial notes. Empty metadata is hidden rather than shown as blanks.
 struct BookReadDetailsView: View {
   @ObservedObject var book: Book
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 20) {
+    VStack(alignment: .leading, spacing: 0) {
       header
-      if hasMetadata {
-        metadataBox
+      let entries = Self.metadataEntries(for: book)
+      if !entries.isEmpty {
+        BookMetadataStrip(entries: entries)
+          .padding(.top, 22)
       }
+      Divider()
+        .padding(.vertical, 22)
       notes
     }
   }
@@ -57,96 +61,25 @@ struct BookReadDetailsView: View {
   // MARK: - Header
 
   private var header: some View {
-    VStack(alignment: .leading, spacing: 8) {
+    VStack(alignment: .leading, spacing: 6) {
       Text(book.title ?? "Untitled book")
-        .font(.largeTitleBold)
-      if let author = nonEmpty(book.author) {
+        .font(.editorialTitle)
+        .fixedSize(horizontal: false, vertical: true)
+      if let author = book.author?.cleanedWhitespace, !author.isEmpty {
         Text(author)
-          .font(.title2)
+          .font(.editorialAuthor)
           .foregroundStyle(.secondary)
       }
-      ReadingStatusBadge(status: book.readingStatus)
-        .padding(.top, 4)
-    }
-  }
-
-  // MARK: - Metadata
-
-  private var rating: Int? {
-    guard let value = book.rating?.intValue, (1...5).contains(value) else { return nil }
-    return value
-  }
-
-  private var readingDuration: String? {
-    ReadingDuration.text(started: book.readDateStarted, finished: book.readDateFinished)
-  }
-
-  private var isbn: String? { book.isbn?.stringValue }
-
-  private var hasMetadata: Bool {
-    rating != nil || book.readDateStarted != nil || book.readDateFinished != nil || isbn != nil
-  }
-
-  private var metadataBox: some View {
-    GroupBox {
-      VStack(spacing: 0) {
-        let rows = metadataRows
-        ForEach(rows.indices, id: \.self) { index in
-          if index > 0 {
-            Divider()
-          }
-          LabeledContent {
-            rows[index].value
-          } label: {
-            Text(rows[index].label)
-              .foregroundStyle(.secondary)
-          }
-          .padding(.vertical, 6)
+      HStack(spacing: 12) {
+        ReadingStatusBadge(status: book.readingStatus)
+        if let rating = Self.rating(for: book) {
+          StarRatingView(rating: rating, size: 15)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(rating) out of 5 stars")
         }
       }
+      .padding(.top, 10)
     }
-  }
-
-  private struct MetadataRow {
-    let label: String
-    let value: AnyView
-  }
-
-  private var metadataRows: [MetadataRow] {
-    var rows: [MetadataRow] = []
-    if let rating {
-      rows.append(
-        MetadataRow(
-          label: "Rating",
-          value: AnyView(
-            StarRatingView(rating: rating)
-              .accessibilityLabel("\(rating) out of 5 stars")
-          )
-        )
-      )
-    }
-    if let started = book.readDateStarted {
-      rows.append(dateRow("Started", started))
-    }
-    if let finished = book.readDateFinished {
-      rows.append(dateRow("Finished", finished))
-    }
-    if let readingDuration {
-      rows.append(MetadataRow(label: "Reading time", value: AnyView(Text(readingDuration))))
-    }
-    if let isbn {
-      rows.append(
-        MetadataRow(label: "ISBN", value: AnyView(Text(isbn).monospacedDigit()))
-      )
-    }
-    return rows
-  }
-
-  private func dateRow(_ label: String, _ date: Date) -> MetadataRow {
-    MetadataRow(
-      label: label,
-      value: AnyView(Text(date.formatted(date: .abbreviated, time: .omitted)))
-    )
   }
 
   // MARK: - Notes
@@ -154,22 +87,59 @@ struct BookReadDetailsView: View {
   @ViewBuilder
   private var notes: some View {
     if let review = book.reviewDescription,
-      !review.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-      let attributedString = review.attributedString
+      !review.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     {
-      VStack(alignment: .leading, spacing: 8) {
-        Text("Notes")
-          .font(.headline)
-        AttributedTextViewer(attributedString: attributedString)
+      VStack(alignment: .leading, spacing: 10) {
+        EditorialSectionLabel("Notes")
+        AttributedTextViewer(attributedString: review.editorialAttributedString())
       }
+    } else {
+      BookNotesEmptyState()
     }
   }
 
-  private func nonEmpty(_ value: String?) -> String? {
-    guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty
-    else {
-      return nil
+  // MARK: - Derived values
+
+  static func rating(for book: Book) -> Int? {
+    guard let value = book.rating?.intValue, (1...5).contains(value) else { return nil }
+    return value
+  }
+
+  /// Started · Finished · Duration · ISBN, skipping anything the book doesn't have.
+  static func metadataEntries(for book: Book, now: Date = Date()) -> [BookMetadataEntry] {
+    var entries: [BookMetadataEntry] = []
+    if let started = book.readDateStarted {
+      entries.append(BookMetadataEntry(label: "Started", value: formatted(started)))
     }
-    return trimmed
+    if let finished = book.readDateFinished {
+      entries.append(BookMetadataEntry(label: "Finished", value: formatted(finished)))
+    }
+    if let duration = ReadingDuration.text(
+      started: book.readDateStarted,
+      finished: book.readDateFinished,
+      now: now
+    ) {
+      entries.append(BookMetadataEntry(label: "Duration", value: duration))
+    }
+    if let isbn = book.isbn?.stringValue {
+      entries.append(BookMetadataEntry(label: "ISBN", value: isbn))
+    }
+    return entries
+  }
+
+  private static func formatted(_ date: Date) -> String {
+    date.formatted(date: .abbreviated, time: .omitted)
+  }
+}
+
+/// Shown in place of notes when a book doesn't have any yet.
+struct BookNotesEmptyState: View {
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      EditorialSectionLabel("Notes")
+      Text("No notes yet. Choose Edit to add your thoughts.")
+        .font(.editorialNotes.italic())
+        .foregroundStyle(.tertiary)
+    }
   }
 }
