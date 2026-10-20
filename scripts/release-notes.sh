@@ -96,23 +96,113 @@ def render_inline(text: str) -> str:
     return escaped
 
 
-def extract_section(text: str, heading: str) -> str:
-    lines = text.splitlines()
-    in_section = False
-    collected = []
-    heading_re = re.compile(rf"^#+\s*{re.escape(heading)}\s*$", re.IGNORECASE)
-    any_heading_re = re.compile(r"^#+\s+\S")
+STOP_HEADINGS = (
+    "verification",
+    "testing",
+    "test plan",
+    "tests",
+    "screenshots",
+    "demo",
+    "checklist",
+    "release info",
+)
+
+
+def heading_info(line: str) -> Optional[Tuple[int, str]]:
+    match = re.match(r"^(#+)\s+(.+?)\s*:?\s*$", line.strip())
+    if not match:
+        return None
+    return len(match.group(1)), match.group(2).strip()
+
+
+def is_stop_heading(title: str) -> bool:
+    lowered = title.strip().lower()
+    return any(lowered == stop for stop in STOP_HEADINGS)
+
+
+def strip_agent_wrapper(text: str) -> str:
+    cleaned = text or ""
+    if "<!-- CURSOR_AGENT_PR_BODY_BEGIN -->" in cleaned:
+        cleaned = cleaned.split("<!-- CURSOR_AGENT_PR_BODY_BEGIN -->", 1)[1]
+    if "<!-- CURSOR_AGENT_PR_BODY_END -->" in cleaned:
+        cleaned = cleaned.split("<!-- CURSOR_AGENT_PR_BODY_END -->", 1)[0]
+    cleaned = re.sub(r"<!--[\s\S]*?-->", "", cleaned)
+    return cleaned.strip()
+
+
+def extract_section(
+    text: str, heading: str, include_subsections: bool = True
+) -> str:
+    cleaned_text = strip_agent_wrapper(text)
+    lines = cleaned_text.splitlines()
+    section_level: Optional[int] = None
+    skipping_subheading_level: Optional[int] = None
+    collected: List[str] = []
     hr_re = re.compile(r"^-+\s*$")
+
     for line in lines:
-        if heading_re.match(line.strip()):
-            in_section = True
+        stripped = line.strip()
+        info = heading_info(stripped)
+        if section_level is None:
+            if info and info[1].lower() == heading.strip().lower():
+                section_level = info[0]
             continue
-        if in_section:
-            if any_heading_re.match(line.strip()) or hr_re.match(line.strip()):
+
+        if hr_re.match(stripped):
+            break
+
+        if info:
+            level, title = info
+            if level <= section_level:
                 break
-            collected.append(line)
-    cleaned = [l for l in collected if not re.match(r"^\s*[-*]\s*$", l)]
-    return "\n".join(cleaned).strip()
+            if not include_subsections or is_stop_heading(title):
+                skipping_subheading_level = level
+                continue
+            if (
+                skipping_subheading_level is not None
+                and level <= skipping_subheading_level
+            ):
+                skipping_subheading_level = None
+            continue
+
+        if skipping_subheading_level is not None:
+            continue
+
+        if re.match(r"^\s*[-*]\s*$", line):
+            continue
+        collected.append(line)
+
+    return "\n".join(collected).strip()
+
+
+def strip_non_note_sections(text: str) -> str:
+    cleaned_text = strip_agent_wrapper(text)
+    lines = cleaned_text.splitlines()
+    skipping_level: Optional[int] = None
+    collected: List[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if re.match(r"^(?:closes|fixes|resolves)\b", stripped, re.IGNORECASE):
+            continue
+        info = heading_info(stripped)
+        if info:
+            level, title = info
+            if is_stop_heading(title):
+                skipping_level = level
+                continue
+            if skipping_level is not None and level <= skipping_level:
+                skipping_level = None
+            continue
+        if skipping_level is not None:
+            continue
+        if re.match(r"^-\s*\[[ xX]\]\s*", stripped):
+            continue
+        if re.match(r"^[-*]\s*$", stripped):
+            continue
+        collected.append(line)
+
+    return "\n".join(collected).strip()
 
 
 def strip_outer_h3(fragment: str) -> str:
@@ -131,13 +221,36 @@ def is_already_html_block(text: str) -> bool:
 
 
 def format_single_version_body(raw_input: str, version: str) -> str:
-    raw = re.sub(r"<!--[\s\S]*?-->", "", raw_input or "").strip()
+    raw = strip_agent_wrapper(raw_input or "")
 
-    for section_name in ("Release notes", "Highlights", "What changed?"):
-        extracted = extract_section(raw, section_name)
-        if extracted:
-            raw = extracted
+    if is_already_html_block(raw):
+        cleaned_html = strip_outer_h3(raw)
+        if cleaned_html:
+            return cleaned_html
+
+    extracted_section = ""
+    for section_name in (
+        "Release notes",
+        "Highlights",
+        "Summary",
+        "Overview",
+        "What changed?",
+        "Changes",
+        "Description",
+    ):
+        if section_name.lower() == "summary":
+            top_summary = extract_section(
+                raw, section_name, include_subsections=False
+            )
+            if top_summary:
+                extracted_section = top_summary
+                break
+        candidate = extract_section(raw, section_name, include_subsections=True)
+        if candidate:
+            extracted_section = candidate
             break
+
+    raw = extracted_section if extracted_section else strip_non_note_sections(raw)
 
     if is_already_html_block(raw):
         cleaned_html = strip_outer_h3(raw)
@@ -148,6 +261,7 @@ def format_single_version_body(raw_input: str, version: str) -> str:
     bullets: List[str] = []
     paragraphs: List[str] = []
     current_bullet: Optional[str] = None
+    current_paragraph: Optional[str] = None
 
     for line in lines:
         stripped = line.strip()
@@ -155,25 +269,35 @@ def format_single_version_body(raw_input: str, version: str) -> str:
             if current_bullet is not None:
                 bullets.append(current_bullet)
                 current_bullet = None
+            if current_paragraph is not None:
+                paragraphs.append(current_paragraph)
+                current_paragraph = None
             continue
         if re.match(r"^!\[[^\]]*\]\([^)]+\)$", stripped) or re.match(
-            r"^<(?:img|video)\b", stripped, re.IGNORECASE
+            r"^<(?:img|video|div|picture|source)\b", stripped, re.IGNORECASE
         ):
             continue
         if re.match(r"^#+\s+", stripped):
             continue
         bullet_match = re.match(r"^[-*]\s+(.+)$", stripped)
         if bullet_match:
+            if current_paragraph is not None:
+                paragraphs.append(current_paragraph)
+                current_paragraph = None
             if current_bullet is not None:
                 bullets.append(current_bullet)
             current_bullet = bullet_match.group(1).strip()
         elif current_bullet is not None:
             current_bullet = f"{current_bullet} {stripped}"
+        elif current_paragraph is not None:
+            current_paragraph = f"{current_paragraph} {stripped}"
         else:
-            paragraphs.append(stripped)
+            current_paragraph = stripped
 
     if current_bullet is not None:
         bullets.append(current_bullet)
+    if current_paragraph is not None:
+        paragraphs.append(current_paragraph)
 
     # Filter out bare heading-only parent bullets when sub-bullets were flattened into top-level bullets
     filtered_bullets = [
@@ -183,6 +307,12 @@ def format_single_version_body(raw_input: str, version: str) -> str:
     ]
     if filtered_bullets:
         bullets = filtered_bullets
+
+    # Convert prose paragraphs into bullet items when no explicit bullets exist so Sparkle
+    # always renders a consistent `<ul><li>...</li></ul>` list across versions.
+    if not bullets and paragraphs:
+        bullets = paragraphs
+        paragraphs = []
 
     out_parts: List[str] = []
     if paragraphs:

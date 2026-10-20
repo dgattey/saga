@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 
 #if os(macOS)
+  import AppKit
   import Combine
   import Sparkle
 #endif
@@ -98,22 +99,62 @@ final class SparkleUpdateSession {
 
   // MARK: - Sparkle Delegates
 
-  /// Keeps `SparkleUpdateSession` active while Sparkle's standard UI is visible.
+  /// Keeps `SparkleUpdateSession` active while Sparkle's standard UI is visible and
+  /// brings the update alert to the foreground when a background launch check finds an update.
   final class SparkleStandardUserDriverDelegate: NSObject, SPUStandardUserDriverDelegate {
+    @MainActor var onShowScheduledUpdateInForeground: (() -> Void)?
+
+    var supportsGentleScheduledUpdateReminders: Bool {
+      true
+    }
+
+    func standardUserDriverShouldHandleShowingScheduledUpdate(
+      _ update: SUAppcastItem,
+      andInImmediateFocus immediateFocus: Bool
+    ) -> Bool {
+      shouldHandleShowingScheduledUpdate(inImmediateFocus: immediateFocus)
+    }
+
+    func shouldHandleShowingScheduledUpdate(inImmediateFocus immediateFocus: Bool) -> Bool {
+      // Return `false` for scheduled checks so `standardUserDriverWillHandleShowingUpdate` invokes
+      // `checkForUpdates(nil)` (`showUpdateInFocus`) to activate the app and focus the alert.
+      false
+    }
+
     func standardUserDriverWillHandleShowingUpdate(
       _ handleShowingUpdate: Bool,
       forUpdate update: SUAppcastItem,
       state: SPUUserUpdateState
     ) {
+      Task { @MainActor [weak self] in
+        self?.handleShowingUpdateOnMainActor(handleShowingUpdate)
+      }
+    }
+
+    @MainActor
+    func handleShowingUpdateOnMainActor(_ handleShowingUpdate: Bool) {
+      SparkleUpdateSession.shared.begin()
+      NSApp.activate(ignoringOtherApps: true)
+      if !handleShowingUpdate {
+        onShowScheduledUpdateInForeground?()
+      }
+    }
+
+    func standardUserDriverWillShowModalAlert() {
       Task { @MainActor in
-        SparkleUpdateSession.shared.begin()
+        NSApp.activate(ignoringOtherApps: true)
       }
     }
 
     func standardUserDriverWillFinishUpdateSession() {
-      Task { @MainActor in
-        SparkleUpdateSession.shared.reset()
+      Task { @MainActor [weak self] in
+        self?.finishUpdateSessionOnMainActor()
       }
+    }
+
+    @MainActor
+    func finishUpdateSessionOnMainActor() {
+      SparkleUpdateSession.shared.reset()
     }
   }
 
@@ -211,6 +252,10 @@ final class SparkleUpdateSession {
         shouldStart ? controller.updater.automaticallyChecksForUpdates : true
       self.automaticallyDownloadsUpdates =
         shouldStart ? controller.updater.automaticallyDownloadsUpdates : false
+
+      sparkleUserDriverDelegate.onShowScheduledUpdateInForeground = { [weak self] in
+        self?.controller.checkForUpdates(nil)
+      }
 
       if shouldStart {
         canCheckCancellable = controller.updater.publisher(for: \.canCheckForUpdates)
