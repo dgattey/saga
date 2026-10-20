@@ -20,7 +20,7 @@ struct BookCoverImageView: View {
   }
 
   var body: some View {
-    AssetImageView(asset: book.coverImage, targetSize: targetSize)
+    AssetImageView(url: book.displayCoverURL, targetSize: targetSize)
       .aspectRatio(Self.coverAspectRatio, contentMode: .fit)
       .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
   }

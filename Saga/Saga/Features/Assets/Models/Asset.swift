@@ -55,6 +55,25 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
     self.urlString = urlString
   }
 
+  /// Returns the asset with Contentful ID `id`, creating a placeholder pointing at `urlString`
+  /// when it hasn't synced yet. The next Contentful sync fills in the rest by ID.
+  /// Must be called on `context`'s queue.
+  static func linkedContentfulAsset(
+    id: String,
+    urlString: String,
+    in context: NSManagedObjectContext
+  ) throws -> Asset {
+    let fetchRequest = NSFetchRequest<Asset>(entityName: "Asset")
+    fetchRequest.predicate = NSPredicate(format: "id == %@", id)
+    fetchRequest.fetchLimit = 1
+    if let existing = try context.fetch(fetchRequest).first {
+      return existing
+    }
+    let asset = Asset(context: context, urlString: urlString)
+    asset.id = id
+    return asset
+  }
+
   /// Finds a duplicate asset by url if it exists so we can update it in place.
   private static func findDuplicate(
     in context: NSManagedObjectContext,
@@ -71,6 +90,12 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
   var assetURL: URL? {
     guard let urlString = urlString else { return nil }
     return URL(string: urlString)
+  }
+
+  /// Whether this asset was synced from Contentful (and so has a real Contentful asset ID).
+  /// ContentfulPersistence always sets `localeCode`; assets created locally via `add` never do.
+  var isContentfulManaged: Bool {
+    localeCode != nil
   }
 
   func toDTO() -> AssetDTO {

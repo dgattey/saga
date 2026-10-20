@@ -18,7 +18,11 @@ struct GoodreadsSyncResponse: Decodable, Sendable {
 }
 
 /// Payload for a single book upsert sent to `POST /api/books/sync`.
-struct BookServerUpsertPayload: Encodable, Sendable {
+///
+/// The server treats an omitted field as "keep the Contentful value" and an explicit `null` as
+/// "clear it", so clearable fields (rating, dates, review) always encode, as `null` when empty.
+/// ISBN and cover fields are omitted when empty because the server can't clear them.
+struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
   let id: String
   let title: String
   let author: String
@@ -29,6 +33,25 @@ struct BookServerUpsertPayload: Encodable, Sendable {
   let reviewPlainText: String?
   let coverAssetId: String?
   let coverImageUrl: String?
+
+  private enum CodingKeys: String, CodingKey {
+    case id, title, author, isbn, rating, readDateStarted, readDateFinished, reviewPlainText
+    case coverAssetId, coverImageUrl
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(id, forKey: .id)
+    try container.encode(title, forKey: .title)
+    try container.encode(author, forKey: .author)
+    try container.encodeIfPresent(isbn, forKey: .isbn)
+    try container.encode(rating, forKey: .rating)
+    try container.encode(readDateStarted, forKey: .readDateStarted)
+    try container.encode(readDateFinished, forKey: .readDateFinished)
+    try container.encode(reviewPlainText, forKey: .reviewPlainText)
+    try container.encodeIfPresent(coverAssetId, forKey: .coverAssetId)
+    try container.encodeIfPresent(coverImageUrl, forKey: .coverImageUrl)
+  }
 }
 
 /// Request body sent to `POST /api/books/sync`.
@@ -39,10 +62,22 @@ private struct BookServerSyncRequest: Encodable, Sendable {
 
 /// Response returned by `POST /api/books/sync`.
 struct BookServerSyncResponse: Decodable, Sendable {
+  /// The Contentful state of one upserted or deleted book.
+  struct Entry: Decodable, Equatable, Sendable {
+    let id: String
+    let action: String?
+    let coverAssetId: String?
+  }
+
   let ok: Bool
   let upserted: Int?
   let deleted: Int?
+  let entries: [Entry]?
   let error: String?
+
+  func entry(forBookID id: String) -> Entry? {
+    entries?.first { $0.id.caseInsensitiveCompare(id) == .orderedSame }
+  }
 }
 
 /// Errors encountered when communicating with `dylangattey.com/api/books/*`.
@@ -93,7 +128,11 @@ enum GoodreadsSyncService {
     "images.ctfassets.net",
   ]
 
-  /// Filters cover URLs to `https:` URLs matching the server's allowlisted cover hosts.
+  /// Mirrors the server's `MAX_COVER_IMAGE_URL_LENGTH`.
+  private static let maxCoverImageURLLength = 2048
+
+  /// Filters cover URLs to ones the server's `isAllowedCoverImageUrl` accepts (`https:`, an
+  /// allowlisted host, no credentials or custom port), since one invalid URL fails the request.
   static func sanitizedCoverImageURL(_ rawURL: String?) -> String? {
     guard let raw = rawURL?.trimmingCharacters(in: .whitespacesAndNewlines),
       !raw.isEmpty
@@ -101,10 +140,14 @@ enum GoodreadsSyncService {
       return nil
     }
     let normalized = raw.hasPrefix("//") ? "https:" + raw : raw
-    guard let url = URL(string: normalized),
+    guard normalized.count <= maxCoverImageURLLength,
+      let url = URL(string: normalized),
       url.scheme?.lowercased() == "https",
       let host = url.host?.lowercased(),
-      allowlistedCoverHosts.contains(host)
+      allowlistedCoverHosts.contains(host),
+      url.user == nil,
+      url.password == nil,
+      url.port == nil || url.port == 443
     else {
       return nil
     }

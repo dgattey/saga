@@ -9,24 +9,27 @@ import SwiftUI
 
 /// Shows an asset image with caching for the image data
 struct AssetImageView: View {
-  let asset: Asset?
+  let url: URL?
   let targetSize: CGSize?
 
   init(asset: Asset?, targetSize: CGSize? = nil) {
-    self.asset = asset
+    self.init(url: asset?.assetURL, targetSize: targetSize)
+  }
+
+  init(url: URL?, targetSize: CGSize? = nil) {
+    self.url = url
     self.targetSize = targetSize
   }
 
   var body: some View {
-    if let asset = asset,
-      let url = asset.assetURL
-    {
+    if let url {
       DownsampledAsyncImage(
         url: url,
         urlSession: NetworkCache.urlSession,
         placeholder: AnyView(placeholderView),
         targetSize: targetSize
       )
+      .id(url)
     } else {
       placeholderView
     }
