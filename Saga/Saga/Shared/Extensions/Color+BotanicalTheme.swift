@@ -42,14 +42,6 @@ extension Color {
     )
   }
 
-  /// Deep moss (`#3B5A47`) used to tint form controls in the book editor.
-  static var botanicalDeepMoss: Color {
-    adaptiveColor(
-      light: (0.231, 0.353, 0.278),
-      dark: (0.420, 0.580, 0.480)
-    )
-  }
-
   static var botanicalGold: Color {
     adaptiveColor(
       light: (0.76, 0.55, 0.16),
