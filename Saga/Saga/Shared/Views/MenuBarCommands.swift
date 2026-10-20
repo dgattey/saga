@@ -8,10 +8,10 @@
 import SwiftUI
 
 struct MenuBarCommands: Commands {
-  @EnvironmentObject var syncViewModel: SyncViewModel
-  @EnvironmentObject var cachesViewModel: CachesViewModel
+  @Environment(SyncViewModel.self) var syncViewModel
+  @Environment(CachesViewModel.self) var cachesViewModel
   #if os(macOS)
-    @EnvironmentObject var updaterViewModel: UpdaterViewModel
+    @Environment(UpdaterViewModel.self) var updaterViewModel
   #endif
   @Environment(\.openWindow) private var openWindow
 

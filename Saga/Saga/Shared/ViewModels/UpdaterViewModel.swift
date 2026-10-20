@@ -198,10 +198,17 @@ final class SparkleUpdateSession {
   /// Wraps Sparkle's `SPUStandardUpdaterController` and exposes observable state for
   /// `MenuBarCommands` and `SettingsView`.
   @MainActor
-  final class UpdaterViewModel: ObservableObject {
-    @Published private(set) var canCheckForUpdates = false
+  @Observable
+  final class UpdaterViewModel {
+    private(set) var canCheckForUpdates = false {
+      didSet {
+        guard canCheckForUpdates, isWaitingToCheckOnLaunch else { return }
+        isWaitingToCheckOnLaunch = false
+        checkForUpdatesOnLaunch()
+      }
+    }
 
-    @Published var automaticallyChecksForUpdates: Bool {
+    var automaticallyChecksForUpdates: Bool {
       didSet {
         guard shouldStartUpdater,
           controller.updater.automaticallyChecksForUpdates != automaticallyChecksForUpdates
@@ -210,7 +217,7 @@ final class SparkleUpdateSession {
       }
     }
 
-    @Published var automaticallyDownloadsUpdates: Bool {
+    var automaticallyDownloadsUpdates: Bool {
       didSet {
         guard shouldStartUpdater,
           controller.updater.automaticallyDownloadsUpdates != automaticallyDownloadsUpdates
@@ -219,20 +226,20 @@ final class SparkleUpdateSession {
       }
     }
 
-    let configuration: UpdaterConfiguration
+    @ObservationIgnored let configuration: UpdaterConfiguration
 
     var isConfigured: Bool {
       configuration.isReleaseConfigured
     }
 
-    private let shouldStartUpdater: Bool
-    private let controller: SPUStandardUpdaterController
-    private let sparkleDelegate = SparkleUpdaterDelegate()
-    private let sparkleUserDriverDelegate = SparkleStandardUserDriverDelegate()
-    private var canCheckCancellable: AnyCancellable?
-    private var launchCheckCancellable: AnyCancellable?
-    private(set) var didScheduleLaunchCheck = false
-    private(set) var didCheckOnLaunch = false
+    @ObservationIgnored private let shouldStartUpdater: Bool
+    @ObservationIgnored private let controller: SPUStandardUpdaterController
+    @ObservationIgnored private let sparkleDelegate = SparkleUpdaterDelegate()
+    @ObservationIgnored private let sparkleUserDriverDelegate = SparkleStandardUserDriverDelegate()
+    @ObservationIgnored private var canCheckCancellable: AnyCancellable?
+    @ObservationIgnored private var isWaitingToCheckOnLaunch = false
+    @ObservationIgnored private(set) var didScheduleLaunchCheck = false
+    @ObservationIgnored private(set) var didCheckOnLaunch = false
 
     init(
       configuration: UpdaterConfiguration = .fromMainBundle(),
@@ -290,13 +297,7 @@ final class SparkleUpdateSession {
         return
       }
 
-      launchCheckCancellable =
-        $canCheckForUpdates
-        .filter { $0 }
-        .first()
-        .sink { [weak self] _ in
-          self?.checkForUpdatesOnLaunch()
-        }
+      isWaitingToCheckOnLaunch = true
     }
 
     /// Runs `checkForUpdatesInBackground()` once per launch when automatic update checks are enabled,
@@ -325,7 +326,7 @@ final class SparkleUpdateSession {
 
   /// Menu bar button placed under the app menu ("Saga" -> "Check for Updates…").
   struct CheckForUpdatesMenuItem: View {
-    @ObservedObject var updaterViewModel: UpdaterViewModel
+    var updaterViewModel: UpdaterViewModel
 
     var body: some View {
       Button("Check for Updates…") {

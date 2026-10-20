@@ -5,7 +5,7 @@ alwaysApply: false
 ---
 # ViewModel Patterns
 
-- Use `ObservableObject` + `@Published` for state; prefer `final` unless subclassing.
+- Use `@Observable` for state (mark bookkeeping like tasks and caches `@ObservationIgnored`); prefer `final` unless subclassing.
 - Keep view models focused on orchestration and side effects; views stay declarative.
 - For async work, use `Task` and hop to `MainActor` for UI mutations (see `SyncViewModel`).
 - Log failures with `LoggerService.log` and handle cancellation or duplicate tasks cleanly.

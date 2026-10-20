@@ -5,16 +5,16 @@
 //  Created by Dylan Gattey on 7/8/25.
 //
 
-import Combine
 import CoreData
 import SwiftUI
 
-final class SyncViewModel: ObservableObject {
-  let controller = PersistenceService()
-  @Published var isSyncing = false
-  @Published var isResetting = false
-  @Published var resetToken = UUID()
-  private var syncTask: Task<Void, Never>?
+@Observable
+final class SyncViewModel {
+  @ObservationIgnored let controller = PersistenceService()
+  var isSyncing = false
+  var isResetting = false
+  var resetToken = UUID()
+  @ObservationIgnored private var syncTask: Task<Void, Never>?
 
   var viewContext: NSManagedObjectContext {
     controller.container.viewContext

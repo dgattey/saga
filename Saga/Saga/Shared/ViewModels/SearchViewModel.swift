@@ -28,9 +28,10 @@ struct SearchHighlightResult<Model: SearchableModel> {
   }
 }
 
-final class SearchViewModel: ObservableObject {
-  @Published var searchText = ""
-  private var searchTask: Task<Void, Never>? = nil
+@Observable
+final class SearchViewModel {
+  var searchText = ""
+  @ObservationIgnored private var searchTask: Task<Void, Never>? = nil
 
   var hasActiveSearch: Bool {
     !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -38,7 +39,7 @@ final class SearchViewModel: ObservableObject {
 
   /// TODO: @dgattey this is performant but doesn't allow searching anything but the starts of strings, so the review for example isn't well searchable
   /// The shared fuse configured object for searching for this model
-  private let fuse = Fuse(distance: 100, threshold: 0.3, tokenize: true)
+  @ObservationIgnored private let fuse = Fuse(distance: 100, threshold: 0.3, tokenize: true)
 
   /// Fuzzy searches for a given search term using an array of fetched results, using a Task
   func search<Model: SearchableModel>(
@@ -146,7 +147,7 @@ final class SearchViewModel: ObservableObject {
   func makeHighlightedAttributedString(
     from value: String,
     ranges: [ClosedRange<Int>],
-    highlightColor: Color = .accent.opacity(0.5)
+    highlightColor: Color = Color("AccentColor").opacity(0.5)
   ) -> AttributedString {
     // Start with a styled, mutable AttributedString
     var attributed = AttributedString(value)

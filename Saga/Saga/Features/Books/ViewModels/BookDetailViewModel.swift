@@ -5,12 +5,12 @@
 //  Created by Dylan Gattey on 1/25/26.
 //
 
-import Combine
 import Contentful
 import CoreData
 import SwiftUI
 
-final class BookDetailViewModel: ObservableObject {
+@Observable
+final class BookDetailViewModel {
   enum Field: Hashable {
     case title
     case author
@@ -20,17 +20,16 @@ final class BookDetailViewModel: ObservableObject {
     case rating
   }
 
-  @Published var titleDraft: String
-  @Published var authorDraft: String
-  @Published var isbnDraft: String
-  @Published var reviewDraft: String
-  @Published var coverURLDraft: String
-  @Published var ratingDraft: Int
+  var titleDraft: String
+  var authorDraft: String
+  var isbnDraft: String
+  var reviewDraft: String
+  var coverURLDraft: String
+  var ratingDraft: Int
 
-  private(set) var book: Book
-  private var viewContext: NSManagedObjectContext?
-  private var lastFocusedField: Field?
-  private var cancellables: Set<AnyCancellable> = []
+  @ObservationIgnored private(set) var book: Book
+  @ObservationIgnored private var viewContext: NSManagedObjectContext?
+  @ObservationIgnored private var lastFocusedField: Field?
 
   init(book: Book) {
     self.book = book
@@ -41,7 +40,6 @@ final class BookDetailViewModel: ObservableObject {
     self.reviewDraft = book.reviewDescription?.plainText ?? ""
     self.coverURLDraft = book.coverImage?.assetURL?.absoluteString ?? ""
     self.ratingDraft = book.rating?.intValue ?? 0
-    observeBookChanges()
   }
 
   var displayTitle: String {
@@ -59,7 +57,6 @@ final class BookDetailViewModel: ObservableObject {
     self.book = book
     viewContext = book.managedObjectContext
     lastFocusedField = nil
-    observeBookChanges()
     refreshDraftsFromBook()
   }
 
@@ -277,15 +274,6 @@ final class BookDetailViewModel: ObservableObject {
     reviewDraft = book.reviewDescription?.plainText ?? ""
     coverURLDraft = book.coverImage?.assetURL?.absoluteString ?? ""
     ratingDraft = book.rating?.intValue ?? 0
-  }
-
-  private func observeBookChanges() {
-    cancellables.removeAll()
-    book.objectWillChange
-      .sink { [weak self] _ in
-        self?.objectWillChange.send()
-      }
-      .store(in: &cancellables)
   }
 
   private func isbnNumber(from digits: String) -> NSNumber? {

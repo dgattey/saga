@@ -10,8 +10,8 @@ import SwiftUI
 
 struct BooksListView: View {
   @Environment(\.managedObjectContext) private var viewContext
-  @EnvironmentObject private var viewModel: BooksViewModel
-  @EnvironmentObject private var animationSettings: AnimationSettings
+  @Environment(BooksViewModel.self) private var viewModel
+  @Environment(AnimationSettings.self) private var animationSettings
   #if os(macOS)
     @Environment(\.controlActiveState) private var controlActiveState
   #endif
@@ -25,7 +25,7 @@ struct BooksListView: View {
   @FocusState private var isListFocused: Bool
 
   /// Throttle keyboard navigation to allow animations to complete
-  @StateObject private var navThrottle = NavigationThrottle()
+  @State private var navThrottle = NavigationThrottle()
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
@@ -124,7 +124,7 @@ struct BooksListView: View {
       }
     #endif
     .searchable(
-      text: $viewModel.searchModel.searchText,
+      text: Bindable(viewModel).searchModel.searchText,
       placement: .sidebar
     )
     .navigationTitle("All books")
@@ -345,7 +345,7 @@ private struct BookListRowView: View {
 // MARK: - Navigation Throttle
 
 /// Throttles rapid keyboard navigation to allow animations to complete
-private final class NavigationThrottle: ObservableObject {
+private final class NavigationThrottle {
   /// Interval between allowed navigations
   private let interval: TimeInterval = 0.32
   private var lastNavTime: Date = .distantPast

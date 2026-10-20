@@ -16,7 +16,7 @@ private struct Constants {
 
 /// Renders the books section in the Home view
 struct HomeBooksSectionView: View {
-  @EnvironmentObject private var viewModel: BooksViewModel
+  @Environment(BooksViewModel.self) private var viewModel
   @Binding var entry: NavigationEntry?
   @State private var gridWidth: CGFloat = 0
 

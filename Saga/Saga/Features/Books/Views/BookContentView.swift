@@ -23,8 +23,8 @@ struct BookContentView: View {
   let detailLayoutWidth: CGFloat
   @Environment(\.scrollContextID) private var scrollContextID
   @Environment(\.coverNamespace) private var coverNamespace
-  @EnvironmentObject private var bookNavigationViewModel: BookNavigationViewModel
-  @StateObject private var viewModel: BookDetailViewModel
+  @Environment(BookNavigationViewModel.self) private var bookNavigationViewModel
+  @State private var viewModel: BookDetailViewModel
   @State private var containerWidth: CGFloat = 0
 
   @FocusState private var focusedField: BookDetailViewModel.Field?
@@ -32,7 +32,7 @@ struct BookContentView: View {
   init(book: Book, detailLayoutWidth: CGFloat) {
     self.book = book
     self.detailLayoutWidth = detailLayoutWidth
-    _viewModel = StateObject(wrappedValue: BookDetailViewModel(book: book))
+    _viewModel = State(initialValue: BookDetailViewModel(book: book))
   }
 
   var body: some View {

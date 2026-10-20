@@ -9,7 +9,8 @@ import CoreData
 import SwiftUI
 
 /// Contains all our books and allows for filtering
-final class BooksViewModel: ObservableObject {
+@Observable
+final class BooksViewModel {
   private struct CachedBookDTO {
     let bookUpdatedAt: Date?
     let coverUpdatedAt: Date?
@@ -22,10 +23,10 @@ final class BooksViewModel: ObservableObject {
     let dto: BookDTO
   }
 
-  @Published var filteredBooks: [SearchHighlightResult<Book>] = []
-  @Published var searchModel = SearchViewModel()
-  private var isHandlingBookChanges = false
-  private var dtoCache: [NSManagedObjectID: CachedBookDTO] = [:]
+  var filteredBooks: [SearchHighlightResult<Book>] = []
+  var searchModel = SearchViewModel()
+  @ObservationIgnored private var isHandlingBookChanges = false
+  @ObservationIgnored private var dtoCache: [NSManagedObjectID: CachedBookDTO] = [:]
 
   var hasActiveSearch: Bool {
     searchModel.hasActiveSearch
