@@ -10,7 +10,11 @@ enum Constants {
   static let buildVersionKey = "CURRENT_PROJECT_VERSION"
   static let releaseNotesHeading = "Release notes"
   static let highlightsHeading = "Highlights"
+  static let summaryHeading = "Summary"
+  static let overviewHeading = "Overview"
   static let whatChangedHeading = "What changed?"
+  static let changesHeading = "Changes"
+  static let descriptionHeading = "Description"
   static let releaseTypeHeading = "Release info"
   static let releaseTypeMajor = "Major"
   static let releaseTypeMinor = "Minor"
@@ -170,62 +174,179 @@ func epochSeconds(from iso8601: String) throws -> Int {
   throw ScriptError("Invalid ISO8601 timestamp: \(iso8601)")
 }
 
-func isHeading(_ line: String, heading: String) -> Bool {
-  let pattern = "^#+\\s*\(NSRegularExpression.escapedPattern(for: heading))\\s*$"
+func headingLevel(of line: String) -> Int? {
+  let trimmed = line.trimmingCharacters(in: .whitespaces)
+  guard trimmed.hasPrefix("#") else { return nil }
+  let hashes = trimmed.prefix { $0 == "#" }
+  let remainder = trimmed.dropFirst(hashes.count)
+  guard let first = remainder.first, first.isWhitespace else { return nil }
+  let title = remainder.trimmingCharacters(in: .whitespaces)
+  guard !title.isEmpty else { return nil }
+  return hashes.count
+}
+
+func isHeading(_ line: String, heading: String) -> Int? {
+  guard let level = headingLevel(of: line) else { return nil }
+  let pattern = "^#+\\s*\(NSRegularExpression.escapedPattern(for: heading))\\s*:?\\s*$"
   guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-    return false
+    return nil
   }
   let range = NSRange(line.startIndex..<line.endIndex, in: line)
-  return regex.firstMatch(in: line, range: range) != nil
+  return regex.firstMatch(in: line, range: range) != nil ? level : nil
 }
 
-func isAnyHeading(_ line: String) -> Bool {
-  line.range(of: "^#+\\s+\\S", options: .regularExpression) != nil
+func isStoppedSubheading(_ line: String) -> Bool {
+  let stopNames = [
+    "Verification",
+    "Testing",
+    "Test plan",
+    "Tests",
+    "Screenshots",
+    "Demo",
+    "Checklist",
+    Constants.releaseTypeHeading,
+  ]
+  return stopNames.contains { isHeading(line, heading: $0) != nil }
 }
 
-func extractSection(named heading: String, from body: String) -> String {
-  let lines = body.components(separatedBy: .newlines)
-  var inSection = false
+func stripAgentWrapper(from body: String) -> String {
+  var cleaned = body
+  if let beginRange = cleaned.range(of: "<!-- CURSOR_AGENT_PR_BODY_BEGIN -->") {
+    cleaned = String(cleaned[beginRange.upperBound...])
+  }
+  if let endRange = cleaned.range(of: "<!-- CURSOR_AGENT_PR_BODY_END -->") {
+    cleaned = String(cleaned[..<endRange.lowerBound])
+  }
+  // Remove HTML comments
+  if let commentRegex = try? NSRegularExpression(pattern: "<!--\\s*[\\s\\S]*?\\s*-->") {
+    let range = NSRange(cleaned.startIndex..<cleaned.endIndex, in: cleaned)
+    cleaned = commentRegex.stringByReplacingMatches(in: cleaned, range: range, withTemplate: "")
+  }
+  return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+func extractSection(
+  named heading: String,
+  from body: String,
+  includeSubsections: Bool = true
+) -> String {
+  let cleanedBody = stripAgentWrapper(from: body)
+  let lines = cleanedBody.components(separatedBy: .newlines)
+  var sectionLevel: Int?
+  var skippingSubheadingLevel: Int?
   var collected: [String] = []
   for line in lines {
-    if isHeading(line, heading: heading) {
-      inSection = true
+    if let matchedLevel = isHeading(line, heading: heading), sectionLevel == nil {
+      sectionLevel = matchedLevel
       continue
     }
-    if inSection {
-      if isAnyHeading(line)
-        || line.range(of: "^-+\\s*$", options: .regularExpression) != nil
-        || line.contains("<!-- CURSOR_AGENT_PR_BODY_END -->")
-      {
+    guard let activeLevel = sectionLevel else { continue }
+
+    if line.range(of: "^-+\\s*$", options: .regularExpression) != nil {
+      break
+    }
+
+    if let currentHeadingLevel = headingLevel(of: line) {
+      if currentHeadingLevel <= activeLevel {
         break
       }
-      if line.range(of: "^\\s*[-*]\\s*$", options: .regularExpression) != nil {
+      if !includeSubsections || isStoppedSubheading(line) {
+        skippingSubheadingLevel = currentHeadingLevel
         continue
       }
-      collected.append(line)
+      if let skipLevel = skippingSubheadingLevel, currentHeadingLevel <= skipLevel {
+        skippingSubheadingLevel = nil
+      }
     }
+
+    if skippingSubheadingLevel != nil {
+      continue
+    }
+
+    if line.range(of: "^\\s*[-*]\\s*$", options: .regularExpression) != nil {
+      continue
+    }
+    collected.append(line)
   }
   return collected.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
-func extractNotes(from body: String, preferConcise: Bool = false) -> String {
+func extractFallbackBody(from body: String) -> String {
+  let cleanedBody = stripAgentWrapper(from: body)
+  let lines = cleanedBody.components(separatedBy: .newlines)
+  var skippingHeadingLevel: Int?
+  var collected: [String] = []
+
+  for line in lines {
+    let trimmed = line.trimmingCharacters(in: .whitespaces)
+    if trimmed.range(of: "^(?i)(closes|fixes|resolves)\\b", options: .regularExpression) != nil {
+      continue
+    }
+    if let level = headingLevel(of: line) {
+      if isStoppedSubheading(line) {
+        skippingHeadingLevel = level
+        continue
+      }
+      if let skipLevel = skippingHeadingLevel, level <= skipLevel {
+        skippingHeadingLevel = nil
+      }
+      continue
+    }
+    if skippingHeadingLevel != nil {
+      continue
+    }
+    if trimmed.range(of: "^-\\s*\\[[ xX]\\]\\s*", options: .regularExpression) != nil {
+      continue
+    }
+    if trimmed.range(of: "^[-*]\\s*$", options: .regularExpression) != nil {
+      continue
+    }
+    collected.append(line)
+  }
+  return collected.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+func extractNotes(from body: String, title: String? = nil, preferConcise: Bool = false) -> String {
   let headings =
     preferConcise
     ? [
       Constants.releaseNotesHeading,
       Constants.highlightsHeading,
+      Constants.summaryHeading,
+      Constants.overviewHeading,
       Constants.whatChangedHeading,
+      Constants.changesHeading,
+      Constants.descriptionHeading,
     ]
     : [
-      Constants.whatChangedHeading,
       Constants.releaseNotesHeading,
       Constants.highlightsHeading,
+      Constants.whatChangedHeading,
+      Constants.summaryHeading,
+      Constants.changesHeading,
+      Constants.overviewHeading,
+      Constants.descriptionHeading,
     ]
   for heading in headings {
-    let section = extractSection(named: heading, from: body)
+    // For concise Sparkle notes, prefer the top-level Summary prose before falling back to
+    // nested `### Changes` implementation details when `## Summary` has prose.
+    if preferConcise && heading == Constants.summaryHeading {
+      let summaryTopOnly = extractSection(named: heading, from: body, includeSubsections: false)
+      if !summaryTopOnly.isEmpty {
+        return summaryTopOnly
+      }
+    }
+    let section = extractSection(named: heading, from: body, includeSubsections: true)
     if !section.isEmpty {
       return section
     }
+  }
+  let fallback = extractFallbackBody(from: body)
+  if !fallback.isEmpty {
+    return fallback
+  }
+  if let title = title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+    return "- \(title)"
   }
   return ""
 }
@@ -290,11 +411,13 @@ func latestAppcastBuildNumber(repoSlug: String) -> Int? {
 
 struct PullRequestEvent: Decodable {
   struct PullRequest: Decodable {
+    let title: String?
     let body: String?
     let mergedAt: String?
     let updatedAt: String?
 
     enum CodingKeys: String, CodingKey {
+      case title
       case body
       case mergedAt = "merged_at"
       case updatedAt = "updated_at"
@@ -407,7 +530,13 @@ func runExtractNotes(arguments: Arguments) throws {
   let eventPath = try arguments.require("--event")
   let preferConcise = arguments.value(for: "--sparkle") != nil
   let event = try loadPullRequestEvent(from: eventPath)
-  print(extractNotes(from: event.pullRequest.body ?? "", preferConcise: preferConcise))
+  print(
+    extractNotes(
+      from: event.pullRequest.body ?? "",
+      title: event.pullRequest.title,
+      preferConcise: preferConcise
+    )
+  )
 }
 
 func runPrComment(arguments: Arguments) throws {

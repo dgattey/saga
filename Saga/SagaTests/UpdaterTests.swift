@@ -162,6 +162,35 @@ struct UpdaterTests {
     }
 
     @Test(
+      "SparkleStandardUserDriverDelegate routes scheduled updates to foreground and manages session"
+    )
+    @MainActor
+    func sparkleStandardUserDriverDelegateForegroundBehavior() {
+      SparkleUpdateSession.shared.reset()
+      let delegate = SparkleStandardUserDriverDelegate()
+      var foregroundPresentationCount = 0
+      delegate.onShowScheduledUpdateInForeground = {
+        foregroundPresentationCount += 1
+      }
+
+      #expect(delegate.supportsGentleScheduledUpdateReminders)
+      #expect(!delegate.shouldHandleShowingScheduledUpdate(inImmediateFocus: true))
+      #expect(!delegate.shouldHandleShowingScheduledUpdate(inImmediateFocus: false))
+
+      delegate.handleShowingUpdateOnMainActor(false)
+      #expect(SparkleUpdateSession.shared.activeCount == 1)
+      #expect(foregroundPresentationCount == 1)
+
+      delegate.handleShowingUpdateOnMainActor(true)
+      #expect(SparkleUpdateSession.shared.activeCount == 2)
+      #expect(foregroundPresentationCount == 1)
+
+      delegate.standardUserDriverWillShowModalAlert()
+      delegate.finishUpdateSessionOnMainActor()
+      #expect(SparkleUpdateSession.shared.activeCount == 0)
+    }
+
+    @Test(
       "CheckForUpdatesMenuItem renders Check for Updates… button disabled when canCheckForUpdates is false"
     )
     @MainActor
