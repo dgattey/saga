@@ -22,6 +22,10 @@ struct GoodreadsSyncResponse: Decodable, Sendable {
 /// The server treats an omitted field as "keep the Contentful value" and an explicit `null` as
 /// "clear it", so clearable fields (rating, dates, review) always encode, as `null` when empty.
 /// ISBN and cover fields are omitted when empty because the server can't clear them.
+///
+/// At most one cover source is sent: `coverAssetId` (keep a synced asset), `coverImageUrl`
+/// (server downloads an allowlisted URL), or `coverImageBase64` + `coverImageContentType`
+/// (server uploads the bytes of a dropped/pasted image).
 struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
   let id: String
   let title: String
@@ -33,10 +37,42 @@ struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
   let reviewPlainText: String?
   let coverAssetId: String?
   let coverImageUrl: String?
+  /// Standard (non-URL-safe) base64 of the image bytes, without a `data:` prefix.
+  var coverImageBase64: String? = nil
+  /// MIME type of `coverImageBase64`, currently always `image/jpeg`.
+  var coverImageContentType: String? = nil
 
   private enum CodingKeys: String, CodingKey {
     case id, title, author, isbn, rating, readDateStarted, readDateFinished, reviewPlainText
-    case coverAssetId, coverImageUrl
+    case coverAssetId, coverImageUrl, coverImageBase64, coverImageContentType
+  }
+
+  var hasCoverUpload: Bool { coverImageBase64 != nil }
+
+  /// Attaches uploaded image bytes, dropping other cover sources so the server sees only one.
+  func withCoverUpload(_ upload: CoverImageUpload) -> BookServerUpsertPayload {
+    var copy = BookServerUpsertPayload(
+      id: id,
+      title: title,
+      author: author,
+      isbn: isbn,
+      rating: rating,
+      readDateStarted: readDateStarted,
+      readDateFinished: readDateFinished,
+      reviewPlainText: reviewPlainText,
+      coverAssetId: nil,
+      coverImageUrl: nil
+    )
+    copy.coverImageBase64 = upload.base64
+    copy.coverImageContentType = upload.contentType
+    return copy
+  }
+
+  func withoutCoverUpload() -> BookServerUpsertPayload {
+    var copy = self
+    copy.coverImageBase64 = nil
+    copy.coverImageContentType = nil
+    return copy
   }
 
   func encode(to encoder: Encoder) throws {
@@ -51,6 +87,8 @@ struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
     try container.encode(reviewPlainText, forKey: .reviewPlainText)
     try container.encodeIfPresent(coverAssetId, forKey: .coverAssetId)
     try container.encodeIfPresent(coverImageUrl, forKey: .coverImageUrl)
+    try container.encodeIfPresent(coverImageBase64, forKey: .coverImageBase64)
+    try container.encodeIfPresent(coverImageContentType, forKey: .coverImageContentType)
   }
 }
 
@@ -67,6 +105,8 @@ struct BookServerSyncResponse: Decodable, Sendable {
     let id: String
     let action: String?
     let coverAssetId: String?
+    /// HTTPS URL of the linked cover asset's file (for example on `images.ctfassets.net`).
+    var coverImageUrl: String? = nil
   }
 
   let ok: Bool

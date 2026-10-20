@@ -52,7 +52,7 @@ shared UI/utilities.
 **Services**: `PersistenceService` (Core Data + Contentful CDA), `GoodreadsSyncService` (HMAC-SHA256 signed client for `https://dylangattey.com/api/books/goodreads-sync` and `https://dylangattey.com/api/books/sync`), `LoggerService`,
 `ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`, `UpdaterViewModel` (Sparkle automatic updates on macOS),
 book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`, unified by `CoverImageResolver.bestCoverURL`),
-`CoverImageStore` (dropped/pasted covers in Application Support, stored on `Book.localCoverImageURL`),
+`CoverImageStore` (dropped/pasted covers in Application Support, stored on `Book.localCoverImageURL`, compressed to ≤1600px JPEG for `coverImageBase64` + `coverImageContentType` uploads),
 `BookMutationService` (create/edit/delete books locally, then push to `/api/books/sync`)
 **Editing**: `BookContentView` swaps read mode for `BookEditorView` (⌘E); `File > New Book…` (⌘N) and the
 sidebar `+` present the same editor in create mode. Edits live in a `BookDraft` until Done.

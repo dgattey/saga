@@ -24,12 +24,12 @@ struct BookEditingTests {
       .appending(path: "SagaTests-Covers-\(UUID().uuidString)", directoryHint: .isDirectory)
   }
 
-  private static func pngData() throws -> Data {
+  private static func pngData(width: Int = 2, height: Int = 3) throws -> Data {
     let context = try #require(
       CGContext(
         data: nil,
-        width: 2,
-        height: 3,
+        width: width,
+        height: height,
         bitsPerComponent: 8,
         bytesPerRow: 0,
         space: CGColorSpaceCreateDeviceRGB(),
@@ -37,7 +37,7 @@ struct BookEditingTests {
       )
     )
     context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.3, alpha: 1))
-    context.fill(CGRect(x: 0, y: 0, width: 2, height: 3))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
     let image = try #require(context.makeImage())
     let output = NSMutableData()
     let destination = try #require(
@@ -339,6 +339,100 @@ struct BookEditingTests {
     #expect(book.coverImage?.id == existingAssetID)
   }
 
+  @Test("CoverImageStore compresses covers to bounded JPEGs for upload")
+  func coverImageStoreCompressesUploads() throws {
+    let directory = Self.makeCoverDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let fileURL = try CoverImageStore.save(
+      try Self.pngData(width: 2400, height: 3600),
+      in: directory
+    )
+
+    let upload = try CoverImageStore.uploadData(forCoverAt: fileURL)
+    #expect(upload.contentType == "image/jpeg")
+    #expect(upload.data.count <= CoverImageStore.maxUploadBytes)
+    let source = try #require(CGImageSourceCreateWithData(upload.data as CFData, nil))
+    #expect(CGImageSourceGetType(source) as String? == UTType.jpeg.identifier)
+    let properties = try #require(
+      CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+    )
+    #expect(properties[kCGImagePropertyPixelHeight] as? Int == 1600)
+    #expect((properties[kCGImagePropertyPixelWidth] as? Int ?? 0) < 1600)
+
+    #expect(throws: CoverImageStoreError.notAnImage) {
+      try CoverImageStore.uploadData(forCoverAt: directory.appending(path: "missing.png"))
+    }
+  }
+
+  @Test("BookMutationService uploads dropped covers as base64 and links the returned asset")
+  @MainActor
+  func mutationServiceUploadsLocalCover() async throws {
+    let context = TestCoreDataStack.makeContainer().viewContext
+    let directory = Self.makeCoverDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let book = try TestCoreDataStack.makeBook(in: context, id: "BOOK-4")
+    let recorder = PayloadRecorder()
+    let assetURL = "https://images.ctfassets.net/space/new-asset/cover.jpg"
+    let service = Self.makeService(context: context, coverDirectory: directory) { payload in
+      await recorder.record(payload)
+      return BookServerSyncResponse(
+        ok: true,
+        upserted: 1,
+        deleted: 0,
+        entries: [
+          .init(
+            id: payload.id,
+            action: "updated",
+            coverAssetId: "UPLOADED",
+            coverImageUrl: assetURL
+          )
+        ],
+        error: nil
+      )
+    }
+
+    var draft = BookDraft(book: book, now: Self.reference)
+    draft.cover = .image(try Self.pngData())
+    let pending = try await service.update(book.objectID, with: draft)
+    let fileURL = try #require(pending.coverFileURL)
+    #expect(pending.payload?.hasCoverUpload == false)
+
+    await service.sync(pending)
+    let sent = try #require(await recorder.payloads.first)
+    #expect(sent.coverImageContentType == "image/jpeg")
+    let sentImage = try #require(sent.coverImageBase64.flatMap { Data(base64Encoded: $0) })
+    #expect(CoverImageStore.isImage(sentImage))
+    #expect(sent.coverImageUrl == nil)
+    #expect(sent.coverAssetId == nil)
+    #expect(book.localCoverImageURL == nil)
+    #expect(book.coverImage?.id == "UPLOADED")
+    #expect(book.displayCoverURL?.absoluteString == assetURL)
+    #expect(!FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)))
+  }
+
+  @Test("BookMutationService retries without the image when a cover upload fails")
+  @MainActor
+  func mutationServiceRetriesWithoutFailedUpload() async throws {
+    let context = TestCoreDataStack.makeContainer().viewContext
+    let directory = Self.makeCoverDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let book = try TestCoreDataStack.makeBook(in: context, id: "BOOK-5")
+    let recorder = PayloadRecorder()
+    let service = Self.makeService(context: context, coverDirectory: directory) { payload in
+      await recorder.record(payload)
+      return nil
+    }
+
+    var draft = BookDraft(book: book, now: Self.reference)
+    draft.cover = .image(try Self.pngData())
+    let pending = try await service.update(book.objectID, with: draft)
+    await service.sync(pending)
+
+    let sent = await recorder.payloads
+    #expect(sent.map(\.hasCoverUpload) == [true, false])
+    #expect(book.localCoverImageURL == pending.coverFileURL?.absoluteString)
+  }
+
   @Test("BookMutationService deletes books and returns the Contentful entry ID")
   @MainActor
   func mutationServiceDeletes() async throws {
@@ -424,5 +518,13 @@ struct BookEditingTests {
     #expect(book.title == "Project Hail Mary")
     #expect(book.isbn?.int64Value == 9_780_593_135_204)
     #expect(book.readingStatus == .reading)
+  }
+}
+
+private actor PayloadRecorder {
+  private(set) var payloads: [BookServerUpsertPayload] = []
+
+  func record(_ payload: BookServerUpsertPayload) {
+    payloads.append(payload)
   }
 }

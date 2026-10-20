@@ -12,6 +12,7 @@ import UniformTypeIdentifiers
 enum CoverImageStoreError: LocalizedError, Equatable {
   case notAnImage
   case writeFailed(reason: String)
+  case tooLargeToUpload(bytes: Int)
 
   var errorDescription: String? {
     switch self {
@@ -19,6 +20,8 @@ enum CoverImageStoreError: LocalizedError, Equatable {
       return "That doesn't look like an image."
     case .writeFailed(let reason):
       return "Couldn't save the cover image: \(reason)"
+    case .tooLargeToUpload(let bytes):
+      return "The cover is still \(bytes / 1024) KB after compression, too large to sync."
     }
   }
 
@@ -28,15 +31,30 @@ enum CoverImageStoreError: LocalizedError, Equatable {
       return "Drop or paste a JPEG, PNG, or HEIC image, or an image URL."
     case .writeFailed:
       return "Check available disk space and try again."
+    case .tooLargeToUpload:
+      return "Try a smaller or simpler cover image. It still shows on this device."
     }
   }
 }
 
+/// A compressed cover ready to send as `coverImageBase64` + `coverImageContentType`.
+struct CoverImageUpload: Equatable, Sendable {
+  let data: Data
+  let contentType: String
+
+  var base64: String { data.base64EncodedString() }
+}
+
 /// Persists dropped or pasted cover images to Application Support so they render through the
-/// regular `file://` image pipeline. These covers only live on this device: the books sync
-/// endpoint accepts cover URLs from allowlisted hosts, not raw image uploads.
+/// regular `file://` image pipeline, and compresses them for upload to Contentful through
+/// `/api/books/sync`.
 enum CoverImageStore {
   private static let passthroughTypes: [UTType] = [.jpeg, .png, .heic]
+
+  /// Keeps the base64 request body (~4/3 of this) under Vercel's 4.5 MB function payload limit.
+  static let maxUploadBytes = 3 * 1024 * 1024
+  private static let uploadPixelSizes = [1600, 1200, 800]
+  private static let uploadJPEGQuality = 0.82
 
   static var defaultDirectory: URL {
     let base =
@@ -106,6 +124,84 @@ enum CoverImageStore {
         surface: .persistence
       )
     }
+  }
+
+  /// Downscales the cover at `fileURL` to at most 1600px on its long edge and re-encodes it as
+  /// JPEG (flattening any transparency onto white), stepping down in size until it fits
+  /// `maxUploadBytes`.
+  static func uploadData(forCoverAt fileURL: URL) throws -> CoverImageUpload {
+    guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
+      CGImageSourceGetCount(source) > 0
+    else {
+      throw CoverImageStoreError.notAnImage
+    }
+    var smallestSize = Int.max
+    for pixelSize in uploadPixelSizes {
+      let options: [CFString: Any] = [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+        kCGImageSourceThumbnailMaxPixelSize: pixelSize,
+      ]
+      guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+      else {
+        throw CoverImageStoreError.notAnImage
+      }
+      let data = try jpegData(from: flattened(image))
+      if data.count <= maxUploadBytes {
+        return CoverImageUpload(data: data, contentType: "image/jpeg")
+      }
+      smallestSize = min(smallestSize, data.count)
+    }
+    throw CoverImageStoreError.tooLargeToUpload(bytes: smallestSize)
+  }
+
+  private static func flattened(_ image: CGImage) -> CGImage {
+    switch image.alphaInfo {
+    case .none, .noneSkipFirst, .noneSkipLast:
+      return image
+    default:
+      break
+    }
+    guard
+      let context = CGContext(
+        data: nil,
+        width: image.width,
+        height: image.height,
+        bitsPerComponent: 8,
+        bytesPerRow: 0,
+        space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+      )
+    else {
+      return image
+    }
+    let bounds = CGRect(x: 0, y: 0, width: image.width, height: image.height)
+    context.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
+    context.fill(bounds)
+    context.draw(image, in: bounds)
+    return context.makeImage() ?? image
+  }
+
+  private static func jpegData(from image: CGImage) throws -> Data {
+    let output = NSMutableData()
+    guard
+      let destination = CGImageDestinationCreateWithData(
+        output as CFMutableData,
+        UTType.jpeg.identifier as CFString,
+        1,
+        nil
+      )
+    else {
+      throw CoverImageStoreError.writeFailed(reason: "JPEG encoder unavailable")
+    }
+    let properties: [CFString: Any] = [
+      kCGImageDestinationLossyCompressionQuality: uploadJPEGQuality
+    ]
+    CGImageDestinationAddImage(destination, image, properties as CFDictionary)
+    guard CGImageDestinationFinalize(destination) else {
+      throw CoverImageStoreError.writeFailed(reason: "JPEG encoding failed")
+    }
+    return output as Data
   }
 
   private static func normalizedPath(_ url: URL) -> String {

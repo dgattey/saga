@@ -189,6 +189,30 @@ struct ModelsAndPersistenceTests {
     #expect(object["isbn"] == nil)
     #expect(object["coverAssetId"] == nil)
     #expect(object["coverImageUrl"] == nil)
+    #expect(object["coverImageBase64"] == nil)
+    #expect(object["coverImageContentType"] == nil)
+
+    let upload = CoverImageUpload(data: Data([0xFF, 0xD8, 0xFF]), contentType: "image/jpeg")
+    let uploadPayload = BookServerUpsertPayload(
+      id: "NEW-BOOK",
+      title: "Piranesi",
+      author: "Susanna Clarke",
+      isbn: nil,
+      rating: nil,
+      readDateStarted: nil,
+      readDateFinished: nil,
+      reviewPlainText: nil,
+      coverAssetId: "OLD-ASSET",
+      coverImageUrl: "https://covers.openlibrary.org/b/id/1-L.jpg"
+    ).withCoverUpload(upload)
+    let uploadObject = try #require(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(uploadPayload)) as? [String: Any]
+    )
+    #expect(uploadObject["coverImageBase64"] as? String == "/9j/")
+    #expect(uploadObject["coverImageContentType"] as? String == "image/jpeg")
+    #expect(uploadObject["coverAssetId"] == nil)
+    #expect(uploadObject["coverImageUrl"] == nil)
+    #expect(uploadPayload.withoutCoverUpload().coverImageBase64 == nil)
   }
 
   @Test("GoodreadsSyncService computes deterministic HMAC-SHA256 signatures")

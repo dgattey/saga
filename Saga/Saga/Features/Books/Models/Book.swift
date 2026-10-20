@@ -58,8 +58,8 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
   @NSManaged var readDateFinished: Date?
   @NSManaged var rating: NSNumber?
   @NSManaged var reviewDescription: RichTextDocument?
-  /// A cover only this device knows about (a dropped/pasted image file, or a URL on a host the
-  /// sync server won't accept). Not part of `fieldMapping`, so Contentful syncs never reset it.
+  /// A cover not yet linked to a Contentful asset (a dropped/pasted image file, or an image
+  /// URL). Not part of `fieldMapping`, so Contentful syncs never reset it.
   @NSManaged var localCoverImageURL: String?
 
   var readingStatus: ReadingStatus {
@@ -104,8 +104,8 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
   ///
   /// Covers synced from Contentful are referenced by asset ID only, so unchanged covers aren't
   /// re-uploaded on every edit. A pending local cover sends its URL (when it's on an allowlisted
-  /// host) so the server can upload and link a new asset. Local-only covers (`file://` images
-  /// or other hosts) send neither, which leaves the Contentful cover untouched.
+  /// host) so the server can upload and link a new asset. `file://` covers send neither here;
+  /// `BookMutationService.sync(_:)` attaches their compressed bytes before pushing.
   func toServerUpsertPayload() -> BookServerUpsertPayload? {
     let trimmedTitle = (title ?? "").cleanedWhitespace
     guard !trimmedTitle.isEmpty else { return nil }
