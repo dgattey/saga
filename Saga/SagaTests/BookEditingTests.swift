@@ -149,6 +149,33 @@ struct BookEditingTests {
     )
   }
 
+  @Test("BookReadDetailsView builds the Started, Finished, Duration, and ISBN strip")
+  @MainActor
+  func readMetadataEntries() throws {
+    let context = TestCoreDataStack.makeContainer().viewContext
+    let finishedBook = try TestCoreDataStack.makeBook(
+      in: context,
+      isbn: 9_780_593_135_204,
+      readDateStarted: Self.reference,
+      readDateFinished: Self.reference.addingTimeInterval(12 * 86_400)
+    )
+    let entries = BookReadDetailsView.metadataEntries(for: finishedBook)
+    #expect(entries.map(\.label) == ["Started", "Finished", "Duration", "ISBN"])
+    #expect(entries[2].value == "12 days")
+    #expect(entries[3].value == "9780593135204")
+    #expect(BookReadDetailsView.rating(for: finishedBook) == 5)
+
+    let shelvedBook = try TestCoreDataStack.makeBook(
+      in: context,
+      isbn: nil,
+      rating: 0,
+      readDateStarted: nil,
+      readDateFinished: nil
+    )
+    #expect(BookReadDetailsView.metadataEntries(for: shelvedBook).isEmpty)
+    #expect(BookReadDetailsView.rating(for: shelvedBook) == nil)
+  }
+
   // MARK: - Covers
 
   @Test("CoverImageResolver prefers large BookcoverAPI art, otherwise the larger candidate")
@@ -458,6 +485,7 @@ struct BookEditingTests {
       service: Self.makeService(context: context)
     )
     #expect(viewModel.mode == .edit(book.objectID))
+    #expect(viewModel.saveButtonTitle == "Save")
     #expect(!viewModel.hasChanges)
 
     viewModel.draft.title = "Edited"
@@ -519,6 +547,89 @@ struct BookEditingTests {
     #expect(book.title == "Project Hail Mary")
     #expect(book.isbn?.int64Value == 9_780_593_135_204)
     #expect(book.readingStatus == .reading)
+  }
+
+  @Test("BookEditorViewModel gates Save on valid drafts and validates typed cover URLs")
+  @MainActor
+  func editorViewModelGatesSaveAndValidatesURLs() throws {
+    let context = TestCoreDataStack.makeContainer().viewContext
+    let viewModel = BookEditorViewModel(
+      book: nil,
+      service: Self.makeService(context: context),
+      now: Self.reference
+    )
+    #expect(viewModel.saveButtonTitle == "Add Book")
+    #expect(!viewModel.canSave)
+    #expect(viewModel.saveBlockedReason == "Add a title.")
+    #expect(viewModel.visibleIssues.isEmpty)
+
+    viewModel.draft.isbnText = "12345"
+    #expect(viewModel.visibleIssues == [.invalidISBN])
+    viewModel.draft.isbnText = ""
+    viewModel.draft.title = "Piranesi"
+    viewModel.draft.author = "Susanna Clarke"
+    #expect(viewModel.canSave)
+    #expect(viewModel.saveBlockedReason == nil)
+
+    #expect(!viewModel.useCoverURL("not a url"))
+    #expect(viewModel.coverMessage == "That isn't a web address. Paste an https:// image link.")
+    #expect(viewModel.draft.cover == .none)
+    #expect(viewModel.useCoverURL(" //covers.openlibrary.org/b/id/7-L.jpg "))
+    #expect(viewModel.draft.cover == .url("https://covers.openlibrary.org/b/id/7-L.jpg"))
+    #expect(viewModel.coverMessage == nil)
+  }
+
+  @Test("BookEditorViewModel auto-finds a cover once, when there's enough to search with")
+  @MainActor
+  func editorViewModelAutoFindsCover() async throws {
+    let context = TestCoreDataStack.makeContainer().viewContext
+    let searches = SearchCounter()
+    let foundCover = "https://covers.openlibrary.org/b/id/42-L.jpg"
+    let viewModel = BookEditorViewModel(
+      book: nil,
+      service: Self.makeService(context: context),
+      coverSearch: { _, _, _ in
+        await searches.increment()
+        return foundCover
+      },
+      now: Self.reference
+    )
+
+    viewModel.draft.title = "Piranesi"
+    #expect(viewModel.coverLookupKey == nil)
+    viewModel.scheduleAutomaticCoverSearch(after: .zero)
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(await searches.count == 0)
+
+    viewModel.draft.author = " Susanna  Clarke "
+    #expect(
+      viewModel.coverLookupKey
+        == BookEditorViewModel.CoverLookupKey(
+          isbn: nil,
+          title: "Piranesi",
+          author: "Susanna Clarke"
+        )
+    )
+    viewModel.scheduleAutomaticCoverSearch(after: .zero)
+    for _ in 0..<100 where viewModel.draft.cover == .none {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(viewModel.draft.cover == .url(foundCover))
+    #expect(await searches.count == 1)
+
+    viewModel.resetCover()
+    viewModel.scheduleAutomaticCoverSearch(after: .zero)
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(viewModel.draft.cover == .none)
+    #expect(await searches.count == 1)
+  }
+}
+
+private actor SearchCounter {
+  private(set) var count = 0
+
+  func increment() {
+    count += 1
   }
 }
 
