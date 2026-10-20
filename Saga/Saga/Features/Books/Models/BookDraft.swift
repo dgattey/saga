@@ -8,13 +8,29 @@
 import Contentful
 import Foundation
 
-/// The local cover override chosen in the editor (`Book.localCoverImageURL`). `none` means the
-/// book shows its synced Contentful cover, if it has one.
+enum ISBN {
+  static func isbn13(from raw: String) -> Int64? {
+    let chars = raw.uppercased().filter { $0.isNumber || $0 == "X" }
+    if chars.count == 13, chars.allSatisfy(\.isNumber) {
+      return Int64(chars)
+    }
+    guard chars.count == 10,
+      chars.prefix(9).allSatisfy(\.isNumber),
+      let last = chars.last, last.isNumber || last == "X"
+    else { return nil }
+    let base = "978" + chars.prefix(9)
+    var sum = 0
+    for (index, char) in base.enumerated() {
+      guard let digit = char.wholeNumberValue else { return nil }
+      sum += index.isMultiple(of: 2) ? digit : digit * 3
+    }
+    return Int64("\(base)\((10 - (sum % 10)) % 10)")
+  }
+}
+
 enum CoverDraft: Equatable {
   case none
-  /// A remote `https://` URL or a previously stored local `file://` cover.
   case url(String)
-  /// Dropped or pasted image bytes, written to `CoverImageStore` on save.
   case image(Data)
 
   var urlString: String? {
@@ -25,8 +41,6 @@ enum CoverDraft: Equatable {
   var isEmpty: Bool { self == .none }
 }
 
-/// An editable snapshot of a book used by both the edit and create flows. Edits stay here until
-/// the user saves, so cancelling never touches Core Data.
 struct BookDraft: Equatable {
   enum Issue: Equatable, Identifiable {
     case missingTitle
@@ -38,101 +52,37 @@ struct BookDraft: Equatable {
 
     var message: String {
       switch self {
-      case .missingTitle:
-        return "Add a title."
-      case .missingAuthor:
-        return "Add an author."
-      case .invalidISBN:
-        return "ISBN should be 10 or 13 digits."
-      case .finishedBeforeStarted:
-        return "The finish date is before the start date."
+      case .missingTitle: "Add a title."
+      case .missingAuthor: "Add an author."
+      case .invalidISBN: "ISBN should be 10 or 13 digits."
+      case .finishedBeforeStarted: "The finish date is before the start date."
       }
     }
   }
 
-  var title: String
-  var author: String
-  var status: ReadingStatus
-  /// Backing value for the start date picker; only used for `reading`, or `read` when
-  /// `tracksStartDate` is on.
-  var startedDate: Date
-  /// Backing value for the finish date picker; only used for `read`.
-  var finishedDate: Date
-  var tracksStartDate: Bool
-  /// 0 means unrated.
-  var rating: Int
-  var isbnText: String
-  var reviewText: String
-  var cover: CoverDraft
+  var title = ""
+  var author = ""
+  var status: ReadingStatus = .reading
+  var startedDate = Date()
+  var finishedDate = Date()
+  var tracksStartDate = true
+  var rating = 0
+  var isbnText = ""
+  var reviewText = ""
+  var cover: CoverDraft = .none
 
-  /// A blank draft for a new book, defaulting to Currently Reading as of today.
   static func empty(now: Date = Date()) -> BookDraft {
-    BookDraft(
-      title: "",
-      author: "",
-      status: .reading,
-      startedDate: now,
-      finishedDate: now,
-      tracksStartDate: true,
-      rating: 0,
-      isbnText: "",
-      reviewText: "",
-      cover: .none
-    )
+    BookDraft(startedDate: now, finishedDate: now)
   }
-
-  init(
-    title: String,
-    author: String,
-    status: ReadingStatus,
-    startedDate: Date,
-    finishedDate: Date,
-    tracksStartDate: Bool,
-    rating: Int,
-    isbnText: String,
-    reviewText: String,
-    cover: CoverDraft
-  ) {
-    self.title = title
-    self.author = author
-    self.status = status
-    self.startedDate = startedDate
-    self.finishedDate = finishedDate
-    self.tracksStartDate = tracksStartDate
-    self.rating = rating
-    self.isbnText = isbnText
-    self.reviewText = reviewText
-    self.cover = cover
-  }
-
-  init(book: Book, now: Date = Date()) {
-    self.init(
-      title: book.title ?? "",
-      author: book.author ?? "",
-      status: book.readingStatus,
-      startedDate: book.readDateStarted ?? book.readDateFinished ?? now,
-      finishedDate: book.readDateFinished ?? now,
-      tracksStartDate: book.readDateStarted != nil || book.readDateFinished == nil,
-      rating: book.rating?.intValue ?? 0,
-      isbnText: book.isbn?.stringValue ?? "",
-      reviewText: book.reviewDescription?.plainText ?? "",
-      cover: book.localCoverImageURL.map(CoverDraft.url) ?? .none
-    )
-  }
-
-  // MARK: - Derived values
 
   var normalizedTitle: String { title.cleanedWhitespace }
   var normalizedAuthor: String { author.cleanedWhitespace }
 
   var readDateStarted: Date? {
     switch status {
-    case .notStarted:
-      return nil
-    case .reading:
-      return startedDate
-    case .read:
-      return tracksStartDate ? startedDate : nil
+    case .notStarted: nil
+    case .reading: startedDate
+    case .read: tracksStartDate ? startedDate : nil
     }
   }
 
@@ -144,15 +94,9 @@ struct BookDraft: Equatable {
 
   var issues: [Issue] {
     var issues: [Issue] = []
-    if normalizedTitle.isEmpty {
-      issues.append(.missingTitle)
-    }
-    if normalizedAuthor.isEmpty {
-      issues.append(.missingAuthor)
-    }
-    if !isbnText.cleanedWhitespace.isEmpty, isbn == nil {
-      issues.append(.invalidISBN)
-    }
+    if normalizedTitle.isEmpty { issues.append(.missingTitle) }
+    if normalizedAuthor.isEmpty { issues.append(.missingAuthor) }
+    if !isbnText.cleanedWhitespace.isEmpty, isbn == nil { issues.append(.invalidISBN) }
     if let readDateStarted, let readDateFinished,
       Calendar.current.startOfDay(for: readDateFinished)
         < Calendar.current.startOfDay(for: readDateStarted)
@@ -164,7 +108,6 @@ struct BookDraft: Equatable {
 
   var isValid: Bool { issues.isEmpty }
 
-  /// Writes every field except the cover (which `BookMutationService` persists) onto `book`.
   func apply(to book: Book) {
     book.title = normalizedTitle
     book.author = normalizedAuthor
@@ -178,5 +121,22 @@ struct BookDraft: Equatable {
     } else if trimmedReview != book.reviewDescription?.plainText {
       book.reviewDescription = RichTextDocument(fromPlainText: trimmedReview)
     }
+  }
+}
+
+extension BookDraft {
+  init(book: Book, now: Date = Date()) {
+    self.init(
+      title: book.title ?? "",
+      author: book.author ?? "",
+      status: book.readingStatus,
+      startedDate: book.readDateStarted ?? book.readDateFinished ?? now,
+      finishedDate: book.readDateFinished ?? now,
+      tracksStartDate: book.readDateStarted != nil || book.readDateFinished == nil,
+      rating: book.rating?.intValue ?? 0,
+      isbnText: book.isbn?.stringValue ?? "",
+      reviewText: book.reviewDescription?.plainText ?? "",
+      cover: book.localCoverImageURL.map(CoverDraft.url) ?? .none
+    )
   }
 }

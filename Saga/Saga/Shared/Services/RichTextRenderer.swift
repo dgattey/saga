@@ -30,8 +30,6 @@ extension RichTextDocument {
     return transformer.attributedString(from: self)
   }
 
-  /// The document set in the serif reading face (New York) with relaxed line spacing, for
-  /// editorial notes. Bold runs stay bold and code stays monospaced.
   func editorialAttributedString(pointSize: CGFloat = 16, lineSpacing: CGFloat = 5)
     -> NSAttributedString
   {
@@ -92,8 +90,6 @@ extension RichTextDocument {
 }
 
 extension PlatformFont {
-  /// The serif (New York) design of this font at the same size and weight. Monospaced fonts are
-  /// returned unchanged.
   var serifVariant: PlatformFont {
     #if canImport(AppKit)
       guard !fontDescriptor.symbolicTraits.contains(.monoSpace),

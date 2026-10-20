@@ -17,59 +17,49 @@ enum BookMutationError: LocalizedError {
   var errorDescription: String? {
     switch self {
     case .invalidDraft(let issues):
-      return issues.first?.message ?? "Some fields need attention."
+      issues.first?.message ?? "Some fields need attention."
     case .bookNotFound:
-      return "This book no longer exists."
+      "This book no longer exists."
     case .coverFailed(let error):
-      return error.errorDescription
+      error.errorDescription
     case .saveFailed(let reason):
-      return "Couldn't save the book: \(reason)"
+      "Couldn't save the book: \(reason)"
     }
   }
 
   var recoverySuggestion: String? {
     switch self {
     case .invalidDraft:
-      return "Fix the highlighted fields and save again."
+      "Fix the highlighted fields and save again."
     case .bookNotFound:
-      return "It may have been deleted during a sync. Close the editor and refresh."
+      "It may have been deleted during a sync. Close the editor and refresh."
     case .coverFailed(let error):
-      return error.recoverySuggestion
+      error.recoverySuggestion
     case .saveFailed:
-      return "Try again, or use Clear all local data if the problem persists."
+      "Try again, or use Clear all local data if the problem persists."
     }
   }
 }
 
-/// A locally saved book mutation that still needs pushing to `/api/books/sync`.
 struct PendingBookSync: Sendable {
   let bookID: NSManagedObjectID
   let payload: BookServerUpsertPayload?
-  /// A dropped/pasted cover file to compress and upload alongside `payload`.
   var coverFileURL: URL? = nil
 }
 
-/// Creates, edits, and deletes books in Core Data, then mirrors each change to Contentful
-/// through `dylangattey.com/api/books/sync`. Local saves finish first so the UI never waits on
-/// the network; call `sync(_:)` afterwards to push.
 struct BookMutationService {
   typealias PushUpsert = @Sendable (BookServerUpsertPayload) async -> BookServerSyncResponse?
   typealias PushDeletion = @Sendable (String) async -> BookServerSyncResponse?
 
   let context: NSManagedObjectContext
   var coverDirectory: URL = CoverImageStore.defaultDirectory
-  var pushUpsert: PushUpsert = { payload in
-    await GoodreadsSyncService.pushBookUpsertIfConfigured(payload)
-  }
-  var pushDeletion: PushDeletion = { id in
-    await GoodreadsSyncService.pushBookDeletionIfConfigured(id: id)
+  var pushUpsert: PushUpsert = { await GoodreadsSyncService.pushBookUpsertIfConfigured($0) }
+  var pushDeletion: PushDeletion = {
+    await GoodreadsSyncService.pushBookDeletionIfConfigured(id: $0)
   }
 
-  // MARK: - Local mutations
-
-  /// Inserts a new book with an uppercase UUID, which the server reuses as the Contentful entry ID.
   func create(from draft: BookDraft, now: Date = Date()) async throws -> PendingBookSync {
-    try validate(draft)
+    guard draft.issues.isEmpty else { throw BookMutationError.invalidDraft(draft.issues) }
     return try await context.perform { [context, coverDirectory] in
       let book = Book(context: context)
       book.id = UUID().uuidString.uppercased()
@@ -83,7 +73,7 @@ struct BookMutationService {
     with draft: BookDraft,
     now: Date = Date()
   ) async throws -> PendingBookSync {
-    try validate(draft)
+    guard draft.issues.isEmpty else { throw BookMutationError.invalidDraft(draft.issues) }
     return try await context.perform { [context, coverDirectory] in
       guard let book = try? context.existingObject(with: bookID) as? Book, !book.isDeleted else {
         throw BookMutationError.bookNotFound
@@ -92,7 +82,6 @@ struct BookMutationService {
     }
   }
 
-  /// Deletes the book locally and returns its Contentful entry ID for `syncDeletion(id:)`.
   func delete(_ bookID: NSManagedObjectID) async throws -> String {
     try await context.perform { [context, coverDirectory] in
       guard let book = try? context.existingObject(with: bookID) as? Book else {
@@ -112,17 +101,25 @@ struct BookMutationService {
     }
   }
 
-  // MARK: - Remote sync
-
-  /// Pushes a saved book to Contentful, uploading a pending cover URL or dropped/pasted image.
-  /// When the server links a new cover asset, links it locally and drops the override so later
-  /// edits reference it by ID instead of re-uploading.
   func sync(_ pending: PendingBookSync) async {
     guard let basePayload = pending.payload else { return }
-    let payload = coverUploadPayload(for: pending, basePayload: basePayload) ?? basePayload
+    let payload: BookServerUpsertPayload = {
+      guard let fileURL = pending.coverFileURL, basePayload.coverImageUrl == nil else {
+        return basePayload
+      }
+      do {
+        return basePayload.withCoverUpload(try CoverImageStore.uploadData(forCoverAt: fileURL))
+      } catch {
+        LoggerService.log(
+          "Couldn't prepare the local cover for upload; syncing other fields only",
+          error: error,
+          surface: .sync
+        )
+        return basePayload
+      }
+    }()
     let response = await pushUpsert(payload)
     if response == nil, payload.hasCoverUpload {
-      // Don't let an oversized or rejected image block the rest of the edit from syncing.
       _ = await pushUpsert(payload.withoutCoverUpload())
       return
     }
@@ -132,80 +129,39 @@ struct BookMutationService {
       let pushedCover,
       let entry = response.entry(forBookID: payload.id),
       let assetID = entry.coverAssetId
-    else {
-      return
-    }
+    else { return }
     let assetURL = GoodreadsSyncService.sanitizedCoverImageURL(entry.coverImageUrl) ?? pushedCover
     await context.perform { [context, coverDirectory] in
       guard let book = try? context.existingObject(with: pending.bookID) as? Book,
         !book.isDeleted,
-        Self.coverMatches(book.localCoverImageURL, pushedCover: pushedCover),
-        // The server keeps the old asset ID when an upload fails; keep the override to retry.
+        CoverImageStore.isLocalCover(pushedCover)
+          ? book.localCoverImageURL == pushedCover
+          : GoodreadsSyncService.sanitizedCoverImageURL(book.localCoverImageURL) == pushedCover,
         assetID != book.coverImage?.id
-      else {
-        return
-      }
+      else { return }
       do {
         book.coverImage = try Asset.linkedContentfulAsset(
-          id: assetID,
-          urlString: assetURL,
-          in: context
+          id: assetID, urlString: assetURL, in: context
         )
         book.localCoverImageURL = nil
         try context.save()
       } catch {
         context.rollback()
         LoggerService.log(
-          "Failed to link uploaded cover asset \(assetID)",
-          error: error,
-          surface: .persistence
+          "Failed to link uploaded cover asset \(assetID)", error: error, surface: .persistence
         )
         return
       }
-      // Without a remote URL from the server, the asset renders from the file until the next
-      // Contentful sync replaces its URL.
       if assetURL != pushedCover {
         CoverImageStore.remove(pushedCover, in: coverDirectory)
       }
     }
   }
 
-  private func coverUploadPayload(
-    for pending: PendingBookSync,
-    basePayload: BookServerUpsertPayload
-  ) -> BookServerUpsertPayload? {
-    guard let fileURL = pending.coverFileURL, basePayload.coverImageUrl == nil else { return nil }
-    do {
-      return basePayload.withCoverUpload(try CoverImageStore.uploadData(forCoverAt: fileURL))
-    } catch {
-      LoggerService.log(
-        "Couldn't prepare the local cover for upload; syncing other fields only",
-        error: error,
-        surface: .sync
-      )
-      return nil
-    }
-  }
-
-  private static func coverMatches(_ localCover: String?, pushedCover: String) -> Bool {
-    if CoverImageStore.isLocalCover(pushedCover) {
-      return localCover == pushedCover
-    }
-    return GoodreadsSyncService.sanitizedCoverImageURL(localCover) == pushedCover
-  }
-
   func syncDeletion(id: String) async {
     _ = await pushDeletion(id)
   }
 
-  // MARK: - Helpers
-
-  private func validate(_ draft: BookDraft) throws {
-    let issues = draft.issues
-    guard issues.isEmpty else { throw BookMutationError.invalidDraft(issues) }
-  }
-
-  /// Must run on `context`'s queue.
   private static func save(
     _ draft: BookDraft,
     to book: Book,
@@ -216,7 +172,12 @@ struct BookMutationService {
     let previousCover = book.localCoverImageURL
     let nextCover: String?
     do {
-      nextCover = try coverURLString(for: draft.cover, in: coverDirectory)
+      switch draft.cover {
+      case .none: nextCover = nil
+      case .url(let urlString): nextCover = urlString
+      case .image(let data):
+        nextCover = try CoverImageStore.save(data, in: coverDirectory).absoluteString
+      }
     } catch let error as CoverImageStoreError {
       context.rollback()
       throw BookMutationError.coverFailed(error)
@@ -239,18 +200,7 @@ struct BookMutationService {
     if nextCover != previousCover {
       CoverImageStore.remove(previousCover, in: coverDirectory)
     }
-    let coverFileURL = nextCover.flatMap { URL(string: $0) }.flatMap { $0.isFileURL ? $0 : nil }
+    let coverFileURL = nextCover.flatMap(URL.init(string:)).flatMap { $0.isFileURL ? $0 : nil }
     return PendingBookSync(bookID: book.objectID, payload: payload, coverFileURL: coverFileURL)
-  }
-
-  private static func coverURLString(for cover: CoverDraft, in directory: URL) throws -> String? {
-    switch cover {
-    case .none:
-      return nil
-    case .url(let urlString):
-      return urlString
-    case .image(let data):
-      return try CoverImageStore.save(data, in: directory).absoluteString
-    }
   }
 }

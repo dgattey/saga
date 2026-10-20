@@ -45,8 +45,7 @@ shared UI/utilities.
   and `PersistentScrollView`
 - Caching is handled by `ImageCache` and `NetworkCache`
 - Shared animations come from `AnimationSettings.shared`
-- Book pages use `BookEditorialLayout` for read (`BookReadDetailsView`), in-place edit, and new-book
- (`BookEditorView` + `BookCoverEditor`) modes so fields morph in place instead of swapping to a form
+- Book pages share `BookEditorialLayout` in `BookContentView` and `BookEditorView` so read, in-place edit, and new-book modes morph in place
 - Shared UI lives in `Shared/Views`; shared models and utilities in `Shared/*` modules
 - App specific UI and models live in `Features/*`, each with their own set of folders for Models, Views, etc.
 

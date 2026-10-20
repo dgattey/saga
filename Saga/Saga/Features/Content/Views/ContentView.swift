@@ -113,9 +113,19 @@ struct ContentView: View {
         .environmentObject(animationSettings)
       }
     #endif
-    .focusedSceneValue(\.newBookAction, NewBookAction { isCreatingBook = true })
+    .focusedSceneValue(\.isCreatingBook, $isCreatingBook)
     .sheet(isPresented: $isCreatingBook) {
-      newBookSheet
+      BookEditorView(book: nil, context: viewContext) { outcome in
+        isCreatingBook = false
+        if case .saved(let bookID) = outcome {
+          entry = NavigationEntry(selection: .book(bookID))
+        }
+      }
+      .botanicalPageBackground()
+      .environmentObject(animationSettings)
+      #if os(macOS)
+        .frame(minWidth: 840, idealWidth: 848, minHeight: 620, idealHeight: 640)
+      #endif
     }
     .onChange(of: entry) { oldEntry, newEntry in
       navigationHistory.onNavigationChange(from: oldEntry, to: newEntry)
@@ -144,23 +154,6 @@ struct ContentView: View {
         }
       }
       .frame(minWidth: 600, minHeight: 300)
-    #endif
-  }
-
-  // MARK: - New book
-
-  private var newBookSheet: some View {
-    NavigationStack {
-      BookEditorView(book: nil, context: viewContext) { outcome in
-        isCreatingBook = false
-        if case .saved(let bookID) = outcome {
-          entry = NavigationEntry(selection: .book(bookID))
-        }
-      }
-    }
-    .environmentObject(animationSettings)
-    #if os(macOS)
-      .frame(minWidth: 680, idealWidth: 820, minHeight: 560, idealHeight: 660)
     #endif
   }
 

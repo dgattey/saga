@@ -17,15 +17,6 @@ struct GoodreadsSyncResponse: Decodable, Sendable {
   let error: String?
 }
 
-/// Payload for a single book upsert sent to `POST /api/books/sync`.
-///
-/// The server treats an omitted field as "keep the Contentful value" and an explicit `null` as
-/// "clear it", so clearable fields (rating, dates, review) always encode, as `null` when empty.
-/// ISBN and cover fields are omitted when empty because the server can't clear them.
-///
-/// At most one cover source is sent: `coverAssetId` (keep a synced asset), `coverImageUrl`
-/// (server downloads an allowlisted URL), or `coverImageBase64` + `coverImageContentType`
-/// (server uploads the bytes of a dropped/pasted image).
 struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
   let id: String
   let title: String
@@ -35,11 +26,9 @@ struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
   let readDateStarted: String?
   let readDateFinished: String?
   let reviewPlainText: String?
-  let coverAssetId: String?
-  let coverImageUrl: String?
-  /// Standard (non-URL-safe) base64 of the image bytes, without a `data:` prefix.
+  var coverAssetId: String?
+  var coverImageUrl: String?
   var coverImageBase64: String? = nil
-  /// MIME type of `coverImageBase64`, currently always `image/jpeg`.
   var coverImageContentType: String? = nil
 
   private enum CodingKeys: String, CodingKey {
@@ -49,20 +38,10 @@ struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
 
   var hasCoverUpload: Bool { coverImageBase64 != nil }
 
-  /// Attaches uploaded image bytes, dropping other cover sources so the server sees only one.
   func withCoverUpload(_ upload: CoverImageUpload) -> BookServerUpsertPayload {
-    var copy = BookServerUpsertPayload(
-      id: id,
-      title: title,
-      author: author,
-      isbn: isbn,
-      rating: rating,
-      readDateStarted: readDateStarted,
-      readDateFinished: readDateFinished,
-      reviewPlainText: reviewPlainText,
-      coverAssetId: nil,
-      coverImageUrl: nil
-    )
+    var copy = self
+    copy.coverAssetId = nil
+    copy.coverImageUrl = nil
     copy.coverImageBase64 = upload.base64
     copy.coverImageContentType = upload.contentType
     return copy
@@ -100,12 +79,10 @@ private struct BookServerSyncRequest: Encodable, Sendable {
 
 /// Response returned by `POST /api/books/sync`.
 struct BookServerSyncResponse: Decodable, Sendable {
-  /// The Contentful state of one upserted or deleted book.
   struct Entry: Decodable, Equatable, Sendable {
     let id: String
     let action: String?
     let coverAssetId: String?
-    /// HTTPS URL of the linked cover asset's file (for example on `images.ctfassets.net`).
     var coverImageUrl: String? = nil
   }
 
@@ -168,11 +145,8 @@ enum GoodreadsSyncService {
     "images.ctfassets.net",
   ]
 
-  /// Mirrors the server's `MAX_COVER_IMAGE_URL_LENGTH`.
   private static let maxCoverImageURLLength = 2048
 
-  /// Filters cover URLs to ones the server's `isAllowedCoverImageUrl` accepts (`https:`, an
-  /// allowlisted host, no credentials or custom port), since one invalid URL fails the request.
   static func sanitizedCoverImageURL(_ rawURL: String?) -> String? {
     guard let raw = rawURL?.trimmingCharacters(in: .whitespacesAndNewlines),
       !raw.isEmpty

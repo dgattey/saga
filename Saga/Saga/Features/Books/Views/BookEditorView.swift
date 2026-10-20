@@ -7,10 +7,14 @@
 
 import CoreData
 import SwiftUI
+import UniformTypeIdentifiers
 
-/// Edits a book in place on its page, or creates a new one, using the same editorial layout as
-/// read mode: the cover stays put and each field turns into its editable control where it sits.
-/// Edits stay in a draft until Save, so Cancel never touches Core Data.
+#if canImport(AppKit)
+  import AppKit
+#elseif canImport(UIKit)
+  import UIKit
+#endif
+
 struct BookEditorView: View {
   enum Outcome: Equatable {
     case cancelled
@@ -18,16 +22,11 @@ struct BookEditorView: View {
   }
 
   private enum Field: Hashable {
-    case title
-    case author
-    case isbn
-    case notes
+    case title, author, isbn, notes
   }
 
   private enum MetadataField: Hashable {
-    case started
-    case finished
-    case isbn
+    case started, finished, isbn
   }
 
   @StateObject private var viewModel: BookEditorViewModel
@@ -36,7 +35,6 @@ struct BookEditorView: View {
   private let scrollContextID: UUID?
   private let onFinish: (Outcome) -> Void
 
-  /// Edits `book`, or creates a new book when `book` is `nil`.
   init(
     book: Book?,
     context: NSManagedObjectContext,
@@ -45,10 +43,7 @@ struct BookEditorView: View {
     onFinish: @escaping (Outcome) -> Void
   ) {
     _viewModel = StateObject(
-      wrappedValue: BookEditorViewModel(
-        book: book,
-        service: BookMutationService(context: context)
-      )
+      wrappedValue: BookEditorViewModel(book: book, service: BookMutationService(context: context))
     )
     self.scrollScope = scrollScope
     self.scrollContextID = scrollContextID
@@ -56,16 +51,41 @@ struct BookEditorView: View {
   }
 
   var body: some View {
-    BookEditorialLayout(scrollScope: scrollScope, scrollContextID: scrollContextID) {
-      BookCoverEditor(viewModel: viewModel)
-    } details: {
-      details
+    VStack(spacing: 0) {
+      if viewModel.mode.isCreating {
+        HStack(spacing: 10) {
+          Text(viewModel.navigationTitle)
+            .font(.headline)
+          Spacer()
+          cancelButton
+          saveButton
+        }
+        .padding(.horizontal, BookEditorialMetrics.outsidePadding)
+        .padding(.top, 18)
+        .padding(.bottom, 4)
+      }
+      BookEditorialLayout(scrollScope: scrollScope, scrollContextID: scrollContextID) {
+        BookCoverEditor(viewModel: viewModel)
+      } details: {
+        details
+      }
     }
     .tint(Color.botanicalDeepMoss)
     .disabled(viewModel.isSaving)
     .navigationTitle(viewModel.navigationTitle)
-    .toolbar { toolbarContent }
-    .alert(isPresented: isShowingError, error: viewModel.error) { _ in
+    .toolbar {
+      if !viewModel.mode.isCreating {
+        ToolbarItem(placement: .cancellationAction) { cancelButton }
+        ToolbarItem(placement: .confirmationAction) { saveButton }
+      }
+    }
+    .alert(
+      isPresented: Binding(
+        get: { viewModel.error != nil },
+        set: { if !$0 { viewModel.error = nil } }
+      ),
+      error: viewModel.error
+    ) { _ in
       Button("OK", role: .cancel) {}
     } message: { error in
       Text(error.recoverySuggestion ?? "")
@@ -80,7 +100,7 @@ struct BookEditorView: View {
     }
   }
 
-  // MARK: - Details column
+  // MARK: - Details
 
   private var details: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -94,27 +114,23 @@ struct BookEditorView: View {
         .focused($focusedField, equals: .author)
         .editorialField(isFocused: focusedField == .author)
         .padding(.top, 6)
-      shelfAndRating
-        .padding(.top, 14)
+      ViewThatFits(in: .horizontal) {
+        HStack(spacing: 18) {
+          shelfPicker
+          ratingControl
+        }
+        VStack(alignment: .leading, spacing: 12) {
+          shelfPicker
+          ratingControl
+        }
+      }
+      .padding(.top, 14)
       metadataStrip
         .padding(.top, 22)
       validationMessages
       Divider()
         .padding(.vertical, 22)
       notesEditor
-    }
-  }
-
-  private var shelfAndRating: some View {
-    ViewThatFits(in: .horizontal) {
-      HStack(spacing: 18) {
-        shelfPicker
-        ratingControl
-      }
-      VStack(alignment: .leading, spacing: 12) {
-        shelfPicker
-        ratingControl
-      }
     }
   }
 
@@ -143,29 +159,19 @@ struct BookEditorView: View {
     }
   }
 
-  // MARK: - Metadata strip
-
-  private var metadataFields: [MetadataField] {
-    switch viewModel.draft.status {
-    case .notStarted:
-      return [.isbn]
-    case .reading:
-      return [.started, .isbn]
-    case .read:
-      return [.started, .finished, .isbn]
-    }
-  }
+  // MARK: - Metadata
 
   private var metadataStrip: some View {
-    let fields = metadataFields
-    return ViewThatFits(in: .horizontal) {
-      EditorialHairlineRow(count: fields.count) { index in
-        metadataField(fields[index])
+    let fields: [MetadataField] =
+      switch viewModel.draft.status {
+      case .notStarted: [.isbn]
+      case .reading: [.started, .isbn]
+      case .read: [.started, .finished, .isbn]
       }
+    return ViewThatFits(in: .horizontal) {
+      EditorialHairlineRow(count: fields.count) { metadataField(fields[$0]) }
       VStack(alignment: .leading, spacing: 14) {
-        ForEach(fields, id: \.self) { field in
-          metadataField(field)
-        }
+        ForEach(fields, id: \.self) { metadataField($0) }
       }
     }
   }
@@ -175,17 +181,39 @@ struct BookEditorView: View {
     switch field {
     case .started:
       EditorialLabeledValue(label: "Started") {
-        startedControl
+        if viewModel.draft.readDateStarted == nil {
+          Button {
+            viewModel.draft.tracksStartDate = true
+          } label: {
+            Label("Add Date", systemImage: "plus.circle")
+          }
+          .buttonStyle(.borderless)
+        } else {
+          HStack(spacing: 4) {
+            DatePicker(
+              "Started", selection: $viewModel.draft.startedDate, displayedComponents: .date
+            )
+            .datePickerStyle(.compact)
+            .labelsHidden()
+            if viewModel.draft.status == .read {
+              Button {
+                viewModel.draft.tracksStartDate = false
+              } label: {
+                Image(systemName: "xmark.circle.fill")
+                  .foregroundStyle(.tertiary)
+              }
+              .buttonStyle(.borderless)
+              .help("Don't track a start date")
+              .accessibilityLabel("Remove Start Date")
+            }
+          }
+        }
       }
     case .finished:
       EditorialLabeledValue(label: "Finished") {
-        DatePicker(
-          "Finished",
-          selection: $viewModel.draft.finishedDate,
-          displayedComponents: .date
-        )
-        .datePickerStyle(.compact)
-        .labelsHidden()
+        DatePicker("Finished", selection: $viewModel.draft.finishedDate, displayedComponents: .date)
+          .datePickerStyle(.compact)
+          .labelsHidden()
       }
     case .isbn:
       EditorialLabeledValue(label: "ISBN") {
@@ -202,40 +230,6 @@ struct BookEditorView: View {
     }
   }
 
-  /// Finished books can skip the start date, so it can be added or removed in place.
-  @ViewBuilder
-  private var startedControl: some View {
-    if viewModel.draft.readDateStarted == nil {
-      Button {
-        viewModel.draft.tracksStartDate = true
-      } label: {
-        Label("Add Date", systemImage: "plus.circle")
-      }
-      .buttonStyle(.borderless)
-    } else {
-      HStack(spacing: 4) {
-        DatePicker(
-          "Started",
-          selection: $viewModel.draft.startedDate,
-          displayedComponents: .date
-        )
-        .datePickerStyle(.compact)
-        .labelsHidden()
-        if viewModel.draft.status == .read {
-          Button {
-            viewModel.draft.tracksStartDate = false
-          } label: {
-            Image(systemName: "xmark.circle.fill")
-              .foregroundStyle(.tertiary)
-          }
-          .buttonStyle(.borderless)
-          .help("Don't track a start date")
-          .accessibilityLabel("Remove Start Date")
-        }
-      }
-    }
-  }
-
   @ViewBuilder
   private var validationMessages: some View {
     let issues = viewModel.visibleIssues
@@ -247,16 +241,13 @@ struct BookEditorView: View {
             .foregroundStyle(Color.botanicalTerracotta)
         }
         if let hint {
-          Text(hint)
-            .foregroundStyle(.secondary)
+          Text(hint).foregroundStyle(.secondary)
         }
       }
       .font(.caption)
       .padding(.top, 12)
     }
   }
-
-  // MARK: - Notes
 
   private var notesEditor: some View {
     VStack(alignment: .leading, spacing: 10) {
@@ -282,41 +273,277 @@ struct BookEditorView: View {
     }
   }
 
-  // MARK: - Toolbar
-
-  @ToolbarContentBuilder
-  private var toolbarContent: some ToolbarContent {
-    ToolbarItem(placement: .cancellationAction) {
-      Button("Cancel") {
-        onFinish(.cancelled)
-      }
-      .keyboardShortcut(.cancelAction)
-      .help("Discard changes (Esc)")
+  private var cancelButton: some View {
+    Button("Cancel") {
+      onFinish(.cancelled)
     }
-    ToolbarItem(placement: .confirmationAction) {
-      Button(viewModel.saveButtonTitle) {
-        Task {
-          if let bookID = await viewModel.save() {
-            onFinish(.saved(bookID))
-          }
+    .keyboardShortcut(.cancelAction)
+    .help("Discard changes (Esc)")
+  }
+
+  private var saveButton: some View {
+    Button(viewModel.saveButtonTitle) {
+      Task {
+        if let bookID = await viewModel.save() {
+          onFinish(.saved(bookID))
         }
       }
-      .keyboardShortcut(.return, modifiers: .command)
-      .disabled(!viewModel.canSave)
-      .help(viewModel.saveBlockedReason ?? "Save changes (⌘Return)")
+    }
+    .buttonStyle(.borderedProminent)
+    .tint(Color.botanicalLeaf)
+    .keyboardShortcut(.return, modifiers: .command)
+    .disabled(!viewModel.canSave)
+    .help(viewModel.saveBlockedReason ?? "Save changes (⌘Return)")
+  }
+}
+
+// MARK: - Cover editor
+
+struct BookCoverEditor: View {
+  private static let size = BookEditorialMetrics.coverSize
+  private static let cornerRadius = BookEditorialMetrics.coverCornerRadius
+
+  @ObservedObject var viewModel: BookEditorViewModel
+  @State private var isDropTargeted = false
+  @State private var isImportingFile = false
+  @State private var isShowingURLPopover = false
+  @State private var urlText = ""
+
+  var body: some View {
+    VStack(spacing: 14) {
+      ZStack(alignment: .bottom) {
+        coverImage
+        BookCoverActionBar(
+          isCreating: viewModel.mode.isCreating,
+          isSearching: viewModel.coverSearchState == .searching,
+          onFind: { viewModel.searchForCover() },
+          onPaste: { viewModel.pasteCover() },
+          onChooseFile: { isImportingFile = true },
+          onEnterURL: {
+            urlText = viewModel.coverURLText
+            isShowingURLPopover = true
+          }
+        )
+        .popover(isPresented: $isShowingURLPopover, arrowEdge: .bottom) {
+          urlPopover
+        }
+        .padding(8)
+      }
+      .frame(width: Self.size.width, height: Self.size.height)
+      .overlay(alignment: .topTrailing) {
+        if viewModel.hasCustomCover {
+          Button {
+            viewModel.resetCover()
+          } label: {
+            Image(systemName: "xmark")
+              .font(.system(size: 10, weight: .bold))
+              .frame(width: 22, height: 22)
+              .glassEffect(.regular.interactive(), in: Circle())
+          }
+          .buttonStyle(.plain)
+          .help(viewModel.mode.isCreating ? "Remove cover" : "Use the synced cover")
+          .accessibilityLabel(viewModel.mode.isCreating ? "Remove Cover" : "Use Synced Cover")
+          .padding(8)
+        }
+      }
+      .background {
+        RoundedRectangle(cornerRadius: Self.cornerRadius + 6, style: .continuous)
+          .strokeBorder(
+            Color.botanicalLeaf.opacity(isDropTargeted ? 0.95 : 0.35),
+            lineWidth: isDropTargeted ? 2.5 : 1.5
+          )
+          .padding(-6)
+      }
+      .scaleEffect(isDropTargeted ? 1.02 : 1)
+      .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isDropTargeted)
+      .onDrop(of: CoverInput.acceptedTypes, isTargeted: $isDropTargeted) { providers in
+        Task { @MainActor in
+          viewModel.applyCoverInput(await CoverInput.load(from: providers))
+        }
+        return true
+      }
+      .accessibilityElement(children: .contain)
+      .accessibilityLabel("Cover image")
+      .accessibilityHint("Drop an image or image URL here to use it as the cover")
+
+      Text(viewModel.coverMessage ?? "Drag an image onto the cover to use it.")
+        .font(.caption)
+        .foregroundStyle(
+          viewModel.coverMessage == nil
+            ? HierarchicalShapeStyle.tertiary : HierarchicalShapeStyle.secondary
+        )
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .frame(width: Self.size.width)
+    .fileImporter(isPresented: $isImportingFile, allowedContentTypes: [.image]) { result in
+      viewModel.importCoverFile(result)
     }
   }
 
-  // MARK: - Helpers
-
-  private var isShowingError: Binding<Bool> {
-    Binding(
-      get: { viewModel.error != nil },
-      set: { isPresented in
-        if !isPresented {
-          viewModel.error = nil
+  @ViewBuilder
+  private var coverImage: some View {
+    let shape = RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+    if let data = viewModel.previewImageData, let image = Image(coverImageData: data) {
+      image
+        .resizable()
+        .aspectRatio(contentMode: .fill)
+        .frame(width: Self.size.width, height: Self.size.height)
+        .clipShape(shape)
+        .overlay { searchingOverlay }
+        .physicalCoverShadow()
+    } else if let url = viewModel.previewCoverURL {
+      AssetImageView(url: url, targetSize: Self.size)
+        .aspectRatio(contentMode: .fill)
+        .frame(width: Self.size.width, height: Self.size.height)
+        .clipShape(shape)
+        .overlay { searchingOverlay }
+        .physicalCoverShadow()
+    } else {
+      shape
+        .fill(Color.botanicalLeaf.opacity(isDropTargeted ? 0.16 : 0.10))
+        .overlay {
+          shape.strokeBorder(
+            Color.botanicalLeaf.opacity(0.75),
+            style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])
+          )
         }
+        .overlay {
+          VStack(spacing: 8) {
+            Image(systemName: "photo.badge.plus")
+              .font(.system(size: 30, weight: .light))
+              .symbolRenderingMode(.monochrome)
+              .foregroundStyle(Color.botanicalLeaf)
+            Text("Drop or Paste Cover")
+              .font(.callout.weight(.medium))
+            Text("Or find one by title and author")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+              .multilineTextAlignment(.center)
+          }
+          .padding(.horizontal, 16)
+          .padding(.bottom, 56)
+        }
+        .frame(width: Self.size.width, height: Self.size.height)
+        .overlay { searchingOverlay }
+    }
+  }
+
+  @ViewBuilder
+  private var searchingOverlay: some View {
+    if viewModel.coverSearchState == .searching {
+      RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+        .fill(.ultraThinMaterial)
+        .overlay {
+          VStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text("Finding a cover…")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+        }
+    }
+  }
+
+  private var urlPopover: some View {
+    let applyURL = {
+      if viewModel.useCoverURL(urlText) {
+        isShowingURLPopover = false
       }
-    )
+    }
+    return VStack(alignment: .leading, spacing: 10) {
+      Text("Cover from URL")
+        .font(.headline)
+      TextField("https://…", text: $urlText)
+        .textFieldStyle(.roundedBorder)
+        .frame(width: 280)
+        .onSubmit(applyURL)
+        #if os(iOS)
+          .textContentType(.URL)
+          .keyboardType(.URL)
+          .textInputAutocapitalization(.never)
+          .autocorrectionDisabled()
+        #endif
+      HStack {
+        Spacer()
+        Button("Cancel") { isShowingURLPopover = false }
+          .keyboardShortcut(.cancelAction)
+        Button("Use Image", action: applyURL)
+          .keyboardShortcut(.defaultAction)
+          .disabled(urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+      }
+    }
+    .padding(16)
+    .tint(Color.botanicalDeepMoss)
+  }
+}
+
+struct BookCoverActionBar: View {
+  let isCreating: Bool
+  let isSearching: Bool
+  let onFind: () -> Void
+  let onPaste: () -> Void
+  let onChooseFile: () -> Void
+  let onEnterURL: () -> Void
+
+  var body: some View {
+    HStack(spacing: 0) {
+      action(
+        isCreating ? "Auto-Find" : "Find",
+        systemImage: "sparkles",
+        help: "Find a cover from the title, author, or ISBN",
+        action: onFind
+      )
+      .disabled(isSearching)
+      action("Paste", systemImage: "doc.on.clipboard", help: "Paste an image or image URL") {
+        onPaste()
+      }
+      action("File…", systemImage: "folder", help: "Choose an image file") {
+        onChooseFile()
+      }
+      action("URL…", systemImage: "link", help: "Use an image from a web address") {
+        onEnterURL()
+      }
+    }
+    .padding(.horizontal, 4)
+    .padding(.vertical, 3)
+    .foregroundStyle(.white)
+    .background(Capsule().fill(Color.black.opacity(0.62)))
+    .glassEffect(.regular, in: Capsule())
+    .environment(\.colorScheme, .dark)
+  }
+
+  private func action(
+    _ title: String,
+    systemImage: String,
+    help: String,
+    action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      VStack(spacing: 2) {
+        Image(systemName: systemImage)
+          .font(.system(size: 13, weight: .medium))
+        Text(title)
+          .font(.system(size: 9.5, weight: .semibold))
+          .lineLimit(1)
+          .minimumScaleFactor(0.75)
+      }
+      .frame(width: 39, height: 34)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .help(help)
+  }
+}
+
+extension Image {
+  init?(coverImageData data: Data) {
+    #if canImport(AppKit)
+      guard let image = NSImage(data: data) else { return nil }
+      self.init(nsImage: image)
+    #elseif canImport(UIKit)
+      guard let image = UIImage(data: data) else { return nil }
+      self.init(uiImage: image)
+    #endif
   }
 }

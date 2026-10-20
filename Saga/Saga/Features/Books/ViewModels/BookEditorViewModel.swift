@@ -8,8 +8,6 @@
 import CoreData
 import SwiftUI
 
-/// Drives in-place editing and new-book creation on the book page. Edits live in `draft` until
-/// `save()`, so cancelling leaves Core Data untouched.
 @MainActor
 final class BookEditorViewModel: ObservableObject {
   enum Mode: Equatable {
@@ -26,15 +24,7 @@ final class BookEditorViewModel: ObservableObject {
   }
 
   typealias CoverSearch =
-    @Sendable (_ isbn: String?, _ title: String, _ author: String) async ->
-    String?
-
-  /// The inputs a cover lookup runs with, so the same search isn't repeated automatically.
-  struct CoverLookupKey: Equatable {
-    let isbn: String?
-    let title: String
-    let author: String
-  }
+    @Sendable (_ isbn: String?, _ title: String, _ author: String) async -> String?
 
   @Published var draft: BookDraft
   @Published private(set) var coverSearchState: CoverSearchState = .idle
@@ -44,14 +34,12 @@ final class BookEditorViewModel: ObservableObject {
   @Published var coverMessage: String?
 
   let mode: Mode
-  /// The synced Contentful cover, shown when there's no local override.
   let syncedCoverURL: URL?
   private let originalDraft: BookDraft
   private let service: BookMutationService
   private let coverSearch: CoverSearch
   private var coverSearchTask: Task<Void, Never>?
-  private var automaticCoverSearchTask: Task<Void, Never>?
-  private var lastCoverLookup: CoverLookupKey?
+  private var lastCoverLookup: String?
 
   init(
     book: Book?,
@@ -70,34 +58,24 @@ final class BookEditorViewModel: ObservableObject {
     self.coverSearch = coverSearch
   }
 
-  // MARK: - Derived state
-
   var hasChanges: Bool { draft != originalDraft }
 
-  /// Validation issues to show inline. Missing title/author stay hidden until a save attempt so
-  /// a blank new book isn't red; the disabled Save button explains them instead.
   var visibleIssues: [BookDraft.Issue] {
-    guard !hasAttemptedSave else { return draft.issues }
-    return draft.issues.filter { $0 != .missingTitle && $0 != .missingAuthor }
+    hasAttemptedSave
+      ? draft.issues
+      : draft.issues.filter { $0 != .missingTitle && $0 != .missingAuthor }
   }
 
   var canSave: Bool { draft.isValid && !isSaving }
-
-  /// Why Save is disabled, for its help tooltip.
   var saveBlockedReason: String? { draft.issues.first?.message }
-
   var saveButtonTitle: String { mode.isCreating ? "Add Book" : "Save" }
-
   var navigationTitle: String { mode.isCreating ? "New Book" : "Edit Book" }
 
   var previewCoverURL: URL? {
     switch draft.cover {
-    case .none:
-      return syncedCoverURL
-    case .url(let urlString):
-      return URL(string: urlString)
-    case .image:
-      return nil
+    case .none: syncedCoverURL
+    case .url(let urlString): URL(string: urlString)
+    case .image: nil
     }
   }
 
@@ -108,69 +86,42 @@ final class BookEditorViewModel: ObservableObject {
 
   var hasCustomCover: Bool { !draft.cover.isEmpty }
 
-  /// Shows the normalized ISBN-13 when the typed value differs (e.g. an ISBN-10).
   var normalizedISBNHint: String? {
     guard let isbn = draft.isbn else { return nil }
-    let typedDigits = draft.isbnText.filter(\.isNumber)
     let normalized = String(isbn)
-    return typedDigits == normalized ? nil : "Saves as ISBN-13 \(normalized)"
+    return draft.isbnText.filter(\.isNumber) == normalized
+      ? nil : "Saves as ISBN-13 \(normalized)"
   }
 
-  /// Text binding for the cover URL field; local files show as empty.
   var coverURLText: String {
-    get {
-      guard let urlString = draft.cover.urlString, !CoverImageStore.isLocalCover(urlString) else {
-        return ""
-      }
-      return urlString
+    guard let urlString = draft.cover.urlString, !CoverImageStore.isLocalCover(urlString) else {
+      return ""
     }
-    set {
-      let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-      draft.cover = trimmed.isEmpty ? .none : .url(trimmed)
-    }
+    return urlString
   }
 
-  // MARK: - Cover actions
-
-  /// Enough to search for a cover with: a valid ISBN, or both a title and an author.
-  var coverLookupKey: CoverLookupKey? {
-    let key = CoverLookupKey(
-      isbn: draft.isbn.map(String.init),
-      title: draft.normalizedTitle,
-      author: draft.normalizedAuthor
-    )
-    guard key.isbn != nil || (!key.title.isEmpty && !key.author.isEmpty) else { return nil }
-    return key
+  var coverLookupKey: String? {
+    if let isbn = draft.isbn { return String(isbn) }
+    let title = draft.normalizedTitle
+    let author = draft.normalizedAuthor
+    return !title.isEmpty && !author.isEmpty ? "\(title)|\(author)" : nil
   }
 
-  /// Runs the default best-cover lookup (OpenLibrary + BookcoverAPI) for the draft's book.
-  func searchForCover() {
-    searchForCover(isAutomatic: false)
-  }
-
-  /// Looks up a cover on its own after typing pauses, but only while the book has no cover at
-  /// all and the details changed since the last lookup.
   func scheduleAutomaticCoverSearch(after delay: Duration = .milliseconds(900)) {
-    automaticCoverSearchTask?.cancel()
     guard draft.cover.isEmpty, syncedCoverURL == nil, coverSearchState != .searching,
       let key = coverLookupKey, key != lastCoverLookup
-    else {
-      return
-    }
-    automaticCoverSearchTask = Task { [weak self] in
-      do {
-        try await Task.sleep(for: delay)
-      } catch {
-        return
-      }
-      guard let self, self.coverLookupKey == key, self.draft.cover.isEmpty else { return }
+    else { return }
+    coverSearchTask?.cancel()
+    coverSearchTask = Task { [weak self] in
+      try? await Task.sleep(for: delay)
+      guard !Task.isCancelled, let self, self.coverLookupKey == key, self.draft.cover.isEmpty
+      else { return }
       self.searchForCover(isAutomatic: true)
     }
   }
 
-  private func searchForCover(isAutomatic: Bool) {
+  func searchForCover(isAutomatic: Bool = false) {
     coverSearchTask?.cancel()
-    automaticCoverSearchTask?.cancel()
     let isbn = draft.isbn.map(String.init)
     let title = draft.normalizedTitle
     let author = draft.normalizedAuthor
@@ -197,8 +148,6 @@ final class BookEditorViewModel: ObservableObject {
     }
   }
 
-  /// Uses typed text from the URL popover as the cover. Returns `false` (with a message) when
-  /// it isn't an `http(s)` URL.
   @discardableResult
   func useCoverURL(_ text: String) -> Bool {
     guard let url = CoverInput.remoteURL(from: text) else {
@@ -211,7 +160,6 @@ final class BookEditorViewModel: ObservableObject {
 
   func applyCoverInput(_ input: CoverInput?) {
     coverSearchTask?.cancel()
-    automaticCoverSearchTask?.cancel()
     coverSearchState = .idle
     switch input {
     case .remoteURL(let url):
@@ -244,19 +192,13 @@ final class BookEditorViewModel: ObservableObject {
     }
   }
 
-  /// Drops the local override so the book shows its synced cover (or none, for new books).
   func resetCover() {
     coverSearchTask?.cancel()
-    automaticCoverSearchTask?.cancel()
     coverSearchState = .idle
     coverMessage = nil
     draft.cover = .none
   }
 
-  // MARK: - Save
-
-  /// Validates and saves the draft, then pushes it to Contentful in the background. Returns the
-  /// saved book's ID, or `nil` when validation or the save failed.
   func save() async -> NSManagedObjectID? {
     hasAttemptedSave = true
     guard !isSaving, draft.isValid else { return nil }
@@ -267,13 +209,11 @@ final class BookEditorViewModel: ObservableObject {
     isSaving = true
     defer { isSaving = false }
     do {
-      let pending: PendingBookSync
-      switch mode {
-      case .create:
-        pending = try await service.create(from: draft)
-      case .edit(let bookID):
-        pending = try await service.update(bookID, with: draft)
-      }
+      let pending =
+        switch mode {
+        case .create: try await service.create(from: draft)
+        case .edit(let bookID): try await service.update(bookID, with: draft)
+        }
       Task(priority: .utility) { [service] in
         await service.sync(pending)
       }

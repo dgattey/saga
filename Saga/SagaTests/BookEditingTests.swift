@@ -67,6 +67,27 @@ struct BookEditingTests {
     return service
   }
 
+  private static func syncResponse(
+    id: String,
+    coverAssetId: String?,
+    coverImageUrl: String? = nil
+  ) -> BookServerSyncResponse {
+    BookServerSyncResponse(
+      ok: true,
+      upserted: 1,
+      deleted: 0,
+      entries: [
+        .init(
+          id: id,
+          action: "updated",
+          coverAssetId: coverAssetId,
+          coverImageUrl: coverImageUrl
+        )
+      ],
+      error: nil
+    )
+  }
+
   // MARK: - ISBN & drafts
 
   @Test("ISBN normalizes ISBN-10 (including X check digits) and ISBN-13 input")
@@ -320,13 +341,7 @@ struct BookEditingTests {
     let context = TestCoreDataStack.makeContainer().viewContext
     let book = try TestCoreDataStack.makeBook(in: context, id: "BOOK-1")
     let service = Self.makeService(context: context) { payload in
-      BookServerSyncResponse(
-        ok: true,
-        upserted: 1,
-        deleted: 0,
-        entries: [.init(id: payload.id, action: "updated", coverAssetId: "NEW-ASSET")],
-        error: nil
-      )
+      Self.syncResponse(id: payload.id, coverAssetId: "NEW-ASSET")
     }
 
     var draft = BookDraft(book: book, now: Self.reference)
@@ -349,13 +364,7 @@ struct BookEditingTests {
     let book = try TestCoreDataStack.makeBook(in: context, id: "BOOK-2")
     let existingAssetID = try #require(book.coverImage?.id)
     let service = Self.makeService(context: context) { payload in
-      BookServerSyncResponse(
-        ok: true,
-        upserted: 1,
-        deleted: 0,
-        entries: [.init(id: payload.id, action: "updated", coverAssetId: existingAssetID)],
-        error: nil
-      )
+      Self.syncResponse(id: payload.id, coverAssetId: existingAssetID)
     }
 
     var draft = BookDraft(book: book, now: Self.reference)
@@ -402,19 +411,10 @@ struct BookEditingTests {
     let assetURL = "https://images.ctfassets.net/space/new-asset/cover.jpg"
     let service = Self.makeService(context: context, coverDirectory: directory) { payload in
       await recorder.record(payload)
-      return BookServerSyncResponse(
-        ok: true,
-        upserted: 1,
-        deleted: 0,
-        entries: [
-          .init(
-            id: payload.id,
-            action: "updated",
-            coverAssetId: "UPLOADED",
-            coverImageUrl: assetURL
-          )
-        ],
-        error: nil
+      return Self.syncResponse(
+        id: payload.id,
+        coverAssetId: "UPLOADED",
+        coverImageUrl: assetURL
       )
     }
 
@@ -602,14 +602,7 @@ struct BookEditingTests {
     #expect(await searches.count == 0)
 
     viewModel.draft.author = " Susanna  Clarke "
-    #expect(
-      viewModel.coverLookupKey
-        == BookEditorViewModel.CoverLookupKey(
-          isbn: nil,
-          title: "Piranesi",
-          author: "Susanna Clarke"
-        )
-    )
+    #expect(viewModel.coverLookupKey == "Piranesi|Susanna Clarke")
     viewModel.scheduleAutomaticCoverSearch(after: .zero)
     for _ in 0..<100 where viewModel.draft.cover == .none {
       try await Task.sleep(for: .milliseconds(10))
@@ -627,16 +620,10 @@ struct BookEditingTests {
 
 private actor SearchCounter {
   private(set) var count = 0
-
-  func increment() {
-    count += 1
-  }
+  func increment() { count += 1 }
 }
 
 private actor PayloadRecorder {
   private(set) var payloads: [BookServerUpsertPayload] = []
-
-  func record(_ payload: BookServerUpsertPayload) {
-    payloads.append(payload)
-  }
+  func record(_ payload: BookServerUpsertPayload) { payloads.append(payload) }
 }

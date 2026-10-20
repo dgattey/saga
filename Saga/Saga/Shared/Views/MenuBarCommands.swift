@@ -14,7 +14,7 @@ struct MenuBarCommands: Commands {
     @EnvironmentObject var updaterViewModel: UpdaterViewModel
   #endif
   @Environment(\.openWindow) private var openWindow
-  @FocusedValue(\.newBookAction) private var newBookAction
+  @FocusedBinding(\.isCreatingBook) private var isCreatingBook
 
   var body: some Commands {
     #if os(macOS)
@@ -25,10 +25,10 @@ struct MenuBarCommands: Commands {
 
     CommandGroup(replacing: .newItem) {
       Button("New Book…") {
-        newBookAction?.callAsFunction()
+        isCreatingBook = true
       }
       .keyboardShortcut("n", modifiers: [.command])
-      .disabled(newBookAction == nil)
+      .disabled(isCreatingBook == nil)
     }
 
     CommandGroup(after: .newItem) {
@@ -70,4 +70,8 @@ struct MenuBarCommands: Commands {
       }
     #endif
   }
+}
+
+extension FocusedValues {
+  @Entry var isCreatingBook: Binding<Bool>?
 }

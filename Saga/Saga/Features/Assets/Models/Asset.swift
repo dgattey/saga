@@ -55,9 +55,6 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
     self.urlString = urlString
   }
 
-  /// Returns the asset with Contentful ID `id`, creating a placeholder pointing at `urlString`
-  /// when it hasn't synced yet. The next Contentful sync fills in the rest by ID.
-  /// Must be called on `context`'s queue.
   static func linkedContentfulAsset(
     id: String,
     urlString: String,
@@ -92,8 +89,6 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
     return URL(string: urlString)
   }
 
-  /// Whether this asset was synced from Contentful (and so has a real Contentful asset ID).
-  /// ContentfulPersistence always sets `localeCode`; assets created locally via `add` never do.
   var isContentfulManaged: Bool {
     localeCode != nil
   }

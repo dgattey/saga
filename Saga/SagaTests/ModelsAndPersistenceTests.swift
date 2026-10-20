@@ -120,7 +120,6 @@ struct ModelsAndPersistenceTests {
     let coverAsset = try #require(book.coverImage)
     coverAsset.localeCode = "en-US"
 
-    // A synced Contentful cover is referenced by ID only, so it isn't re-uploaded.
     let payload = try #require(book.toServerUpsertPayload())
     #expect(payload.id == "book-sync-1")
     #expect(payload.title == "Project Hail Mary")
@@ -131,7 +130,6 @@ struct ModelsAndPersistenceTests {
     #expect(payload.coverAssetId == coverAsset.id)
     #expect(payload.coverImageUrl == nil)
 
-    // A pending local cover on an allowlisted host is sent for upload instead.
     book.localCoverImageURL = "https://bookcover.longitood.com/cover.jpg"
     let pendingCoverPayload = try #require(book.toServerUpsertPayload())
     #expect(pendingCoverPayload.coverAssetId == nil)
@@ -149,7 +147,6 @@ struct ModelsAndPersistenceTests {
         == "https://images.ctfassets.net/space/asset/cover.jpg"
     )
 
-    // Dropped/pasted image files stay local and leave the Contentful cover untouched.
     book.localCoverImageURL = "file:///tmp/Covers/cover.png"
     let localFilePayload = try #require(book.toServerUpsertPayload())
     #expect(localFilePayload.coverImageUrl == nil)

@@ -17,27 +17,26 @@ enum CoverImageStoreError: LocalizedError, Equatable {
   var errorDescription: String? {
     switch self {
     case .notAnImage:
-      return "That doesn't look like an image."
+      "That doesn't look like an image."
     case .writeFailed(let reason):
-      return "Couldn't save the cover image: \(reason)"
+      "Couldn't save the cover image: \(reason)"
     case .tooLargeToUpload(let bytes):
-      return "The cover is still \(bytes / 1024) KB after compression, too large to sync."
+      "The cover is still \(bytes / 1024) KB after compression, too large to sync."
     }
   }
 
   var recoverySuggestion: String? {
     switch self {
     case .notAnImage:
-      return "Drop or paste a JPEG, PNG, or HEIC image, or an image URL."
+      "Drop or paste a JPEG, PNG, or HEIC image, or an image URL."
     case .writeFailed:
-      return "Check available disk space and try again."
+      "Check available disk space and try again."
     case .tooLargeToUpload:
-      return "Try a smaller or simpler cover image. It still shows on this device."
+      "Try a smaller or simpler cover image. It still shows on this device."
     }
   }
 }
 
-/// A compressed cover ready to send as `coverImageBase64` + `coverImageContentType`.
 struct CoverImageUpload: Equatable, Sendable {
   let data: Data
   let contentType: String
@@ -45,13 +44,8 @@ struct CoverImageUpload: Equatable, Sendable {
   var base64: String { data.base64EncodedString() }
 }
 
-/// Persists dropped or pasted cover images to Application Support so they render through the
-/// regular `file://` image pipeline, and compresses them for upload to Contentful through
-/// `/api/books/sync`.
 enum CoverImageStore {
   private static let passthroughTypes: [UTType] = [.jpeg, .png, .heic]
-
-  /// Keeps the base64 request body (~4/3 of this) under Vercel's 4.5 MB function payload limit.
   static let maxUploadBytes = 3 * 1024 * 1024
   private static let uploadPixelSizes = [1600, 1200, 800]
   private static let uploadJPEGQuality = 0.82
@@ -66,8 +60,6 @@ enum CoverImageStore {
       .appending(path: "Covers", directoryHint: .isDirectory)
   }
 
-  /// Validates `data` as an image and writes it to `directory`, returning the file URL. JPEG,
-  /// PNG, and HEIC are stored as-is; anything else (like pasteboard TIFFs) is converted to PNG.
   static func save(_ data: Data, in directory: URL = defaultDirectory) throws -> URL {
     guard let source = CGImageSourceCreateWithData(data as CFData, nil),
       CGImageSourceGetCount(source) > 0,
@@ -81,7 +73,10 @@ enum CoverImageStore {
     if passthroughTypes.contains(where: { sourceType.conforms(to: $0) }) {
       (outputData, outputType) = (data, sourceType)
     } else {
-      (outputData, outputType) = (try pngData(from: source), .png)
+      guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+        throw CoverImageStoreError.notAnImage
+      }
+      (outputData, outputType) = (try encode(image, as: .png), .png)
     }
 
     do {
@@ -96,39 +91,28 @@ enum CoverImageStore {
     }
   }
 
-  /// Whether `data` decodes as at least one image.
   static func isImage(_ data: Data) -> Bool {
     guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return false }
     return CGImageSourceGetCount(source) > 0 && CGImageSourceGetType(source) != nil
   }
 
-  /// Whether `urlString` points at a cover stored by this type (in any directory).
   static func isLocalCover(_ urlString: String?) -> Bool {
     guard let urlString, let url = URL(string: urlString) else { return false }
     return url.isFileURL
   }
 
-  /// Deletes a cover previously written to `directory`. Ignores remote URLs and files elsewhere.
   static func remove(_ urlString: String?, in directory: URL = defaultDirectory) {
     guard let urlString, let url = URL(string: urlString), url.isFileURL,
-      normalizedPath(url.deletingLastPathComponent()) == normalizedPath(directory)
-    else {
-      return
-    }
+      url.deletingLastPathComponent().standardizedFileURL == directory.standardizedFileURL
+    else { return }
     do {
       try FileManager.default.removeItem(at: url)
     } catch {
       LoggerService.log(
-        "Failed to remove replaced cover image",
-        error: error,
-        surface: .persistence
-      )
+        "Failed to remove replaced cover image", error: error, surface: .persistence)
     }
   }
 
-  /// Downscales the cover at `fileURL` to at most 1600px on its long edge and re-encodes it as
-  /// JPEG (flattening any transparency onto white), stepping down in size until it fits
-  /// `maxUploadBytes`.
   static func uploadData(forCoverAt fileURL: URL) throws -> CoverImageUpload {
     guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
       CGImageSourceGetCount(source) > 0
@@ -146,7 +130,7 @@ enum CoverImageStore {
       else {
         throw CoverImageStoreError.notAnImage
       }
-      let data = try jpegData(from: flattened(image))
+      let data = try encode(flattened(image), as: .jpeg, quality: uploadJPEGQuality)
       if data.count <= maxUploadBytes {
         return CoverImageUpload(data: data, contentType: "image/jpeg")
       }
@@ -156,11 +140,8 @@ enum CoverImageStore {
   }
 
   private static func flattened(_ image: CGImage) -> CGImage {
-    switch image.alphaInfo {
-    case .none, .noneSkipFirst, .noneSkipLast:
+    if [.none, .noneSkipFirst, .noneSkipLast].contains(image.alphaInfo) {
       return image
-    default:
-      break
     }
     guard
       let context = CGContext(
@@ -172,9 +153,7 @@ enum CoverImageStore {
         space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
         bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
       )
-    else {
-      return image
-    }
+    else { return image }
     let bounds = CGRect(x: 0, y: 0, width: image.width, height: image.height)
     context.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
     context.fill(bounds)
@@ -182,52 +161,84 @@ enum CoverImageStore {
     return context.makeImage() ?? image
   }
 
-  private static func jpegData(from image: CGImage) throws -> Data {
+  private static func encode(_ image: CGImage, as type: UTType, quality: Double? = nil) throws
+    -> Data
+  {
     let output = NSMutableData()
     guard
       let destination = CGImageDestinationCreateWithData(
-        output as CFMutableData,
-        UTType.jpeg.identifier as CFString,
-        1,
-        nil
+        output as CFMutableData, type.identifier as CFString, 1, nil
       )
     else {
-      throw CoverImageStoreError.writeFailed(reason: "JPEG encoder unavailable")
+      throw CoverImageStoreError.writeFailed(reason: "\(type.identifier) encoder unavailable")
     }
-    let properties: [CFString: Any] = [
-      kCGImageDestinationLossyCompressionQuality: uploadJPEGQuality
-    ]
-    CGImageDestinationAddImage(destination, image, properties as CFDictionary)
+    let properties = quality.map {
+      [kCGImageDestinationLossyCompressionQuality: $0] as CFDictionary
+    }
+    CGImageDestinationAddImage(destination, image, properties)
     guard CGImageDestinationFinalize(destination) else {
-      throw CoverImageStoreError.writeFailed(reason: "JPEG encoding failed")
+      throw CoverImageStoreError.writeFailed(reason: "\(type.identifier) encoding failed")
     }
     return output as Data
   }
+}
 
-  private static func normalizedPath(_ url: URL) -> String {
-    let path = url.standardizedFileURL.path(percentEncoded: false)
-    return path.hasSuffix("/") ? String(path.dropLast()) : path
+enum CoverImageResolver {
+  private static let cache = CoverImageURLCache()
+
+  static func bestCoverURL(isbn: String?, title: String, author: String) async -> String? {
+    guard !PersistenceService.isRunningUnitTests else { return nil }
+    let normalizedTitle = title.cleanedWhitespace
+    let normalizedAuthor = author.cleanedWhitespace
+    guard let isbn = isbn?.cleanedWhitespace, !isbn.isEmpty else {
+      guard !normalizedTitle.isEmpty else { return nil }
+      return try? await OpenLibraryAPIService.coverImageURL(
+        forTitle: normalizedTitle, author: normalizedAuthor
+      )
+    }
+    return await cache.value(forISBN: isbn) {
+      do {
+        let openLibrary = try await OpenLibraryAPIService.bestCoverCandidate(
+          forISBN: isbn, title: normalizedTitle, author: normalizedAuthor
+        )
+        let bookcover =
+          (openLibrary?.bytes ?? 0) < 80_000
+          ? try await BookcoverAPIService.coverImageCandidate(forISBN: isbn) : nil
+        return preferredCandidate(openLibrary: openLibrary, bookcover: bookcover)?.url
+      } catch {
+        LoggerService.log(
+          "Cover lookup failed for ISBN \(isbn)", error: error, surface: .network)
+        return nil
+      }
+    }
   }
 
-  private static func pngData(from source: CGImageSource) throws -> Data {
-    guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-      throw CoverImageStoreError.notAnImage
+  static func preferredCandidate(
+    openLibrary: CoverImageCandidate?,
+    bookcover: CoverImageCandidate?
+  ) -> CoverImageCandidate? {
+    guard let openLibrary else { return bookcover }
+    guard let bookcover else { return openLibrary }
+    if bookcover.bytes >= 30_000, Double(bookcover.bytes) >= Double(openLibrary.bytes) * 0.85 {
+      return bookcover
     }
-    let output = NSMutableData()
-    guard
-      let destination = CGImageDestinationCreateWithData(
-        output as CFMutableData,
-        UTType.png.identifier as CFString,
-        1,
-        nil
-      )
-    else {
-      throw CoverImageStoreError.writeFailed(reason: "PNG encoder unavailable")
-    }
-    CGImageDestinationAddImage(destination, image, nil)
-    guard CGImageDestinationFinalize(destination) else {
-      throw CoverImageStoreError.writeFailed(reason: "PNG encoding failed")
-    }
-    return output as Data
+    return openLibrary.bytes >= bookcover.bytes ? openLibrary : bookcover
+  }
+}
+
+private actor CoverImageURLCache {
+  private var values: [String: String] = [:]
+  private var tasks: [String: Task<String?, Never>] = [:]
+
+  func value(forISBN isbn: String, fetch: @escaping @Sendable () async -> String?) async -> String?
+  {
+    if let cached = values[isbn] { return cached }
+    if let existingTask = tasks[isbn] { return await existingTask.value }
+    let task = Task { await fetch() }
+    tasks[isbn] = task
+    let value = await task.value
+    tasks[isbn] = nil
+    values[isbn] = value
+    return value
   }
 }
