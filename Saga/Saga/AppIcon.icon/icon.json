@@ -1,8 +1,8 @@
 {
   "fill" : {
     "linear-gradient" : [
-      "display-p3:0.149,0.306,0.227,1.00000",
-      "display-p3:0.086,0.188,0.137,1.00000"
+      "srgb:0.96100,0.94900,0.90200,1.00000",
+      "srgb:0.92900,0.91000,0.85500,1.00000"
     ]
   },
   "groups" : [
@@ -10,30 +10,60 @@
       "blur-material" : null,
       "layers" : [
         {
-          "glass" : true,
-          "image-name" : "book-ribbon.png",
-          "name" : "book-ribbon"
-        },
-        {
-          "glass" : true,
-          "image-name" : "book-cover.png",
-          "name" : "book-cover"
-        },
-        {
           "glass" : false,
-          "image-name" : "book-base.png",
-          "name" : "book-base"
+          "image-name" : "monstera-leaf.png",
+          "name" : "monstera-leaf"
         }
       ],
-      "lighting" : "combined",
+      "lighting" : "individual",
       "shadow" : {
         "kind" : "layer-color",
-        "opacity" : 0.45
+        "opacity" : 0.35
       },
-      "specular" : true,
+      "specular" : false,
       "translucency" : {
-        "enabled" : true,
-        "value" : 0.25
+        "enabled" : false,
+        "value" : 0.0
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "books-stack.png",
+          "name" : "books-stack"
+        }
+      ],
+      "lighting" : "individual",
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.35
+      },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.0
+      }
+    },
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "vine-sprig.png",
+          "name" : "vine-sprig"
+        }
+      ],
+      "lighting" : "individual",
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.3
+      },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.0
       }
     }
   ],
