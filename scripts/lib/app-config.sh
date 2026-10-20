@@ -9,7 +9,7 @@ SAGA_SOURCES="$ROOT/Saga/Saga"
 # `run bootstrap` / `run config` write. Compiling never contacts Contentful, so builds without
 # credentials get the same "placeholder" values published releases have always shipped.
 saga_config_value() {
-  local key="$1" fallback="$2" value="${!1:-}" config_file="$SAGA_SOURCES/Config/Config.xcconfig"
+  local key="$1" fallback="$2" value="${!1:-}" config_file="$ROOT/Config.xcconfig"
   if [[ -z "$value" && -f "$config_file" ]]; then
     value="$(sed -n "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*//p" "$config_file" | tail -1)"
     value="${value%"${value##*[![:space:]]}"}"

@@ -24,7 +24,7 @@ let package = Package(
       ],
       path: "Saga/Saga",
       // scripts/build-macos.sh and scripts/build-ios-sim.sh compile these into the app bundle.
-      exclude: ["AppIcon.icon", "Assets.xcassets", "Config", "Saga.xcdatamodeld"],
+      exclude: ["AppIcon.icon", "Assets.xcassets", "Saga.xcdatamodeld"],
       linkerSettings: [
         // build-macos.sh embeds Sparkle.framework under Contents/Frameworks.
         .unsafeFlags(

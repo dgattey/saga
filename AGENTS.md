@@ -70,12 +70,12 @@ entities in both when adding models
 
 ## Environment
 - Pure SwiftPM (`Package.swift`); no Xcode project. Xcode must be installed for `momc`, `actool`, and the SDKs
-- `run bootstrap` writes `Saga/Saga/Config/Config.xcconfig` from 1Password; `run config`
+- `run bootstrap` writes `Config.xcconfig` from 1Password; `run config`
  writes the same file from `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` (plus optional `SAGA_API_SECRET`)
 - The file is gitignored and optional: `scripts/lib/app-config.sh` falls back to placeholder credentials, which is what CI and releases build with
 - **1Password CLI (`op`) rules**:
   - Never call `op` repeatedly across separate shell commands or loops (each shell tool call is a new terminal session and triggers a separate Touch ID prompt).
-  - If a secret is needed and not already cached locally in `Saga/Saga/Config/Config.xcconfig` or `.env.local`, batch every needed `op` read into a single shell command, write them into a gitignored `.env.local` (or `Config.xcconfig`), and source that file on subsequent commands.
+  - If a secret is needed and not already cached locally in `Config.xcconfig` or `.env.local`, batch every needed `op` read into a single shell command, write them into a gitignored `.env.local` (or `Config.xcconfig`), and source that file on subsequent commands.
   - Never print secret values.
 - `swift-format` is listed in the repo `Brewfile` (install with `brew bundle`)
 - Validate formatting and linting before final review, and build the app too.

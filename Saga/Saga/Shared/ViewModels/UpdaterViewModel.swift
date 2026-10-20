@@ -134,7 +134,7 @@ final class SparkleUpdateSession {
     @MainActor
     func handleShowingUpdateOnMainActor(_ handleShowingUpdate: Bool) {
       SparkleUpdateSession.shared.begin()
-      NSApp.activate(ignoringOtherApps: true)
+      NSApplication.shared.activate(ignoringOtherApps: true)
       if !handleShowingUpdate {
         onShowScheduledUpdateInForeground?()
       }
@@ -142,7 +142,7 @@ final class SparkleUpdateSession {
 
     func standardUserDriverWillShowModalAlert() {
       Task { @MainActor in
-        NSApp.activate(ignoringOtherApps: true)
+        NSApplication.shared.activate(ignoringOtherApps: true)
       }
     }
 

@@ -1,4 +1,4 @@
-// DESCRIPTION: Write Saga/Saga/Config/Config.xcconfig
+// DESCRIPTION: Write Config.xcconfig
 
 import Common
 import Foundation

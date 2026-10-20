@@ -5,6 +5,7 @@
 //  Created by Dylan Gattey on 1/24/26.
 //
 
+import CoreData
 import SwiftUI
 
 private struct Constants {

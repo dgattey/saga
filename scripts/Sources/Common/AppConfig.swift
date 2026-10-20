@@ -23,11 +23,7 @@ public enum AppConfig {
 
   /// Where `scripts/lib/app-config.sh` reads credentials from when building the app.
   public static func path(repoRoot: String) -> URL {
-    URL(fileURLWithPath: repoRoot)
-      .appendingPathComponent("Saga")
-      .appendingPathComponent("Saga")
-      .appendingPathComponent("Config")
-      .appendingPathComponent("Config.xcconfig")
+    URL(fileURLWithPath: repoRoot).appendingPathComponent("Config.xcconfig")
   }
 
   /// Reads credentials from the environment, or nil when required Contentful keys are unset or blank.
