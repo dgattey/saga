@@ -66,8 +66,11 @@ struct ViewsInspectorTests {
   @Test("BookListHeaderView and BookListEmptyStateView render expected copy")
   @MainActor
   func bookListHeaderAndEmptyStateInspection() throws {
-    let header = BookListHeaderView()
-    #expect(try header.inspect().text().string() == "Books")
+    var didRequestNewBook = false
+    let header = BookListHeaderView(onNewBook: { didRequestNewBook = true })
+    #expect(try header.inspect().hStack().text(0).string() == "Books")
+    try header.inspect().hStack().button(2).tap()
+    #expect(didRequestNewBook)
 
     let empty = BookListEmptyStateView()
     #expect(try empty.inspect().text().string() == "No results")
