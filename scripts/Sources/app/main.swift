@@ -6,55 +6,39 @@ import Foundation
 // MARK: - CLI
 
 enum Option: String, CLIOptionType, CaseIterable {
-  case verbose
   case buildOnly = "build-only"
   case release
   case background
   case foreground
   case test
-  case uiTest = "ui-test"
-  case skipSigning = "skip-signing"
 
   var shortName: String? {
     switch self {
-    case .verbose: "v"
     case .buildOnly: "b"
     case .release: "r"
     case .background: "g"
     case .foreground: "f"
     case .test: "t"
-    case .uiTest: nil
-    case .skipSigning: nil
     }
   }
 
   var description: String {
     switch self {
-    case .verbose: "Show full xcodebuild output (default is quiet)"
-    case .buildOnly: "Build without launching the app"
-    case .release: "Build and/or run in Release configuration (default is Debug)"
+    case .buildOnly: "Build build/Saga.app without launching it"
+    case .release: "Build and/or run in release configuration (default is debug)"
     case .background: "Launch in background without stealing focus (open -g -j) and exit"
     case .foreground: "Bring the app to the foreground when launching"
-    case .test: "Run unit tests (SagaTests) without stealing focus"
-    case .uiTest: "Run XCUITest UI tests and capture screenshots"
-    case .skipSigning: "Skip code signing (for CI without certificates)"
+    case .test: "Run unit tests (SagaTests) with swift test"
     }
   }
 }
 
 struct Config {
-  var verbose = false
   var buildOnly = false
   var release = false
   var background = false
   var foreground = false
   var runUnitTests = false
-  var runUiTests = false
-  var skipSigning = false
-
-  var configuration: String {
-    release ? "Release" : "Debug"
-  }
 
   /// Avoid stealing focus unless `--foreground` is explicitly requested.
   var shouldOpenInBackground: Bool {
@@ -83,8 +67,6 @@ func parseArguments(_ args: [String]) throws -> Config {
       throw ScriptError("Unknown argument: \(arg)")
     }
     switch option {
-    case .verbose:
-      config.verbose = true
     case .buildOnly:
       config.buildOnly = true
     case .release:
@@ -95,19 +77,11 @@ func parseArguments(_ args: [String]) throws -> Config {
       config.foreground = true
     case .test:
       config.runUnitTests = true
-    case .uiTest:
-      config.runUiTests = true
-    case .skipSigning:
-      config.skipSigning = true
     }
   }
 
   if config.background, config.foreground {
     throw ScriptError("--background and --foreground cannot be used together")
-  }
-
-  if config.runUnitTests, config.runUiTests {
-    throw ScriptError("--test and --ui-test cannot be used together")
   }
 
   if config.runUnitTests, config.buildOnly {
@@ -116,18 +90,6 @@ func parseArguments(_ args: [String]) throws -> Config {
 
   if config.runUnitTests, config.release {
     throw ScriptError("--release is not supported with --test")
-  }
-
-  if config.runUiTests, config.buildOnly {
-    throw ScriptError("--build-only is not supported with --ui-test")
-  }
-
-  if config.runUiTests, config.release {
-    throw ScriptError("--release is not supported with --ui-test")
-  }
-
-  if config.runUiTests, config.skipSigning {
-    throw ScriptError("--skip-signing is not supported with --ui-test")
   }
 
   return config
@@ -150,47 +112,17 @@ runMain(usage: cli.usage()) {
   let config = try parseArguments(args)
 
   let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
-  let projectPath = try findProjectPath(repoRoot: repoRoot)
-  let paths = AppPaths(configuration: config.configuration)
-
   try checkXcodeToolsSelected()
-  let arch = try currentArchitecture()
   if config.runUnitTests {
-    try runUnitTests(
-      projectPath: projectPath,
-      derivedDataPath: paths.derivedDataPath,
-      arch: arch,
-      verbose: config.verbose,
-      skipSigning: config.skipSigning
+    try runUnitTests(repoRoot: repoRoot)
+    return
+  }
+  let appPath = try buildApp(repoRoot: repoRoot, release: config.release)
+  if !config.buildOnly {
+    try runApp(
+      appPath: appPath,
+      background: config.shouldOpenInBackground,
+      streamLogsUntilExit: config.shouldStreamLogs
     )
-  } else if config.runUiTests {
-    let cacheKey = buildCacheKey(repoRoot: repoRoot)
-    let uiTestPaths = AppPaths.uiTestPaths(repoRoot: repoRoot, cacheKey: cacheKey)
-    try runUiTests(
-      projectPath: projectPath,
-      derivedDataPath: paths.derivedDataPath,
-      arch: arch,
-      verbose: config.verbose,
-      resultBundlePath: uiTestPaths.resultBundlePath,
-      screenshotsPath: uiTestPaths.screenshotsPath
-    )
-  } else {
-    try buildApp(
-      projectPath: projectPath,
-      derivedDataPath: paths.derivedDataPath,
-      arch: arch,
-      configuration: config.configuration,
-      verbose: config.verbose,
-      skipSigning: config.skipSigning
-    )
-    if !config.buildOnly {
-      // Re-resolve DerivedData in case this was the very first build
-      let resolvedPaths = AppPaths(configuration: config.configuration)
-      try runApp(
-        appPath: resolvedPaths.appPath,
-        background: config.shouldOpenInBackground,
-        streamLogsUntilExit: config.shouldStreamLogs
-      )
-    }
   }
 }

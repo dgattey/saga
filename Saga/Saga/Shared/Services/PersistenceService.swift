@@ -19,15 +19,20 @@ struct PersistenceService {
   }
 
   static let managedObjectModel: NSManagedObjectModel = {
+    guard let modelURL = Bundle.main.url(forResource: "Saga", withExtension: "momd") else {
+      fatalError("Saga.momd missing from main bundle")
+    }
+    return loadManagedObjectModel(at: modelURL)
+  }()
+
+  /// Loads a compiled `Saga.momd`; unit tests pass one compiled outside the app bundle.
+  static func loadManagedObjectModel(at modelURL: URL) -> NSManagedObjectModel {
     RichTextDocumentTransformer.register()
-    guard
-      let modelURL = Bundle.main.url(forResource: "Saga", withExtension: "momd"),
-      let model = NSManagedObjectModel(contentsOf: modelURL)
-    else {
-      fatalError("Failed to load Saga NSManagedObjectModel from main bundle")
+    guard let model = NSManagedObjectModel(contentsOf: modelURL) else {
+      fatalError("Failed to load Saga NSManagedObjectModel from \(modelURL.path)")
     }
     return model
-  }()
+  }
 
   let container: NSPersistentContainer
   private var syncManager: SynchronizationManager

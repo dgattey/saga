@@ -20,8 +20,6 @@ enum LogSurface: String {
   case richText = "RichText"
   /// Automatic update checks and installation via Sparkle.
   case updates = "Updates"
-  /// Hot reload / InjectionIII diagnostics (Debug only).
-  case hotReload = "HotReload"
 }
 
 enum LogLevel {
