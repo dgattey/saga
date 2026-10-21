@@ -37,11 +37,23 @@ struct AssetImageView: View {
 
   private var placeholderView: some View {
     RoundedRectangle(cornerRadius: 6, style: .continuous)
-      .fill(Color.botanicalLeaf.opacity(0.10))
+      .fill(Color.botanicalCoverPlaceholderFill)
       .overlay {
         Image(systemName: "book.closed.fill")
-          .font(.title2)
-          .foregroundStyle(Color.botanicalSage.opacity(0.75))
+          .font(placeholderIconFont)
+          .symbolRenderingMode(.monochrome)
+          .foregroundStyle(Color.botanicalCoverPlaceholderIcon)
       }
+      .overlay {
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+          .strokeBorder(Color.botanicalCoverPlaceholderBorder, lineWidth: 0.75)
+      }
+  }
+
+  private var placeholderIconFont: Font {
+    if let width = targetSize?.width, width <= 50 {
+      return .system(size: max(14, round(width * 0.42)), weight: .medium)
+    }
+    return .title2.weight(.medium)
   }
 }

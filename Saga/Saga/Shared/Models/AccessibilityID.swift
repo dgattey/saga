@@ -22,6 +22,7 @@ public enum AccessibilityID {
     public static let sidebar = "books.sidebar"
     public static let sidebarScrollArea = "books.sidebarScrollArea"
     public static let newBookButton = "books.newBookButton"
+    public static let nowReadingBar = "books.nowReadingBar"
 
     public static func bookRow(_ index: Int) -> String {
       "books.row.\(index)"

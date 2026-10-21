@@ -149,4 +149,28 @@ struct ViewsInspectorTests {
     #expect(try inspected.find(text: "Home").string() == "Home")
     #expect(!didCallMakeHome)
   }
+
+  @Test("NowReadingBarView renders active book metadata and invokes onSelect on tap")
+  @MainActor
+  func nowReadingBarViewInspection() throws {
+    let container = TestCoreDataStack.makeContainer()
+    let book = try TestCoreDataStack.makeBook(
+      in: container.viewContext,
+      title: "Exhalation",
+      author: "Ted Chiang",
+      readDateStarted: Date(),
+      readDateFinished: nil
+    )
+
+    var didSelect = false
+    let bar = NowReadingBarView(book: book) {
+      didSelect = true
+    }
+    let inspected = try bar.inspect()
+    #expect(try inspected.find(text: "Currently reading").string() == "Currently reading")
+    #expect(try inspected.find(text: "Exhalation").string() == "Exhalation")
+    #expect(try inspected.find(text: "Ted Chiang").string() == "Ted Chiang")
+    try inspected.find(ViewType.Button.self).tap()
+    #expect(didSelect)
+  }
 }
