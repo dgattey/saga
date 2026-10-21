@@ -41,11 +41,19 @@ struct SettingsView: View {
         .frame(width: 680, height: 520)
       #else
         NavigationStack {
-          List(SettingsPane.allCases) { pane in
-            NavigationLink(value: pane) {
-              paneLabel(for: pane)
+          Form {
+            generalSections
+            storageSections
+            Section("About") {
+              aboutInfoRows
+              NavigationLink(value: SettingsPane.credits) {
+                paneLabel(for: .credits)
+              }
             }
+            linksSection
           }
+          .formStyle(.grouped)
+          .tint(Color.botanicalDeepMoss)
           .navigationTitle("Settings")
           .navigationBarTitleDisplayMode(.inline)
           .navigationDestination(for: SettingsPane.self) { pane in
@@ -147,17 +155,32 @@ struct SettingsView: View {
   }
 
   private func springSliderRow(_ title: String, value: Binding<Double>) -> some View {
-    LabeledContent(title) {
-      HStack(spacing: 10) {
+    #if os(macOS)
+      LabeledContent(title) {
+        HStack(spacing: 10) {
+          Slider(value: value, in: 0.1...1.0)
+            .labelsHidden()
+            .frame(maxWidth: 180)
+          Text(value.wrappedValue, format: .number.precision(.fractionLength(2)))
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+            .frame(width: 36, alignment: .trailing)
+        }
+      }
+    #else
+      VStack(alignment: .leading, spacing: 6) {
+        HStack {
+          Text(title)
+          Spacer()
+          Text(value.wrappedValue, format: .number.precision(.fractionLength(2)))
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+        }
         Slider(value: value, in: 0.1...1.0)
           .labelsHidden()
-          .frame(maxWidth: 180)
-        Text(value.wrappedValue, format: .number.precision(.fractionLength(2)))
-          .monospacedDigit()
-          .foregroundStyle(.secondary)
-          .frame(width: 36, alignment: .trailing)
       }
-    }
+      .padding(.vertical, 2)
+    #endif
   }
 
   // MARK: - Storage
@@ -322,18 +345,26 @@ struct SettingsView: View {
   @ViewBuilder
   private var aboutSections: some View {
     Section {
-      LabeledContent("Application") {
-        Text("Saga")
-      }
-      LabeledContent("Version") {
-        Text("\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
-          .monospacedDigit()
-      }
-      LabeledContent("Author") {
-        Text("Dylan Gattey")
-      }
+      aboutInfoRows
     }
+    linksSection
+  }
 
+  @ViewBuilder
+  private var aboutInfoRows: some View {
+    LabeledContent("Application") {
+      Text("Saga")
+    }
+    LabeledContent("Version") {
+      Text("\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
+        .monospacedDigit()
+    }
+    LabeledContent("Author") {
+      Text("Dylan Gattey")
+    }
+  }
+
+  private var linksSection: some View {
     Section("Links") {
       ForEach(QuickLinkItem.all) { item in
         LabeledContent {
