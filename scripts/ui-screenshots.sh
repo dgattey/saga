@@ -35,6 +35,24 @@ fail() {
   exit 1
 }
 
+step() {
+  echo "ui-screenshots: [$(date '+%H:%M:%S')] $*"
+}
+
+# Runs "$@", killing it after $1 seconds so a stuck simulator fails the run instead of hanging it.
+with_timeout() {
+  local seconds="$1" pid watcher status=0
+  shift
+  "$@" &
+  pid=$!
+  (sleep "$seconds" && kill -TERM "$pid" 2>/dev/null) &
+  watcher=$!
+  wait "$pid" || status=$?
+  kill "$watcher" 2>/dev/null || true
+  wait "$watcher" 2>/dev/null || true
+  [[ $status -eq 0 ]] || fail "timed out or failed after ${seconds}s (status $status): $*"
+}
+
 # Prints "<device type id> <runtime id>" for the newest iOS runtime with an available device whose name
 # matches the regex in $1.
 device_type_and_runtime() {
@@ -60,7 +78,8 @@ fi
 [[ -d "$APP" ]] || fail "$APP is missing; run scripts/build-ios-sim.sh"
 
 FIXTURE="$WORK_DIR/Saga.sqlite"
-xcrun swift "$ROOT/scripts/ui-fixture-store.swift" "$APP/Saga.momd" "$FIXTURE"
+step "writing fixture store"
+with_timeout 300 xcrun swift "$ROOT/scripts/ui-fixture-store.swift" "$APP/Saga.momd" "$FIXTURE"
 BOOK_COUNT="$(sqlite3 "$FIXTURE" 'SELECT COUNT(*) FROM ZBOOK')"
 READING_TITLE="$(sqlite3 "$FIXTURE" 'SELECT ZTITLE FROM ZBOOK WHERE ZREADDATEFINISHED IS NULL LIMIT 1')"
 
@@ -73,13 +92,14 @@ capture_device() {
     || fail "no available simulator matching '$name_pattern'"
   udid="$(xcrun simctl create "Saga UI $label" "$type" "$runtime")"
   DEVICES+=("$udid")
-  echo "ui-screenshots: $label on ${type##*.} / ${runtime##*.} ($udid)"
+  step "$label on ${type##*.} / ${runtime##*.} ($udid): booting"
 
-  xcrun simctl boot "$udid"
-  xcrun simctl bootstatus "$udid" -b >/dev/null
+  with_timeout 60 xcrun simctl boot "$udid"
+  with_timeout 600 xcrun simctl bootstatus "$udid" >/dev/null
+  step "$label booted; installing"
   xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 \
     >/dev/null 2>&1 || true
-  xcrun simctl install "$udid" "$APP"
+  with_timeout 180 xcrun simctl install "$udid" "$APP"
   container="$(xcrun simctl get_app_container "$udid" "$SAGA_BUNDLE_ID" data)"
   mkdir -p "$container/Library/Application Support"
   cp "$FIXTURE" "$container/Library/Application Support/Saga.sqlite"
@@ -88,14 +108,15 @@ capture_device() {
   for view in home book; do
     for appearance in light dark; do
       started="$(date '+%Y-%m-%d %H:%M:%S')"
-      SIMCTL_CHILD_SAGA_INITIAL_VIEW="$view" SIMCTL_CHILD_SAGA_APPEARANCE="$appearance" \
+      step "$label: launching $view $appearance"
+      with_timeout 90 env SIMCTL_CHILD_SAGA_INITIAL_VIEW="$view" SIMCTL_CHILD_SAGA_APPEARANCE="$appearance" \
         xcrun simctl launch --terminate-running-process "$udid" "$SAGA_BUNDLE_ID" >/dev/null
       sleep "$SETTLE"
 
       grep -qF "UIKitApplication:$SAGA_BUNDLE_ID" <<<"$(xcrun simctl spawn "$udid" launchctl list)" \
         || fail "$label $view $appearance: Saga isn't running after ${SETTLE}s (crashed?)"
       output="$CAPTURES/saga-$label-$view-$appearance.png"
-      xcrun simctl io "$udid" screenshot --type=png "$output" >/dev/null 2>&1
+      with_timeout 60 xcrun simctl io "$udid" screenshot --type=png "$output" >/dev/null 2>&1
       [[ -s "$output" ]] || fail "$label $view $appearance: empty screenshot"
 
       logs="$(xcrun simctl spawn "$udid" log show --style compact --start "$started" \
