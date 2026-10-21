@@ -1,8 +1,8 @@
 {
   "fill" : {
     "linear-gradient" : [
-      "srgb:0.96100,0.94900,0.90200,1.00000",
-      "srgb:0.92900,0.91000,0.85500,1.00000"
+      "srgb:0.23137,0.32157,0.23922,1.00000",
+      "srgb:0.15686,0.22745,0.16471,1.00000"
     ]
   },
   "groups" : [
@@ -11,14 +11,14 @@
       "layers" : [
         {
           "glass" : false,
-          "image-name" : "monstera-leaf.png",
-          "name" : "monstera-leaf"
+          "image-name" : "monstera-bookmark-leaf.png",
+          "name" : "monstera-bookmark-leaf"
         }
       ],
       "lighting" : "individual",
       "shadow" : {
-        "kind" : "layer-color",
-        "opacity" : 0.35
+        "kind" : "neutral",
+        "opacity" : 0.0
       },
       "specular" : false,
       "translucency" : {
@@ -31,14 +31,14 @@
       "layers" : [
         {
           "glass" : false,
-          "image-name" : "books-stack.png",
-          "name" : "books-stack"
+          "image-name" : "open-hardcover-book.png",
+          "name" : "open-hardcover-book"
         }
       ],
       "lighting" : "individual",
       "shadow" : {
-        "kind" : "layer-color",
-        "opacity" : 0.35
+        "kind" : "neutral",
+        "opacity" : 0.0
       },
       "specular" : false,
       "translucency" : {
@@ -51,14 +51,14 @@
       "layers" : [
         {
           "glass" : false,
-          "image-name" : "vine-sprig.png",
-          "name" : "vine-sprig"
+          "image-name" : "sage-background.png",
+          "name" : "sage-background"
         }
       ],
       "lighting" : "individual",
       "shadow" : {
-        "kind" : "layer-color",
-        "opacity" : 0.3
+        "kind" : "neutral",
+        "opacity" : 0.0
       },
       "specular" : false,
       "translucency" : {

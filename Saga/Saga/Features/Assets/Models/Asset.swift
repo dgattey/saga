@@ -7,10 +7,9 @@
 
 import ContentfulPersistence
 import CoreData
-import Ifrit
 
 @objc(Asset)
-final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
+final class Asset: NSManagedObject, AssetPersistable {
   static let contentTypeId = "asset"
 
   @NSManaged var id: String
@@ -92,37 +91,4 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
   var isContentfulManaged: Bool {
     localeCode != nil
   }
-
-  func toDTO() -> AssetDTO {
-    AssetDTO(
-      id: self.id,
-      title: self.title,
-      fileName: self.fileName,
-      urlString: self.urlString
-    )
-  }
-}
-
-final class AssetDTO: SearchableDTO, @unchecked Sendable {
-  let id: String
-  let title: String?
-  let fileName: String?
-  let urlString: String?
-  let fuzzySearchableProperties: [FuseProp]
-
-  init(id: String, title: String?, fileName: String?, urlString: String?) {
-    self.id = id
-    self.title = title
-    self.fileName = fileName
-    self.urlString = urlString
-    self.fuzzySearchableProperties = [
-      FuseProp(title ?? ""),
-      FuseProp(fileName ?? ""),
-    ]
-  }
-
-  static var fuzzySearchKeyPaths: [PartialKeyPath<AssetDTO>] = [
-    \AssetDTO.title,
-    \AssetDTO.fileName,
-  ]
 }

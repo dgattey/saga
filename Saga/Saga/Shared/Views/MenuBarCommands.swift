@@ -10,6 +10,7 @@ import SwiftUI
 struct MenuBarCommands: Commands {
   @EnvironmentObject var syncViewModel: SyncViewModel
   @EnvironmentObject var cachesViewModel: CachesViewModel
+  @EnvironmentObject var booksViewModel: BooksViewModel
   #if os(macOS)
     @EnvironmentObject var updaterViewModel: UpdaterViewModel
   #endif
@@ -31,7 +32,19 @@ struct MenuBarCommands: Commands {
       .disabled(isCreatingBook == nil)
     }
 
+    // Lives in the File menu so ⌘F wins over the Edit menu's Find item.
     CommandGroup(after: .newItem) {
+      Button("Search Books…") {
+        booksViewModel.isSpotlightPresented.toggle()
+      }
+      .keyboardShortcut("k", modifiers: [.command])
+
+      Button("Search Sidebar") {
+        booksViewModel.isSpotlightPresented = false
+        booksViewModel.sidebarSearchFocusRequests.send()
+      }
+      .keyboardShortcut("f", modifiers: [.command])
+
       Divider()
 
       Button("Refresh data") {

@@ -15,12 +15,12 @@ struct BookListPreviewView: View {
     height: coverHeight
   )
 
-  var result: SearchHighlightResult<Book>
+  var result: BookSearchResult
   @ObservedObject private var book: Book
 
-  init(result: SearchHighlightResult<Book>) {
+  init(result: BookSearchResult) {
     self.result = result
-    self._book = ObservedObject(wrappedValue: result.model)
+    self._book = ObservedObject(wrappedValue: result.book)
   }
 
   var body: some View {
@@ -28,34 +28,50 @@ struct BookListPreviewView: View {
       BookCoverImageView(book: book, targetSize: Self.coverSize)
         .frame(width: Self.coverSize.width, height: Self.coverSize.height, alignment: .center)
         .controlSize(.small)
-      VStack(alignment: .leading, spacing: 4) {
-        if let highlightedTitle = result.highlighted(for: \.title) {
-          Text(highlightedTitle)
-            .font(.headline)
-            .lineLimit(1)
-            .truncationMode(.tail)
-        } else {
-          Text(book.title ?? book.id)
-            .font(.headline)
-            .lineLimit(1)
-            .truncationMode(.tail)
-        }
-        if let author = book.author {
-          if let highlightedAuthor = result.highlighted(for: \.author) {
-            Text(highlightedAuthor)
-              .font(.subheadline)
-              .lineLimit(1)
-              .truncationMode(.tail)
-          } else {
-            Text(author)
-              .font(.subheadline)
-              .lineLimit(1)
-              .truncationMode(.tail)
-          }
-        }
-      }
+      BookSearchResultLabels(book: book, match: result.match)
       Spacer()
       BookStatusView(book: book)
     }
+  }
+}
+
+/// Title, author, and (for review matches) one muted excerpt line, with matches in warm gold.
+struct BookSearchResultLabels: View {
+  @ObservedObject var book: Book
+  let match: BookSearchMatch
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(highlighted(book.title ?? book.id, ranges: match.titleRanges))
+        .font(.headline)
+        .lineLimit(1)
+        .truncationMode(.tail)
+      if let author = book.author {
+        Text(highlighted(author, ranges: match.authorRanges))
+          .font(.subheadline)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+          .truncationMode(.tail)
+      }
+      if let excerpt = match.excerpt {
+        Text(highlighted(excerpt.text, ranges: [excerpt.highlight]))
+          .font(.caption)
+          .foregroundStyle(.tertiary)
+          .lineLimit(1)
+          .truncationMode(.tail)
+      }
+    }
+  }
+
+  private func highlighted(_ text: String, ranges: [Range<Int>]) -> AttributedString {
+    var attributed = AttributedString(text)
+    let characterCount = attributed.characters.count
+    for range in ranges where range.lowerBound >= 0 && range.upperBound <= characterCount {
+      let start = attributed.index(attributed.startIndex, offsetByCharacters: range.lowerBound)
+      let end = attributed.index(start, offsetByCharacters: range.count)
+      attributed[start..<end].foregroundColor = .botanicalGold
+      attributed[start..<end].backgroundColor = Color.botanicalGold.opacity(0.16)
+    }
+    return attributed
   }
 }

@@ -88,7 +88,7 @@ struct ViewModelsAndServicesTests {
       ])
 
     viewModel.filteredBooks = sorted.enumerated().map { index, book in
-      SearchHighlightResult(model: book, index: index)
+      BookSearchResult(book: book, index: index)
     }
 
     let initialContextID = UUID()
@@ -179,9 +179,9 @@ struct ViewModelsAndServicesTests {
     #expect(scrollStore.position(for: clonedKey) == 240.0)
   }
 
-  @Test("SearchViewModel highlights character ranges and filters books asynchronously")
+  @Test("SearchViewModel searches books asynchronously and suggests tokens from the last word")
   @MainActor
-  func searchViewModelHighlightingAndFuzzySearch() async throws {
+  func searchViewModelSearchAndSuggestions() async throws {
     let container = TestCoreDataStack.makeContainer()
     let context = container.viewContext
     let leGuin = try TestCoreDataStack.makeBook(
@@ -195,25 +195,29 @@ struct ViewModelsAndServicesTests {
       author: "Octavia E. Butler"
     )
 
+    let books = [leGuin, butler]
     let searchVM = SearchViewModel()
-    let highlighted = searchVM.makeHighlightedAttributedString(
-      from: "The Dispossessed",
-      ranges: [0...2, 4...15],
-      highlightColor: .yellow
-    )
-    #expect(String(highlighted.characters) == "The Dispossessed")
-
     searchVM.searchText = "Dispossessed"
     #expect(searchVM.hasActiveSearch)
 
-    let results: [SearchHighlightResult<Book>] = await withCheckedContinuation { continuation in
-      searchVM.search(in: [leGuin, butler]) { matched in
-        continuation.resume(returning: matched)
-      }
+    let results: [BookSearchResult] = await withCheckedContinuation { continuation in
+      searchVM.search(
+        in: books,
+        makeDocuments: { books.map(\.searchDocument) },
+        completion: { continuation.resume(returning: $0) }
+      )
     }
 
     #expect(results.count == 1)
-    #expect(results.first?.model.objectID == leGuin.objectID)
-    #expect(results.first?.highlighted(for: \BookDTO.title) != nil)
+    #expect(results.first?.book.objectID == leGuin.objectID)
+    #expect(results.first?.match.titleRanges == [4..<16])
+
+    searchVM.searchText = "parable re"
+    searchVM.search(in: books, makeDocuments: { books.map(\.searchDocument) }, completion: { _ in })
+    #expect(searchVM.suggestedTokens == [.status(.read), .status(.reading), .hasReview])
+
+    searchVM.tokens.append(.status(.read))
+    #expect(searchVM.searchText == "parable ")
+    #expect(searchVM.key == SearchViewModel.Key(text: "parable ", tokens: [.status(.read)]))
   }
 }

@@ -89,6 +89,9 @@ struct ContentView: View {
         .botanicalPageBackground()
       }
     )
+    .overlay {
+      BookSearchSpotlightView(entry: $entry)
+    }
     .environmentObject(navigationHistory)
     .environmentObject(scrollStore)
     .environmentObject(bookNavigationViewModel)
