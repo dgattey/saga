@@ -51,51 +51,59 @@ struct BookEditorView: View {
   }
 
   var body: some View {
-    VStack(spacing: 0) {
-      if viewModel.mode.isCreating {
-        HStack(spacing: 10) {
-          Text(viewModel.navigationTitle)
-            .font(.headline)
-          Spacer()
-          cancelButton
-          saveButton
+    ScrollViewReader { scrollProxy in
+      VStack(spacing: 0) {
+        if viewModel.mode.isCreating {
+          HStack(spacing: 10) {
+            Text(viewModel.navigationTitle)
+              .font(.headline)
+            Spacer()
+            cancelButton
+            saveButton
+          }
+          .padding(.horizontal, BookEditorialMetrics.outsidePadding)
+          .padding(.top, 18)
+          .padding(.bottom, 4)
         }
-        .padding(.horizontal, BookEditorialMetrics.outsidePadding)
-        .padding(.top, 18)
-        .padding(.bottom, 4)
+        BookEditorialLayout(scrollScope: scrollScope, scrollContextID: scrollContextID) {
+          BookCoverEditor(viewModel: viewModel)
+        } details: {
+          details
+        }
       }
-      BookEditorialLayout(scrollScope: scrollScope, scrollContextID: scrollContextID) {
-        BookCoverEditor(viewModel: viewModel)
-      } details: {
-        details
+      .tint(Color.botanicalDeepMoss)
+      .disabled(viewModel.isSaving)
+      .navigationTitle(viewModel.navigationTitle)
+      #if !os(macOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(!viewModel.mode.isCreating)
+      #endif
+      .toolbar {
+        if !viewModel.mode.isCreating {
+          ToolbarItem(placement: .cancellationAction) { cancelButton }
+          ToolbarItem(placement: .confirmationAction) { saveButton }
+        }
       }
-    }
-    .tint(Color.botanicalDeepMoss)
-    .disabled(viewModel.isSaving)
-    .navigationTitle(viewModel.navigationTitle)
-    .toolbar {
-      if !viewModel.mode.isCreating {
-        ToolbarItem(placement: .cancellationAction) { cancelButton }
-        ToolbarItem(placement: .confirmationAction) { saveButton }
+      .alert(
+        isPresented: Binding(
+          get: { viewModel.error != nil },
+          set: { if !$0 { viewModel.error = nil } }
+        ),
+        error: viewModel.error
+      ) { _ in
+        Button("OK", role: .cancel) {}
+      } message: { error in
+        Text(error.recoverySuggestion ?? "")
       }
-    }
-    .alert(
-      isPresented: Binding(
-        get: { viewModel.error != nil },
-        set: { if !$0 { viewModel.error = nil } }
-      ),
-      error: viewModel.error
-    ) { _ in
-      Button("OK", role: .cancel) {}
-    } message: { error in
-      Text(error.recoverySuggestion ?? "")
-    }
-    .onChange(of: viewModel.coverLookupKey) { _, _ in
-      viewModel.scheduleAutomaticCoverSearch()
-    }
-    .task {
-      if viewModel.mode.isCreating {
-        focusedField = .title
+      .onChange(of: viewModel.coverLookupKey) { _, _ in
+        viewModel.scheduleAutomaticCoverSearch()
+      }
+      .task {
+        if viewModel.mode.isCreating {
+          focusedField = .title
+        } else if LaunchOptions.initialView == .bookEdit {
+          scrollProxy.scrollTo("private-notes", anchor: .bottom)
+        }
       }
     }
   }
@@ -126,14 +134,15 @@ struct BookEditorView: View {
       }
       .padding(.top, 14)
       metadataStrip
-        .padding(.top, 22)
+        .padding(.top, 18)
       validationMessages
       Divider()
-        .padding(.vertical, 22)
+        .padding(.vertical, 18)
       reviewEditor
       Divider()
-        .padding(.vertical, 22)
+        .padding(.vertical, 18)
       privateNotesEditor
+        .id("private-notes")
     }
   }
 
@@ -260,7 +269,11 @@ struct BookEditorView: View {
         .lineSpacing(5)
         .scrollContentBackground(.hidden)
         .focused($focusedField, equals: .review)
-        .frame(minHeight: 130)
+        #if os(macOS)
+          .frame(minHeight: 130)
+        #else
+          .frame(minHeight: 96)
+        #endif
         .overlay(alignment: .topLeading) {
           if viewModel.draft.reviewText.isEmpty {
             Text("What did you think?")
@@ -290,7 +303,11 @@ struct BookEditorView: View {
         .lineSpacing(5)
         .scrollContentBackground(.hidden)
         .focused($focusedField, equals: .notes)
-        .frame(minHeight: 140)
+        #if os(macOS)
+          .frame(minHeight: 140)
+        #else
+          .frame(minHeight: 96)
+        #endif
         .overlay(alignment: .topLeading) {
           if viewModel.draft.notesText.isEmpty {
             Text("Private notes, quotes, or reminders…")

@@ -122,11 +122,21 @@ struct BooksListView: View {
         guard let initialView = LaunchOptions.initialView, !books.isEmpty else { return }
         LoggerService.log(
           "Initial view \(initialView.rawValue) with \(books.count) books", surface: .launch)
-        guard initialView == .book, let targetBook = currentlyReadingBook ?? books.first else {
-          return
+        switch initialView {
+        case .home, .settings:
+          break
+        case .book, .bookEdit:
+          guard let targetBook = currentlyReadingBook ?? books.first else { return }
+          selectBook(targetBook.objectID)
+          LoggerService.log("Opened book \(targetBook.title ?? "")", surface: .launch)
+        case .search:
+          viewModel.searchModel.tokens = [.hasNotes]
+          if let query = LaunchOptions.searchQuery, !query.isEmpty {
+            viewModel.searchModel.searchText = query
+          }
+          isSearchFocused = true
+          viewModel.performSearch(with: books, debounce: nil)
         }
-        selectBook(targetBook.objectID)
-        LoggerService.log("Opened book \(targetBook.title ?? "")", surface: .launch)
       }
     #endif
     .searchable(
