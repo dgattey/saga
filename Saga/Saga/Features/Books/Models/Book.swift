@@ -9,7 +9,6 @@ import Contentful
 import ContentfulPersistence
 import CoreData
 import Foundation
-import Ifrit
 
 /// A simple enum to wrap dates in an enum for status
 enum ReadingStatus: String, CaseIterable {
@@ -40,7 +39,7 @@ enum ReadingStatus: String, CaseIterable {
 }
 
 @objc(Book)
-final class Book: NSManagedObject, EntryPersistable, SearchableModel {
+final class Book: NSManagedObject, EntryPersistable {
   static let contentTypeId = "book"
   private static let coverImageURLCache = CoverImageURLCache()
 
@@ -238,17 +237,20 @@ final class Book: NSManagedObject, EntryPersistable, SearchableModel {
     )
   }
 
-  func toDTO() -> BookDTO {
-    BookDTO(
-      id: self.id,
-      title: self.title,
-      isbn: self.isbn?.stringValue,
-      author: self.author,
-      coverImage: self.coverImage?.toDTO(),
-      readDateStarted: self.readDateStarted?.description(with: .current),
-      readDateFinished: self.readDateFinished?.description(with: .current),
-      rating: self.rating?.stringValue,
-      reviewDescription: self.reviewDescription?.plainText
+  /// Year of the most recent reading date, used for year search tokens.
+  var readYear: Int? {
+    (readDateFinished ?? readDateStarted).map { Calendar.current.component(.year, from: $0) }
+  }
+
+  var searchDocument: BookSearchDocument {
+    BookSearchDocument(
+      title: title ?? "",
+      author: author ?? "",
+      isbn: isbn?.stringValue ?? "",
+      review: reviewDescription?.plainText.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+      rating: rating?.intValue,
+      status: readingStatus,
+      year: readYear
     )
   }
 }
@@ -294,71 +296,4 @@ private actor CoverImageURLCache {
     values[isbn] = CacheValue(value)
     return value
   }
-}
-
-final class BookDTO: SearchableDTO, CustomStringConvertible, @unchecked Sendable {
-  let id: String
-  let title: String?
-  let isbn: String?
-  let author: String?
-  let coverImage: AssetDTO?
-  let readDateStarted: String?
-  let readDateFinished: String?
-  let rating: String?
-  let reviewDescription: String?
-  let fuzzySearchableProperties: [FuseProp]
-
-  init(
-    id: String,
-    title: String?,
-    isbn: String?,
-    author: String?,
-    coverImage: AssetDTO?,
-    readDateStarted: String?,
-    readDateFinished: String?,
-    rating: String?,
-    reviewDescription: String?
-  ) {
-    self.id = id
-    self.title = title
-    self.isbn = isbn
-    self.author = author
-    self.coverImage = coverImage
-    self.readDateStarted = readDateStarted
-    self.readDateFinished = readDateFinished
-    self.rating = rating
-    self.reviewDescription = reviewDescription
-
-    var props: [FuseProp] = [
-      FuseProp(title ?? ""),
-      FuseProp(isbn ?? ""),
-      FuseProp(author ?? ""),
-      FuseProp(readDateStarted ?? ""),
-      FuseProp(readDateFinished ?? ""),
-      FuseProp(rating ?? ""),
-      FuseProp(reviewDescription ?? ""),
-    ]
-    if let coverImage {
-      props.append(contentsOf: coverImage.fuzzySearchableProperties)
-    }
-    self.fuzzySearchableProperties = props
-  }
-
-  var description: String {
-    return self.title ?? "Untitled BookDTO"
-  }
-
-  static var nestedSearchableDTOKeyPaths: [PartialKeyPath<BookDTO>] = [
-    \BookDTO.coverImage
-  ]
-
-  static var fuzzySearchKeyPaths: [PartialKeyPath<BookDTO>] = [
-    \BookDTO.title,
-    \BookDTO.isbn,
-    \BookDTO.author,
-    \BookDTO.readDateStarted,
-    \BookDTO.readDateFinished,
-    \BookDTO.rating,
-    \BookDTO.reviewDescription,
-  ]
 }
