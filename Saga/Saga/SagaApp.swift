@@ -75,10 +75,11 @@ struct SagaApp: App {
     #if os(macOS)
       Window("Settings", id: "settings") {
         SettingsView()
+          .windowBackground()
           .hotReloadable()
       }
       .windowResizability(.contentSize)
-      .defaultSize(width: 640, height: 460)
+      .defaultSize(width: 680, height: 520)
       .restorationBehavior(.disabled)
       .handlesExternalEvents(matching: ["settings"])
       .environmentObject(syncViewModel)

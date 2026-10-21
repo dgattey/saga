@@ -29,23 +29,21 @@ struct SettingsView: View {
       #if os(macOS)
         NavigationSplitView {
           List(SettingsPane.allCases, selection: $selectedPane) { pane in
-            Label(pane.title, systemImage: pane.systemImage)
+            paneLabel(for: pane)
               .tag(pane)
-              .accessibilityIdentifier(AccessibilityID.Settings.pane(pane.id))
           }
           .accessibilityIdentifier(AccessibilityID.Settings.sidebar)
-          .navigationSplitViewColumnWidth(180)
-          .toolbar(removing: .sidebarToggle)
+          .navigationSplitViewColumnWidth(190)
         } detail: {
           paneForm(for: selectedPane)
         }
-        .frame(width: 640, height: 460)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .frame(width: 680, height: 520)
       #else
         NavigationStack {
           List(SettingsPane.allCases) { pane in
             NavigationLink(value: pane) {
-              Label(pane.title, systemImage: pane.systemImage)
-                .accessibilityIdentifier(AccessibilityID.Settings.pane(pane.id))
+              paneLabel(for: pane)
             }
           }
           .navigationTitle("Settings")
@@ -72,6 +70,15 @@ struct SettingsView: View {
     }
   }
 
+  private func paneLabel(for pane: SettingsPane) -> some View {
+    Label {
+      Text(pane.title)
+    } icon: {
+      SettingsPaneBadge(pane: pane)
+    }
+    .accessibilityIdentifier(AccessibilityID.Settings.pane(pane.id))
+  }
+
   func paneForm(for pane: SettingsPane) -> some View {
     Form {
       switch pane {
@@ -86,6 +93,7 @@ struct SettingsView: View {
       }
     }
     .formStyle(.grouped)
+    .tint(Color.botanicalDeepMoss)
     .navigationTitle(pane.title)
   }
 
@@ -335,5 +343,18 @@ struct SettingsView: View {
         }
       }
     }
+  }
+}
+
+/// A small colored squircle with a white SF Symbol, matching System Settings sidebar icons.
+struct SettingsPaneBadge: View {
+  let pane: SettingsPane
+
+  var body: some View {
+    Image(systemName: pane.systemImage)
+      .font(.system(size: 11, weight: .semibold))
+      .foregroundStyle(.white)
+      .frame(width: 20, height: 20)
+      .background(pane.badgeColor, in: .rect(cornerRadius: 5, style: .continuous))
   }
 }

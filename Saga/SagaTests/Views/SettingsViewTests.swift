@@ -13,13 +13,16 @@ import ViewInspector
 
 @Suite("SettingsView & Settings Models")
 struct SettingsViewTests {
-  @Test("SettingsPane exposes expected metadata for all settings categories")
-  func settingsPaneMetadataInspection() {
+  @Test("SettingsPane exposes expected metadata and badge view for all settings categories")
+  @MainActor
+  func settingsPaneMetadataInspection() throws {
     #expect(SettingsPane.allCases == [.general, .storage, .credits, .about])
     #expect(SettingsPane.allCases.map(\.title) == ["General", "Storage", "Credits", "About"])
     for pane in SettingsPane.allCases {
       #expect(!pane.systemImage.isEmpty)
       #expect(pane.id == pane.rawValue)
+      let badge = try SettingsPaneBadge(pane: pane).inspect()
+      #expect(try badge.find(ViewType.Image.self).actualImage().name() == pane.systemImage)
     }
   }
 
