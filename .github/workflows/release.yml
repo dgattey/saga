@@ -76,6 +76,11 @@ jobs:
             "dist/release/Saga-${{ steps.version.outputs.version }}.zip" \
             "dist/release/appcast.xml"
 
+      # Installs poll SAGA_FEED_URL (scripts/lib/app-config.sh) once they have this release, so the
+      # site must already serve the committed feed before the release goes out.
+      - name: Wait for the site to serve the current appcast
+        run: ./scripts/wait-for-site-feed.sh 900
+
       - name: Create GitHub release
         id: release
         uses: actions/github-script@v9
@@ -119,6 +124,25 @@ jobs:
             "dist/release/Saga-${VERSION}.zip" \
             "dist/release/appcast.xml" \
             --clobber
+
+      # Pushing to main needs the release workflow to bypass the `main` ruleset. Without it the site keeps
+      # the previous feed: still valid, but copy this appcast into server/public in the next PR.
+      - name: Publish the appcast to the site
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B publish-appcast origin/main
+          cp dist/release/appcast.xml server/public/appcast.xml
+          git add server/public/appcast.xml
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Publish appcast for v${VERSION}"
+          if git push origin HEAD:main; then
+            ./scripts/wait-for-site-feed.sh 900
+          else
+            echo "::warning::Couldn't push the v${VERSION} appcast to main; copy dist/release/appcast.xml (attached to the release) into server/public/appcast.xml in a PR."
+          fi
 
       - name: Post PR released comment
         env:

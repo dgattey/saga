@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Check that a packaged release is a valid Sparkle update for installs of the latest published
-# release: same bundle ID, feed, and EdDSA key, a strictly higher build number, the same ad-hoc
+# release: same bundle ID and EdDSA key, a strictly higher build number, the same ad-hoc
 # designated requirement and entitlements, and an appcast signature that verifies against the
-# SUPublicEDKey baked into the published app.
+# SUPublicEDKey baked into the published app. Also checks the app polls the site feed
+# (SAGA_FEED_URL) and that server/public/appcast.xml, which the site serves, is the live release.
 #
 # Usage:
 #   ./scripts/verify-release.sh <new-zip> <new-appcast.xml>
@@ -14,6 +15,10 @@ set -euo pipefail
 NEW_ZIP="${1:?verify-release: zip path is required (arg 1)}"
 NEW_APPCAST="${2:?verify-release: appcast path is required (arg 2)}"
 REPO="${SAGA_REPO:-dgattey/saga}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib/app-config.sh
+source "$ROOT/scripts/lib/app-config.sh"
+SITE_APPCAST="$ROOT/server/public/appcast.xml"
 
 OPENSSL="openssl"
 if [[ -x "$(brew --prefix openssl@3 2>/dev/null)/bin/openssl" ]]; then
@@ -50,11 +55,15 @@ same() { [[ "$1" == "$2" ]] && echo 1 || echo 0; }
 
 echo "verify-release: comparing $(basename "$NEW_ZIP") against live $(basename "$LIVE_URL")"
 
-for key in CFBundleIdentifier CFBundleExecutable SUFeedURL SUPublicEDKey LSMinimumSystemVersion; do
+for key in CFBundleIdentifier CFBundleExecutable SUPublicEDKey LSMinimumSystemVersion; do
   live="$(plist "$LIVE_APP" "$key")"
   new="$(plist "$NEW_APP" "$key")"
   check "Info.plist $key" "$(same "$live" "$new")" "live=$live new=$new"
 done
+
+NEW_FEED="$(plist "$NEW_APP" SUFeedURL)"
+check "Info.plist SUFeedURL is the site feed" "$(same "$NEW_FEED" "$SAGA_FEED_URL")" \
+  "live=$(plist "$LIVE_APP" SUFeedURL) new=$NEW_FEED"
 
 LIVE_BUILD="$(appcast_value "$WORK/live-appcast.xml" version)"
 NEW_BUILD="$(plist "$NEW_APP" CFBundleVersion)"
@@ -89,6 +98,20 @@ printf '%s' "$ED_SIG" | base64 -D >"$WORK/new.sig"
 "$OPENSSL" pkeyutl -verify -pubin -inkey "$WORK/live-pub.pem" -rawin -in "$NEW_ZIP" -sigfile "$WORK/new.sig" >/dev/null 2>&1 \
   && sig_ok=1 || sig_ok=0
 check "sparkle:edSignature verifies against live SUPublicEDKey" "$sig_ok" "key=$LIVE_KEY"
+# The site feed must already serve the live release, signed, before this app starts polling it.
+xmllint --noout "$SITE_APPCAST" 2>/dev/null && site_xml=1 || site_xml=0
+check "server/public/appcast.xml is well-formed" "$site_xml" "$SITE_APPCAST"
+SITE_BUILD="$(appcast_value "$SITE_APPCAST" version)"
+check "server/public/appcast.xml lists the live build" "$(same "$SITE_BUILD" "$LIVE_BUILD")" \
+  "site=$SITE_BUILD live=$LIVE_BUILD"
+SITE_URL="$(sed -n 's/.*<enclosure[^>]*url="\([^"]*\)".*/\1/p' "$SITE_APPCAST" | head -1)"
+check "server/public/appcast.xml enclosure is the live zip" "$(same "$SITE_URL" "$LIVE_URL")" "$SITE_URL"
+SITE_SIG="$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' "$SITE_APPCAST" | head -1)"
+printf '%s' "$SITE_SIG" | base64 -D >"$WORK/site.sig"
+"$OPENSSL" pkeyutl -verify -pubin -inkey "$WORK/live-pub.pem" -rawin -in "$WORK/live.zip" -sigfile "$WORK/site.sig" \
+  >/dev/null 2>&1 && site_sig_ok=1 || site_sig_ok=0
+check "server/public/appcast.xml edSignature verifies the live zip" "$site_sig_ok" "key=$LIVE_KEY"
+
 NEW_LENGTH="$(sed -n 's/.*<enclosure[^>]*length="\([0-9]*\)".*/\1/p' "$NEW_APPCAST" | head -1)"
 check "enclosure length matches zip" "$(same "$NEW_LENGTH" "$(wc -c <"$NEW_ZIP" | tr -d ' ')")" "length=$NEW_LENGTH"
 

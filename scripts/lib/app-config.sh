@@ -3,6 +3,9 @@
 
 SAGA_BUNDLE_ID="com.dylangattey.Saga"
 SAGA_MIN_OS="26.0"
+# Served from server/public/appcast.xml. Releases up to 1.6.2 poll the GitHub Releases feed; the
+# latest GitHub release carries those installs onto this one.
+SAGA_FEED_URL="https://saga.gattey.com/appcast.xml"
 SAGA_SOURCES="$ROOT/Saga/Saga"
 
 # Contentful credentials come from the environment, then the gitignored Config.xcconfig that

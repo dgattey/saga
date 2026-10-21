@@ -34,7 +34,7 @@ REPO_INCEPTION=1751838521
 SHORT_VERSION="${SAGA_APP_SHORT_VERSION:-$(tr -d '[:space:]' <"$ROOT/VERSION")}"
 BUILD_NUMBER="${SAGA_BUILD_NUMBER:-$(( ($(date +%s) - REPO_INCEPTION) / 1800 ))}"
 SIGN_ID="$(resolve_sign_identity)"
-SU_FEED_URL="https://github.com/dgattey/saga/releases/latest/download/appcast.xml"
+SU_FEED_URL="$SAGA_FEED_URL"
 SU_PUBLIC_KEY="$(tr -d '[:space:]' <"$ROOT/sparkle-public-key.txt")"
 
 swift build -c "$CONFIG" --product Saga

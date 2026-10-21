@@ -26,7 +26,7 @@ shared UI/utilities.
 - `run checks` (format + lint), `run checks --format`, `run checks --lint`
 - `run bootstrap` to set up shell completions for `run`
 - `run config` to write `Config.xcconfig` from the environment
-- `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml` via `scripts/generate-appcast.sh` and `scripts/release-notes.sh` with cumulative release notes capped at the last 10 versions); `scripts/verify-release.sh` checks the result against the latest published release
+- `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml` via `scripts/generate-appcast.sh` and `scripts/release-notes.sh` with cumulative release notes capped at the last 10 versions); `scripts/verify-release.sh` checks the result against the latest published release; the app's Sparkle feed is `https://saga.gattey.com/appcast.xml` (`server/public/appcast.xml`), and release CI waits for the site to serve it (`scripts/wait-for-site-feed.sh`) before publishing
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
