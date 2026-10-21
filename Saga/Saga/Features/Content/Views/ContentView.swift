@@ -14,15 +14,15 @@ import SwiftUI
 
 struct ContentView: View {
   @Environment(\.managedObjectContext) private var viewContext
-  @EnvironmentObject private var syncViewModel: SyncViewModel
-  @EnvironmentObject private var cachesViewModel: CachesViewModel
-  @EnvironmentObject private var animationSettings: AnimationSettings
+  @Environment(SyncViewModel.self) private var syncViewModel
+  @Environment(CachesViewModel.self) private var cachesViewModel
+  @Environment(AnimationSettings.self) private var animationSettings
   @State private var entry: NavigationEntry?
   @State private var isShowingSettings = false
   @State private var isCreatingBook = false
-  @StateObject private var navigationHistory: NavigationHistory
-  @StateObject private var scrollStore = ScrollPositionStore()
-  @StateObject private var bookNavigationViewModel: BookNavigationViewModel
+  @State private var navigationHistory: NavigationHistory
+  @State private var scrollStore = ScrollPositionStore()
+  @State private var bookNavigationViewModel: BookNavigationViewModel
   @State private var preferredCompactColumn: NavigationSplitViewColumn = .sidebar
   @Namespace private var coverNamespace
 
@@ -35,9 +35,8 @@ struct ContentView: View {
       )
     )
     let history = NavigationHistory(initialHomeScrollContextID: homeContextID)
-    _navigationHistory = StateObject(wrappedValue: history)
-    _bookNavigationViewModel = StateObject(
-      wrappedValue: BookNavigationViewModel(navigationHistory: history))
+    _navigationHistory = State(initialValue: history)
+    _bookNavigationViewModel = State(initialValue: BookNavigationViewModel(navigationHistory: history))
   }
 
   var body: some View {
@@ -92,9 +91,9 @@ struct ContentView: View {
     .overlay {
       BookSearchSpotlightView(entry: $entry)
     }
-    .environmentObject(navigationHistory)
-    .environmentObject(scrollStore)
-    .environmentObject(bookNavigationViewModel)
+    .environment(navigationHistory)
+    .environment(scrollStore)
+    .environment(bookNavigationViewModel)
     .environment(\.scrollContextID, entry?.scrollContextID)
     .environment(\.coverNamespace, coverNamespace)
     .symbolRenderingMode(.hierarchical)
@@ -111,9 +110,9 @@ struct ContentView: View {
     #else
       .sheet(isPresented: $isShowingSettings) {
         SettingsView()
-        .environmentObject(syncViewModel)
-        .environmentObject(cachesViewModel)
-        .environmentObject(animationSettings)
+        .environment(syncViewModel)
+        .environment(cachesViewModel)
+        .environment(animationSettings)
       }
     #endif
     .focusedSceneValue(\.isCreatingBook, $isCreatingBook)
@@ -125,7 +124,7 @@ struct ContentView: View {
         }
       }
       .botanicalPageBackground()
-      .environmentObject(animationSettings)
+      .environment(animationSettings)
       #if os(macOS)
         .frame(minWidth: 840, idealWidth: 848, minHeight: 620, idealHeight: 640)
       #endif

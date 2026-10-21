@@ -1,4 +1,4 @@
-// DESCRIPTION: Remove build artifacts and derived data
+// DESCRIPTION: Remove build artifacts and SwiftPM build caches
 
 import Common
 import Foundation
@@ -18,14 +18,14 @@ enum Option: String, CLIOptionType, CaseIterable {
 
   var description: String {
     switch self {
-    case .all: "Also remove Xcode's global DerivedData for this project"
+    case .all: "Also remove SwiftPM's .build/ (compiled products and resolved packages)"
     case .dryRun: "Show what would be deleted without deleting"
     }
   }
 }
 
 struct Config {
-  var includeGlobalDerivedData = false
+  var includeSwiftPMBuild = false
   var dryRun = false
 }
 
@@ -38,7 +38,7 @@ func parseArguments(_ args: [String]) throws -> Config {
     }
     switch option {
     case .all:
-      config.includeGlobalDerivedData = true
+      config.includeSwiftPMBuild = true
     case .dryRun:
       config.dryRun = true
     }
@@ -68,27 +68,12 @@ func removeDirectory(at path: String, dryRun: Bool) {
   }
 }
 
-func findXcodeDerivedData(projectName: String) -> [String] {
-  let derivedDataPath =
-    NSHomeDirectory() + "/Library/Developer/Xcode/DerivedData"
-  let fileManager = FileManager.default
-
-  guard let contents = try? fileManager.contentsOfDirectory(atPath: derivedDataPath) else {
-    return []
-  }
-
-  return
-    contents
-    .filter { $0.hasPrefix("\(projectName)-") }
-    .map { "\(derivedDataPath)/\($0)" }
-}
-
 // MARK: - Main
 
 let cli = CLI(
   filePath: #filePath,
   options: Option.self,
-  notes: ["Removes the build/ directory and optionally Xcode's DerivedData."]
+  notes: ["Removes build/ and dist/, and optionally SwiftPM's .build/."]
 )
 
 runMain(usage: cli.usage()) {
@@ -100,7 +85,7 @@ runMain(usage: cli.usage()) {
   let config = try parseArguments(args)
 
   let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
-  let buildPath = URL(fileURLWithPath: repoRoot).appendingPathComponent("build").path
+  let root = URL(fileURLWithPath: repoRoot)
 
   if config.dryRun {
     print("Dry run - showing what would be cleaned:\n")
@@ -108,21 +93,12 @@ runMain(usage: cli.usage()) {
     print("Cleaning build artifacts...\n")
   }
 
-  // Always clean local build directory
-  print("Local build directory:")
-  removeDirectory(at: buildPath, dryRun: config.dryRun)
-
-  // Optionally clean Xcode's global DerivedData
-  if config.includeGlobalDerivedData {
-    print("\nXcode DerivedData:")
-    let derivedDataDirs = findXcodeDerivedData(projectName: "Saga")
-    if derivedDataDirs.isEmpty {
-      print("  (no Saga DerivedData found)")
-    } else {
-      for dir in derivedDataDirs {
-        removeDirectory(at: dir, dryRun: config.dryRun)
-      }
-    }
+  var directories = ["build", "dist"]
+  if config.includeSwiftPMBuild {
+    directories.append(".build")
+  }
+  for directory in directories {
+    removeDirectory(at: root.appendingPathComponent(directory).path, dryRun: config.dryRun)
   }
 
   print("\nDone!")

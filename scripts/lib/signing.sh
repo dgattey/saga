@@ -19,16 +19,9 @@ sign_identity_is_real() {
   [[ "$(resolve_sign_identity)" != "-" ]]
 }
 
-# Locates a tool inside the resolved Sparkle SwiftPM artifact bundle in DerivedData.
+# Locates a tool inside the Sparkle artifact bundle SwiftPM resolves into .build/.
 find_sparkle_tool() {
-  local tool_name=$1
-  local derived_data=${2:-"$HOME/Library/Developer/Xcode/DerivedData"}
-  local candidate
-  while IFS= read -r candidate; do
-    if [[ -x "$candidate" ]]; then
-      printf '%s' "$candidate"
-      return 0
-    fi
-  done < <(find "$derived_data" -path "*/SourcePackages/artifacts/sparkle/Sparkle/bin/${tool_name}" 2>/dev/null || true)
-  return 1
+  local tool="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/.build/artifacts/sparkle/Sparkle/bin/$1"
+  [[ -x "$tool" ]] || return 1
+  printf '%s' "$tool"
 }

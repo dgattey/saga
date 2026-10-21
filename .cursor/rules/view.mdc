@@ -8,8 +8,9 @@ alwaysApply: false
 - Keep `body` readable by extracting subviews to `private var` blocks or helper methods, or
   refactoring more substantial views out to their own files.
 - Use `// MARK:` to separate logical sections in larger views.
-- Prefer `@EnvironmentObject` for shared state (`SyncViewModel`, `BooksViewModel`,
-  `ScrollPositionStore`, `AnimationSettings`) and `@Environment` for context values.
+- Read shared `@Observable` state with `@Environment(Type.self)` (`SyncViewModel`, `BooksViewModel`,
+  `ScrollPositionStore`, `AnimationSettings`); use `@Bindable` when a view needs bindings into it.
+  Core Data `NSManagedObject`s (e.g. `Book`) stay `@ObservedObject`.
 - Use `PersistentScrollView` + `ScrollKey` when scroll position should persist;
   add `.scrollVelocityThrottle()` where applicable.
 - Use injected `animationSettings` where possible, or `AnimationSettings.shared.selectionSpring` outside of SwiftUI for selection animations to keep timing consistent.

@@ -13,7 +13,7 @@ private struct Constants {
 }
 
 struct HomeView: View {
-  @EnvironmentObject private var viewModel: BooksViewModel
+  @Environment(BooksViewModel.self) private var viewModel
   @Environment(\.scrollContextID) private var scrollContextID
   @Binding var entry: NavigationEntry?
 

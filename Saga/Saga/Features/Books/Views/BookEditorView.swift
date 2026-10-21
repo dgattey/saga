@@ -29,7 +29,7 @@ struct BookEditorView: View {
     case started, finished, isbn
   }
 
-  @StateObject private var viewModel: BookEditorViewModel
+  @State private var viewModel: BookEditorViewModel
   @FocusState private var focusedField: Field?
   private let scrollScope: ScrollScope?
   private let scrollContextID: UUID?
@@ -42,8 +42,8 @@ struct BookEditorView: View {
     scrollContextID: UUID? = nil,
     onFinish: @escaping (Outcome) -> Void
   ) {
-    _viewModel = StateObject(
-      wrappedValue: BookEditorViewModel(book: book, service: BookMutationService(context: context))
+    _viewModel = State(
+      initialValue: BookEditorViewModel(book: book, service: BookMutationService(context: context))
     )
     self.scrollScope = scrollScope
     self.scrollContextID = scrollContextID
@@ -336,7 +336,7 @@ struct BookCoverEditor: View {
   private static let size = BookEditorialMetrics.coverSize
   private static let cornerRadius = BookEditorialMetrics.coverCornerRadius
 
-  @ObservedObject var viewModel: BookEditorViewModel
+  @Bindable var viewModel: BookEditorViewModel
   @State private var isDropTargeted = false
   @State private var isImportingFile = false
   @State private var isShowingURLPopover = false

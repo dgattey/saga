@@ -9,8 +9,9 @@ import CoreData
 import SwiftUI
 
 /// Manages book-specific navigation state, like cover rotation during transitions
-final class BookNavigationViewModel: ObservableObject, NavigationObserver {
-  @Published var coverRotation: Angle = .zero
+@Observable
+final class BookNavigationViewModel: NavigationObserver {
+  var coverRotation: Angle = .zero
 
   init(navigationHistory: NavigationHistory) {
     navigationHistory.addObserver(self)

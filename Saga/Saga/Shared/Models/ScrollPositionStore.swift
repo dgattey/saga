@@ -8,11 +8,12 @@
 import SwiftUI
 
 @MainActor
-final class ScrollPositionStore: ObservableObject {
-  @Published private(set) var resetToken = UUID()
-  @Published private(set) var scrollToTopToken = UUID()
-  @Published private(set) var scrollToTopScope: ScrollScope?
-  private var positions: [ScrollKey: Double] = [:]
+@Observable
+final class ScrollPositionStore {
+  private(set) var resetToken = UUID()
+  private(set) var scrollToTopToken = UUID()
+  private(set) var scrollToTopScope: ScrollScope?
+  @ObservationIgnored private var positions: [ScrollKey: Double] = [:]
 
   func position(for key: ScrollKey) -> Double? {
     positions[key]

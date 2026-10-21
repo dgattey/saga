@@ -11,7 +11,7 @@ import SwiftUI
 /// pane is a grouped `Form`, and selection uses the stock system highlight.
 struct SettingsView: View {
   @Environment(\.dismiss) private var dismiss
-  @EnvironmentObject var cachesViewModel: CachesViewModel
+  @Environment(CachesViewModel.self) var cachesViewModel
 
   @State private var selectedPane: SettingsPane?
 

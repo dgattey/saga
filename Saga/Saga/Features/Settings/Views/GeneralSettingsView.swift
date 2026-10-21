@@ -9,9 +9,9 @@ import SwiftUI
 
 /// Software updates (macOS only) and interactive spring animation tuning.
 struct GeneralSettingsView: View {
-  @EnvironmentObject var animationSettings: AnimationSettings
+  @Environment(AnimationSettings.self) var animationSettings
   #if os(macOS)
-    @EnvironmentObject var updaterViewModel: UpdaterViewModel
+    @Environment(UpdaterViewModel.self) var updaterViewModel
   #endif
 
   var body: some View {
@@ -20,7 +20,7 @@ struct GeneralSettingsView: View {
         Section("Updates") {
           Toggle(
             "Automatically check for updates",
-            isOn: $updaterViewModel.automaticallyChecksForUpdates
+            isOn: Bindable(updaterViewModel).automaticallyChecksForUpdates
           )
           .toggleStyle(.switch)
           .disabled(!updaterViewModel.isConfigured)
@@ -28,7 +28,7 @@ struct GeneralSettingsView: View {
 
           Toggle(
             "Automatically download updates",
-            isOn: $updaterViewModel.automaticallyDownloadsUpdates
+            isOn: Bindable(updaterViewModel).automaticallyDownloadsUpdates
           )
           .toggleStyle(.switch)
           .disabled(
@@ -47,8 +47,8 @@ struct GeneralSettingsView: View {
       #endif
 
       Section("Animations") {
-        springSlider("Spring response", value: $animationSettings.springResponse)
-        springSlider("Spring damping", value: $animationSettings.springDamping)
+        springSlider("Spring response", value: Bindable(animationSettings).springResponse)
+        springSlider("Spring damping", value: Bindable(animationSettings).springDamping)
         LabeledContent("Defaults") {
           Button("Reset") {
             animationSettings.resetToDefaults()

@@ -14,21 +14,22 @@ struct BookSearchResult {
 }
 
 /// Query text, applied tokens, and debounced background search for one search surface.
-final class SearchViewModel: ObservableObject {
+@Observable
+final class SearchViewModel {
   struct Key: Equatable {
     let text: String
     let tokens: [BookSearchToken]
   }
 
-  @Published var searchText = ""
-  @Published var tokens: [BookSearchToken] = [] {
+  var searchText = ""
+  var tokens: [BookSearchToken] = [] {
     didSet {
       guard tokens.count > oldValue.count else { return }
       dropLastWord()
     }
   }
-  @Published private(set) var suggestedTokens: [BookSearchToken] = []
-  private var searchTask: Task<Void, Never>? = nil
+  private(set) var suggestedTokens: [BookSearchToken] = []
+  @ObservationIgnored private var searchTask: Task<Void, Never>? = nil
 
   var key: Key { Key(text: searchText, tokens: tokens) }
 

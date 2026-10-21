@@ -4,7 +4,7 @@ import Common
 import Foundation
 
 /// Paths to check (relative to repo root). Excludes build/, scripts/.build/, etc.
-let targetPaths = ["Saga", "scripts/Sources", "scripts/Package.swift"]
+let targetPaths = ["Package.swift", "Saga", "scripts/Sources", "scripts/Package.swift"]
 
 // MARK: - CLI
 

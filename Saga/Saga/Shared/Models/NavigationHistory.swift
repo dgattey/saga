@@ -22,17 +22,18 @@ protocol NavigationObserver: AnyObject {
   func onNavigationChange(from oldEntry: NavigationEntry?, to newEntry: NavigationEntry?)
 }
 
-final class NavigationHistory: ObservableObject {
-  @Published private(set) var backStack: [NavigationEntry] = []
-  @Published private(set) var forwardStack: [NavigationEntry] = []
-  @Published private(set) var lastSelectionChange: NavigationEntry?
-  @Published private(set) var lastSelectionChangeWasHistory = false
-  @Published private(set) var lastHomeScrollContextID: UUID?
+@Observable
+final class NavigationHistory {
+  private(set) var backStack: [NavigationEntry] = []
+  private(set) var forwardStack: [NavigationEntry] = []
+  private(set) var lastSelectionChange: NavigationEntry?
+  private(set) var lastSelectionChangeWasHistory = false
+  private(set) var lastHomeScrollContextID: UUID?
 
   /// Observers that get notified of navigation changes
-  private var observers: [NavigationObserver] = []
+  @ObservationIgnored private var observers: [NavigationObserver] = []
 
-  private var isHistoryNavigation = false
+  @ObservationIgnored private var isHistoryNavigation = false
 
   var canGoBack: Bool { !backStack.isEmpty }
   var canGoForward: Bool { !forwardStack.isEmpty }

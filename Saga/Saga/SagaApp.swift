@@ -7,84 +7,58 @@
 
 import SwiftUI
 
-#if os(macOS)
-  import AppKit
-#endif
-
 @main
 struct SagaApp: App {
-  @StateObject private var syncViewModel = SyncViewModel()
-  @StateObject private var cachesViewModel = CachesViewModel()
-  @StateObject private var booksViewModel = BooksViewModel()
-  @StateObject private var animationSettings = AnimationSettings.shared
+  @State private var syncViewModel = SyncViewModel()
+  @State private var cachesViewModel = CachesViewModel()
+  @State private var booksViewModel = BooksViewModel()
+  @State private var animationSettings = AnimationSettings.shared
   #if os(macOS)
-    @StateObject private var updaterViewModel = UpdaterViewModel()
+    @State private var updaterViewModel = UpdaterViewModel()
   #endif
 
   init() {
     // Register our transformers
     RichTextDocumentTransformer.register()
-
-    #if os(macOS)
-      if PersistenceService.isRunningUnitTests {
-        // Prevent unit test host from showing a Dock icon, creating a visible window, or stealing focus
-        NSApp?.setActivationPolicy(.accessory)
-        NotificationCenter.default.addObserver(
-          forName: NSApplication.didFinishLaunchingNotification,
-          object: nil,
-          queue: .main
-        ) { _ in
-          NSApp.setActivationPolicy(.accessory)
-          for window in NSApp.windows {
-            window.orderOut(nil)
-          }
-        }
-      }
-    #endif
   }
 
   var body: some Scene {
     WindowGroup {
-      if PersistenceService.isRunningUnitTests {
-        EmptyView()
-      } else {
-        ContentView()
-          .environment(\.managedObjectContext, syncViewModel.viewContext)
-          .windowBackground()
-          .hotReloadable()
-          #if os(macOS)
-            .onAppear {
-              updaterViewModel.mainWindowDidAppear()
-            }
-          #endif
-      }
+      ContentView()
+        .environment(\.managedObjectContext, syncViewModel.viewContext)
+        .windowBackground()
+        .preferredColorScheme(LaunchOptions.colorScheme)
+        #if os(macOS)
+          .onAppear {
+            updaterViewModel.mainWindowDidAppear()
+          }
+        #endif
     }
     .commands {
       MenuBarCommands()
       SidebarCommands()
     }
-    .environmentObject(syncViewModel)
-    .environmentObject(cachesViewModel)
-    .environmentObject(booksViewModel)
-    .environmentObject(animationSettings)
+    .environment(syncViewModel)
+    .environment(cachesViewModel)
+    .environment(booksViewModel)
+    .environment(animationSettings)
     #if os(macOS)
-      .environmentObject(updaterViewModel)
+      .environment(updaterViewModel)
     #endif
     .defaultSize(width: 1000, height: 600)
 
     #if os(macOS)
       Window("Settings", id: "settings") {
         SettingsView()
-          .hotReloadable()
       }
       .windowResizability(.contentSize)
       .defaultSize(width: 680, height: 520)
       .restorationBehavior(.disabled)
       .handlesExternalEvents(matching: ["settings"])
-      .environmentObject(syncViewModel)
-      .environmentObject(cachesViewModel)
-      .environmentObject(animationSettings)
-      .environmentObject(updaterViewModel)
+      .environment(syncViewModel)
+      .environment(cachesViewModel)
+      .environment(animationSettings)
+      .environment(updaterViewModel)
     #endif
   }
 }

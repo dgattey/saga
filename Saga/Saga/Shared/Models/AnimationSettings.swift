@@ -8,7 +8,8 @@
 import SwiftUI
 
 /// Observable animation settings that persist to UserDefaults and update live
-final class AnimationSettings: ObservableObject {
+@Observable
+final class AnimationSettings {
   /// Shared instance for access outside of SwiftUI views
   static let shared = AnimationSettings()
 
@@ -20,8 +21,20 @@ final class AnimationSettings: ObservableObject {
   private static let springResponseKey = "animation.springResponse"
   private static let springDampingKey = "animation.springDamping"
 
-  @AppStorage(springResponseKey) var springResponse: Double = defaultSpringResponse
-  @AppStorage(springDampingKey) var springDamping: Double = defaultSpringDamping
+  var springResponse: Double {
+    didSet { UserDefaults.standard.set(springResponse, forKey: Self.springResponseKey) }
+  }
+  var springDamping: Double {
+    didSet { UserDefaults.standard.set(springDamping, forKey: Self.springDampingKey) }
+  }
+
+  init() {
+    let defaults = UserDefaults.standard
+    springResponse =
+      defaults.object(forKey: Self.springResponseKey) as? Double ?? Self.defaultSpringResponse
+    springDamping =
+      defaults.object(forKey: Self.springDampingKey) as? Double ?? Self.defaultSpringDamping
+  }
 
   /// The selection spring animation using current settings
   var selectionSpring: Animation {

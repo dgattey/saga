@@ -1,5 +1,4 @@
 {
-  "originHash" : "f29ba2c9b51f903d8a01e6e9077e68fe484abf9625acc3ecc05fbfe5163a91e0",
   "pins" : [
     {
       "identity" : "contentful-persistence.swift",
@@ -47,5 +46,5 @@
       }
     }
   ],
-  "version" : 3
+  "version" : 2
 }
