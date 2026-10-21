@@ -18,7 +18,7 @@ struct ContentView: View {
   @Environment(CachesViewModel.self) private var cachesViewModel
   @Environment(AnimationSettings.self) private var animationSettings
   @State private var entry: NavigationEntry?
-  @State private var isShowingSettings = false
+  @State private var isShowingSettings = LaunchOptions.initialView == .settings
   @State private var isCreatingBook = false
   @State private var navigationHistory: NavigationHistory
   @State private var scrollStore = ScrollPositionStore()
@@ -145,6 +145,7 @@ struct ContentView: View {
       )
     }
     .task {
+      guard LaunchOptions.initialView == nil else { return }
       await syncViewModel.syncWithContentful()
     }
     #if os(macOS)

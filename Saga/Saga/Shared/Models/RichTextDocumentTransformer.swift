@@ -42,7 +42,10 @@ extension RichTextDocument {
 
     // Get all non-empty paragraphs out
     let rawParagraphs = normalized.components(separatedBy: .newlines)
-    let paragraphs = rawParagraphs.filter { !$0.isEmpty }
+    let paragraphs =
+      rawParagraphs
+      .map { $0.trimmingCharacters(in: .whitespaces) }
+      .filter { !$0.isEmpty }
 
     let nodes: [Paragraph] = paragraphs.map { line in
       let textNode = Text(value: line, marks: [])

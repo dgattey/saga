@@ -57,6 +57,7 @@ final class Book: NSManagedObject, EntryPersistable {
   @NSManaged var readDateFinished: Date?
   @NSManaged var rating: NSNumber?
   @NSManaged var reviewDescription: RichTextDocument?
+  @NSManaged var notes: RichTextDocument?
   @NSManaged var localCoverImageURL: String?
 
   var readingStatus: ReadingStatus {
@@ -89,6 +90,7 @@ final class Book: NSManagedObject, EntryPersistable {
       "readDateFinished": "readDateFinished",
       "rating": "rating",
       "reviewDescription": "reviewDescription",
+      "notes": "notes",
     ]
   }
 
@@ -101,6 +103,7 @@ final class Book: NSManagedObject, EntryPersistable {
       : nil
     let ratingValue = rating?.intValue
     let reviewText = reviewDescription?.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
+    let notesText = notes?.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
     return BookServerUpsertPayload(
       id: id,
       title: trimmedTitle,
@@ -110,6 +113,7 @@ final class Book: NSManagedObject, EntryPersistable {
       readDateStarted: readDateStarted?.ISO8601Format(),
       readDateFinished: readDateFinished?.ISO8601Format(),
       reviewPlainText: reviewText?.isEmpty == false ? reviewText : nil,
+      notesPlainText: notesText?.isEmpty == false ? notesText : nil,
       coverAssetId: assetId?.isEmpty == false ? assetId : nil,
       coverImageUrl: GoodreadsSyncService.sanitizedCoverImageURL(localCoverImageURL)
     )
@@ -126,6 +130,7 @@ final class Book: NSManagedObject, EntryPersistable {
       author: author ?? "",
       isbn: isbn?.stringValue ?? "",
       review: reviewDescription?.plainText.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+      notes: notes?.plainText.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
       rating: rating?.intValue,
       status: readingStatus,
       year: readYear

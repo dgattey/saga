@@ -54,11 +54,18 @@ struct BookSearchResultLabels: View {
           .truncationMode(.tail)
       }
       if let excerpt = match.excerpt {
-        Text(highlighted(excerpt.text, ranges: [excerpt.highlight]))
-          .font(.caption)
-          .foregroundStyle(.tertiary)
-          .lineLimit(1)
-          .truncationMode(.tail)
+        HStack(spacing: 4) {
+          if excerpt.source == .notes {
+            Image(systemName: "lock.fill")
+              .font(.caption2)
+              .foregroundStyle(.tertiary)
+          }
+          Text(highlighted(excerpt.text, ranges: [excerpt.highlight]))
+            .font(.caption)
+            .foregroundStyle(.tertiary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+        }
       }
     }
   }

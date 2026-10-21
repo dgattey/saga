@@ -35,6 +35,29 @@ struct BookSearchTests {
     let excerpt = try #require(hits.first?.match.excerpt)
     #expect(excerpt.text == "…Beauty is immeasurable; kindness is immeasurable.")
     #expect(highlightedText(excerpt) == "kindness is")
+    #expect(excerpt.source == .review)
+  }
+
+  @Test("Private notes match anywhere in the full text and tag excerpts with .notes source")
+  func privateNotesMatchAndExcerptSource() throws {
+    let notes =
+      String(repeating: " margin annotations and page tabs.\n\n", count: 5)
+      + "Borrowed from Claire before the trip to Kyoto."
+    let documents = [
+      BookSearchDocument(
+        title: "The Makioka Sisters",
+        author: "Jun'ichirō Tanizaki",
+        review: "A sweeping family portrait.",
+        notes: notes
+      )
+    ]
+    let hits = BookSearchEngine.search("Kyoto", in: documents)
+
+    #expect(hits.map(\.index) == [0])
+    let excerpt = try #require(hits.first?.match.excerpt)
+    #expect(excerpt.source == .notes)
+    #expect(highlightedText(excerpt) == "Kyoto")
+    #expect(excerpt.text.contains("trip to Kyoto."))
   }
 
   @Test("Review excerpts collapse whitespace, snap to words, and add ellipses on both sides")
@@ -158,7 +181,9 @@ struct BookSearchTests {
   func tokenFiltering() {
     let documents = [
       BookSearchDocument(title: "A", review: "Loved it", rating: 5, status: .read, year: 2025),
-      BookSearchDocument(title: "B", rating: 4, status: .read, year: 2024),
+      BookSearchDocument(
+        title: "B", notes: "Private note", rating: 4, status: .read, year: 2024
+      ),
       BookSearchDocument(title: "C", rating: 5, status: .reading, year: 2026),
       BookSearchDocument(title: "D", status: .notStarted),
     ]
@@ -170,6 +195,7 @@ struct BookSearchTests {
     #expect(indices([.status(.read), .rating(5)]) == [0])
     #expect(indices([.rating(5), .rating(4)]) == [0, 1, 2])
     #expect(indices([.hasReview]) == [0])
+    #expect(indices([.hasNotes]) == [1])
     #expect(indices([.year(2026)]) == [2])
     #expect(indices([.status(.notStarted)]) == [3])
     #expect(indices([.status(.read)], query: "b") == [1])
@@ -181,6 +207,12 @@ struct BookSearchTests {
     #expect(
       BookSearchToken.suggestions(for: "re", years: years, excluding: [])
         == [.status(.read), .status(.reading), .hasReview])
+    #expect(
+      BookSearchToken.suggestions(for: "no", years: years, excluding: [])
+        == [.hasNotes])
+    #expect(
+      BookSearchToken.suggestions(for: "priv", years: years, excluding: [])
+        == [.hasNotes])
     #expect(BookSearchToken.suggestions(for: "5", years: years, excluding: []) == [.rating(5)])
     #expect(
       BookSearchToken.suggestions(for: "20", years: years, excluding: [])
@@ -200,7 +232,8 @@ struct BookSearchTests {
     #expect(
       [
         BookSearchToken.status(.reading), .status(.read), .status(.notStarted), .rating(5),
-        .hasReview, .year(2026),
-      ].map(\.label) == ["Reading", "Read", "On the shelf", "★ 5", "Has review", "2026"])
+        .hasReview, .hasNotes, .year(2026),
+      ].map(\.label)
+        == ["Reading", "Read", "On the shelf", "★ 5", "Has review", "Has notes", "2026"])
   }
 }
