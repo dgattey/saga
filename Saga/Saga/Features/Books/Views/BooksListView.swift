@@ -134,7 +134,6 @@ struct BooksListView: View {
           if let query = LaunchOptions.searchQuery, !query.isEmpty {
             viewModel.searchModel.searchText = query
           }
-          isSearchFocused = true
           viewModel.performSearch(with: books, debounce: nil)
         }
       }
