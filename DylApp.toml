@@ -43,3 +43,10 @@ inputs = [
     "Saga.entitlements",
     "sparkle-public-key.txt",
 ]
+
+[site]
+tagline = "Your personal reading log for macOS and iOS: track books, reading status, star ratings and notes, synced with Contentful and Goodreads."
+accent = { light = "#264e3a", dark = "#4a7e65" }
+screenshots = [
+    { src = "saga-preview.png", alt = "Saga book library and reading tracker on macOS" },
+]

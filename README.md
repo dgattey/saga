@@ -36,8 +36,6 @@ Saga is a plain SwiftPM package with no Xcode project, built with [DylKit](https
 swift test             # unit tests
 ```
 
-`DYLKIT_PATH=/path/to/dyl-kit` builds against a local DylKit checkout instead of its `main` branch.
-
 ### Adding new models
 
 When adding a new Core Data model:
@@ -48,8 +46,8 @@ When adding a new Core Data model:
 
 ## Releases
 
-Every merge to `main` that touches the app (`release.inputs` in `DylApp.toml`) releases it with `release-kit`: it plans the version from the latest `v*` tag and the PR's Release info checkbox, bundles and signs `Saga.app`, writes `Saga-<version>.zip` and a signed Sparkle `appcast.xml` with cumulative release notes, checks the result against the live release, pushes the `v<version>` tag, and deploys `saga.gattey.com` with the new feed and zip. Nothing is committed: the feed installed apps poll (`https://saga.gattey.com/appcast.xml`) only exists on the site. Every PR runs the same steps short of publishing.
+Saga releases through DylKit's shared release workflow, the same one every DylKit app uses (`.github/workflows/release.yml` is a placeholder until it ships). Each merged PR that touches the app gets a version from the latest `v*` tag and its Release info checkbox, and a GitHub release with `Saga-<version>.zip` and a signed Sparkle `appcast.xml` attached. Nothing is committed to `main`.
 
-Production site deploys only come from `release-kit` (Vercel's git deploys of `main` are off in `server/vercel.json`), because a deploy without the live appcast and zips would break updates. Site-only changes deploy through `.github/workflows/site.yml` (`./run release deploy`).
+The download site in `server/` is `@dylkit/web`, configured by `[site]` in `DylApp.toml`, and Vercel's git integration deploys it from `main`. `https://saga.gattey.com/appcast.xml`, the feed installed apps poll, redirects to the latest GitHub release's appcast.
 
 [gh]: https://github.com/dgattey/saga

@@ -7,6 +7,3 @@ sparkle_private.key
 /.build/
 /.swiftpm/
 .DS_Store
-# release-kit drops these in before deploying the site; they live only on the site.
-/server/public/appcast.xml
-/server/public/*.zip

@@ -1,15 +1,6 @@
 // swift-tools-version: 6.2
 import PackageDescription
 
-// DYLKIT_PATH builds against a local dyl-kit checkout instead; its directory must be named dyl-kit so the
-// package identity below still matches.
-let dylKit: Package.Dependency =
-  if let path = Context.environment["DYLKIT_PATH"] {
-    .package(path: path)
-  } else {
-    .package(url: "https://github.com/dgattey/dyl-kit", branch: "main")
-  }
-
 let package = Package(
   name: "Saga",
   platforms: [.macOS(.v26), .iOS(.v26)],
@@ -17,7 +8,7 @@ let package = Package(
     .executable(name: "Saga", targets: ["Saga"])
   ],
   dependencies: [
-    dylKit,
+    .package(url: "https://github.com/dgattey/dyl-kit", from: "0.1.0"),
     .package(url: "https://github.com/contentful/contentful-persistence.swift", from: "0.18.2"),
     .package(url: "https://github.com/ukushu/Ifrit", from: "4.0.0"),
     .package(url: "https://github.com/nalexn/ViewInspector", from: "0.10.5"),

@@ -25,8 +25,9 @@ shared UI/utilities. It's built with DylKit (`DylCore`, `DylUI`, `DylUpdates`, `
 - `./run format` (`--check` to lint only) runs `swift format` with `.swift-format`
 - `swift test` runs `SagaTests`
 - `./run bootstrap` writes `Config.xcconfig` from 1Password
-- `./run release <step>` is `release-kit` (version, bundle, sign, appcast, check [--live], publish, deploy); CI runs it, not you. Releases never commit to `main`: `publish` pushes the `v<version>` tag and deploys the site with the appcast and zip. The Sparkle feed `https://saga.gattey.com/appcast.xml` exists only on the site, so production deploys go through `release-kit` (Vercel git deploys of `main` are off; `site.yml` runs `./run release deploy` for `server/` changes)
-- DylKit comes from `github.com/dgattey/dyl-kit` (`main`); `DYLKIT_PATH=/path/to/dyl-kit` uses a local checkout
+- `./run release <step>` is `release-kit`; CI runs it, not you. Releases go through DylKit's shared release workflow (`.github/workflows/release.yml` is a placeholder until it ships): tags and GitHub releases with the zip and `appcast.xml` attached, never a commit to `main`
+- The site (`server/`) is `@dylkit/web` configured by `[site]` in `DylApp.toml`; Vercel's git integration deploys `main`. `https://saga.gattey.com/appcast.xml` redirects to the latest GitHub release's appcast
+- DylKit comes from `github.com/dgattey/dyl-kit` (`from: "0.1.0"`); `@dylkit/web` installs from the matching release tarball
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
