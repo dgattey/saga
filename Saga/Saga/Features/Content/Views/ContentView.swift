@@ -36,7 +36,8 @@ struct ContentView: View {
     )
     let history = NavigationHistory(initialHomeScrollContextID: homeContextID)
     _navigationHistory = State(initialValue: history)
-    _bookNavigationViewModel = State(initialValue: BookNavigationViewModel(navigationHistory: history))
+    _bookNavigationViewModel = State(
+      initialValue: BookNavigationViewModel(navigationHistory: history))
   }
 
   var body: some View {

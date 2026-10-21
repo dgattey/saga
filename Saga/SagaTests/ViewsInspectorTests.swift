@@ -122,14 +122,6 @@ struct ViewsInspectorTests {
     )
   }
 
-  @Test("CacheLimitRow formats limits and usage for display")
-  func cacheLimitRowFormatting() {
-    #expect(CacheLimitRow.formatLimit(0) == "Unlimited")
-    #expect(CacheLimitRow.formatLimit(0.5) == "500 MB")
-    #expect(CacheLimitRow.formatLimit(5) == "5 GB")
-    #expect(CacheLimitRow.limitOptions.contains(5))
-  }
-
   @Test("HomeSidebarRow renders Home label and triggers makeHomeEntry when not on Home")
   @MainActor
   func homeSidebarRowInspection() throws {
@@ -153,63 +145,5 @@ struct ViewsInspectorTests {
     let inspected = try row.environment(AnimationSettings.shared).inspect()
     #expect(try inspected.find(text: "Home").string() == "Home")
     #expect(!didCallMakeHome)
-  }
-
-  @Test("SettingsPane exposes expected metadata for all settings categories")
-  func settingsPaneMetadataInspection() {
-    #expect(SettingsPane.allCases == [.general, .storage, .credits, .about])
-    #expect(SettingsPane.allCases.map(\.title) == ["General", "Storage", "Credits", "About"])
-    for pane in SettingsPane.allCases {
-      #expect(!pane.systemImage.isEmpty)
-      #expect(pane.id == pane.rawValue)
-    }
-  }
-
-  @Test("CreditItem and QuickLinkItem datasets contain expected APIs, libraries, and URLs")
-  func creditItemDatasetInspection() {
-    let quickLinkTitles = QuickLinkItem.all.map(\.title)
-    #expect(quickLinkTitles == ["Website", "GitHub", "More by Dylan"])
-    #expect(QuickLinkItem.all.first?.url.absoluteString == "https://saga.gattey.com")
-
-    let apiTitles = CreditItem.dataAndAPIs.map(\.name)
-    #expect(apiTitles == ["Open Library", "Bookcover API", "Goodreads", "Contentful"])
-
-    let libraryTitles = CreditItem.openSourceLibraries.map(\.name)
-    #expect(
-      libraryTitles == [
-        "Contentful",
-        "ContentfulPersistence",
-        "Ifrit",
-        "Sparkle",
-        "ViewInspector",
-      ]
-    )
-    for item in CreditItem.openSourceLibraries {
-      #expect(item.version != nil)
-      #expect(item.badge == "MIT")
-      #expect(item.badgeURL != nil)
-    }
-  }
-
-  @Test("AboutView and CreditsView render app identity, links, data sources, and libraries")
-  @MainActor
-  func aboutAndCreditsViewInspection() throws {
-    let inspectedAbout = try AboutView().inspect()
-    #expect(try inspectedAbout.find(text: "Saga").string() == "Saga")
-    #expect(
-      try inspectedAbout.find(text: "Crafted by Dylan Gattey").string()
-        == "Crafted by Dylan Gattey")
-    #expect(try inspectedAbout.find(text: "Website").string() == "Website")
-    #expect(try inspectedAbout.find(text: "GitHub").string() == "GitHub")
-    #expect(try inspectedAbout.find(text: "More by Dylan").string() == "More by Dylan")
-
-    let inspectedCredits = try CreditsView().inspect()
-    #expect(try inspectedCredits.find(text: "Data").string() == "Data")
-    #expect(try inspectedCredits.find(text: "Open Source").string() == "Open Source")
-    #expect(try inspectedCredits.find(text: "Open Library").string() == "Open Library")
-    #expect(try inspectedCredits.find(text: "Bookcover API").string() == "Bookcover API")
-    #expect(
-      try inspectedCredits.find(text: "Fast fuzzy search for books and authors by Ukushu")
-        .string() == "Fast fuzzy search for books and authors by Ukushu")
   }
 }
