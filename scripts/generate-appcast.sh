@@ -19,12 +19,13 @@
 #   SAGA_REPO                       — GitHub repository (default: `dgattey/saga`)
 #   SPARKLE_ED_KEY_FILE             — Optional path to Sparkle EdDSA private key file for signing
 #   SPARKLE_ED_PRIVATE_KEY_BASE64   — Optional base64-encoded Sparkle EdDSA private key
-#   DERIVED_DATA                    — Optional DerivedData directory to locate Sparkle's tools
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/signing.sh
 source "$ROOT/scripts/lib/signing.sh"
+# shellcheck source=scripts/lib/app-config.sh
+source "$ROOT/scripts/lib/app-config.sh"
 
 VERSION="${1:?generate-appcast: version is required (arg 1)}"
 BUILD_NUMBER="${2:?generate-appcast: build number is required (arg 2)}"
@@ -95,7 +96,7 @@ NOTES_HTML="$("$ROOT/scripts/release-notes.sh" "$VERSION")"
 ED_SIGNATURE_ATTR=""
 ED_SIG=""
 if [[ -n "$ZIP_PATH" ]]; then
-  SU_TOOL="$(find_sparkle_tool sign_update "${DERIVED_DATA:-}" || find_sparkle_tool sign_update || true)"
+  SU_TOOL="$(find_sparkle_tool sign_update || true)"
   if [[ -n "$SU_TOOL" && -x "$SU_TOOL" ]]; then
     if [[ -n "${SPARKLE_ED_KEY_FILE:-}" && -f "${SPARKLE_ED_KEY_FILE}" ]]; then
       if ED_SIG="$("$SU_TOOL" --ed-key-file "$SPARKLE_ED_KEY_FILE" -p "$ZIP_PATH" 2>/dev/null | tr -d '[:space:]')" && [[ -n "$ED_SIG" ]]; then
@@ -110,7 +111,7 @@ if [[ -n "$ZIP_PATH" ]]; then
 
   # If Sparkle's generate_appcast binary is available and we still need a signature (or to validate flags),
   # pass --full-release-notes-url "https://github.com/dgattey/saga/releases" when supported by generate_appcast -h.
-  GA_TOOL="$(find_sparkle_tool generate_appcast "${DERIVED_DATA:-}" || find_sparkle_tool generate_appcast || true)"
+  GA_TOOL="$(find_sparkle_tool generate_appcast || true)"
   if [[ -n "$GA_TOOL" && -x "$GA_TOOL" ]]; then
     GA_ARGS=()
     if "$GA_TOOL" -h 2>&1 | grep -q -- '--full-release-notes-url'; then
@@ -139,10 +140,10 @@ if [[ -n "$ZIP_PATH" ]]; then
     exit 1
   fi
 
-  # Verify the generated Ed25519 signature against SUPublicEDKey in Info.plist when OpenSSL 3+ is available
-  INFO_PLIST="$ROOT/Saga/Saga/Config/Info.plist"
-  if [[ -n "$ED_SIG" && -f "$INFO_PLIST" && -x /usr/libexec/PlistBuddy ]] && openssl version 2>/dev/null | grep -q '^OpenSSL'; then
-    PUB_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$INFO_PLIST" 2>/dev/null | tr -d '[:space:]' || true)"
+  # Verify the generated Ed25519 signature against the SUPublicEDKey build-macos.sh embeds when OpenSSL 3+ is available
+  PUBLIC_KEY_FILE="$ROOT/sparkle-public-key.txt"
+  if [[ -n "$ED_SIG" && -f "$PUBLIC_KEY_FILE" ]] && openssl version 2>/dev/null | grep -q '^OpenSSL'; then
+    PUB_KEY="$(tr -d '[:space:]' <"$PUBLIC_KEY_FILE")"
     if [[ -n "$PUB_KEY" ]]; then
       TMP_PUB="$(mktemp /tmp/saga-sparkle-pub.XXXXXX.pem)"
       TMP_SIG="$(mktemp /tmp/saga-sparkle-sig.XXXXXX.bin)"
@@ -154,7 +155,7 @@ if [[ -n "$ZIP_PATH" ]]; then
       } >"$TMP_PUB"
       decode_secret_b64 "$ED_SIG" >"$TMP_SIG"
       if ! openssl pkeyutl -verify -pubin -inkey "$TMP_PUB" -rawin -in "$ZIP_PATH" -sigfile "$TMP_SIG" >/dev/null 2>&1; then
-        echo "generate-appcast: Ed25519 signature does not verify against SUPublicEDKey in $INFO_PLIST (private/public key mismatch)" >&2
+        echo "generate-appcast: Ed25519 signature does not verify against $PUBLIC_KEY_FILE (private/public key mismatch)" >&2
         exit 1
       fi
     fi
@@ -178,7 +179,7 @@ cat >"$APPCAST_PATH" <<XML
       <link>${RELEASE_LINK}</link>
       <sparkle:version>${BUILD_NUMBER}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <sparkle:minimumSystemVersion>${SAGA_MIN_OS}</sparkle:minimumSystemVersion>
       <sparkle:fullReleaseNotesLink>${FULL_RELEASE_NOTES_URL}</sparkle:fullReleaseNotesLink>
       <description><![CDATA[${NOTES_HTML}]]></description>
       <enclosure url="${DOWNLOAD_URL}" length="${ZIP_BYTES}" type="application/octet-stream"${ED_SIGNATURE_ATTR}/>

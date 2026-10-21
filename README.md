@@ -15,7 +15,7 @@ Bootstrap handles all one-time setup:
 
 1. **Installs Brewfile dependencies** (`brew bundle`: 1Password CLI, swift-format)
 2. **Authenticates with 1Password** (prompts if needed)
-3. **Writes `Saga/Saga/Config/Config.xcconfig`** with Contentful credentials from the `saga` vault (`CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` items)
+3. **Writes `Config.xcconfig`** with Contentful credentials from the `saga` vault (`CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` items)
 4. **Adds shell completions** to your `.zshrc` for the `run` command
 
 After setup, use `run` (with tab completion) instead of `./run`. Re-run bootstrap any time to refresh credentials.
@@ -37,43 +37,34 @@ Swift-based scripts live in `scripts/Sources/` and are run via the `run` wrapper
 
 | Script | Description |
 |--------|-------------|
-| `app` | Build, launch, or run UI tests |
+| `app` | Build, launch, or run unit tests |
 | `bootstrap` | Set up shell completions and pull secrets from 1Password |
-| `config` | Write `Saga/Saga/Config/Config.xcconfig` from the environment (or placeholders) |
+| `config` | Write `Config.xcconfig` from the environment |
 | `checks` | Run Swift format and/or lint checks |
-| `clean` | Remove build artifacts and derived data |
+| `clean` | Remove build artifacts and SwiftPM build caches |
 | `version-and-release` | Manage version tags and Github releases |
 
 ### Building and running
 
-Builds the macOS app in Debug mode using `xcodebuild` and launches the resulting app, or you can use Xcode.
+Saga is a plain SwiftPM package (`Package.swift` at the repo root); there is no Xcode project.
+`scripts/build-macos.sh` runs `swift build`, compiles `Saga.xcdatamodeld` (`momc`) and the asset
+catalogs (`actool`), embeds Sparkle, writes `Info.plist`, and ad-hoc signs `build/Saga.app`.
+`momc` and `actool` ship with Xcode, so Xcode must be installed and selected (`xcode-select`),
+but you never open it.
 
 ```bash
-run app              # build quietly and launch
-run app --verbose    # show full xcodebuild output
-run app --ui-test    # run XCUITest UI tests + screenshots
+run app              # build build/Saga.app (debug) and launch it in the background
+run app -b           # build only
+run app -r           # release configuration
+run app -t           # swift test
+run app --ui         # iOS Simulator screenshots of the main screens into build/captures/
 run app --help       # show usage
+scripts/build-ios-sim.sh [--install]   # build/Saga-iOS.app for the iOS Simulator
 ```
 
-### UI testing (macOS)
-
-UI tests run with XCUITest via `xcodebuild test` (xctest runner) and export screenshots to
-`build/UITestScreenshots/<branchHash>/`.
-
-macOS requires granting Accessibility and Screen Recording permissions to the test runner
-(Xcode or `xcodebuild`). These permissions cannot be limited to a single target app, but the
-tests only interact with Saga and capture Saga's window content.
-
-### Hot Reload (Development)
-
-Hot reload is enabled via the [Inject](https://github.com/krzysztofzablocki/Inject) library. To use it:
-
-1. **Install InjectionIII** from the [Mac App Store](https://apps.apple.com/us/app/injectioniii/id1380446739) or build from [source](https://github.com/johnno1962/InjectionIII)
-2. **Run the app** in Xcode (Debug build)
-3. **Launch InjectionIII** and select the Saga project folder when prompted
-4. **Edit any Swift file** and save - the UI will automatically refresh
-
-Hot reload is applied universally via `.hotReloadable()` at the WindowGroup level, so all views automatically get hot reload support without individual modifications. No per-view setup required.
+Build settings live where SwiftPM and the scripts can read them: bundle ID and minimum OS in
+`scripts/lib/app-config.sh`, the marketing version in `VERSION`, entitlements in
+`Saga.entitlements`, and the Sparkle public key in `sparkle-public-key.txt`.
 
 ### Formatting and linting
 
@@ -94,15 +85,15 @@ When adding a new Core Data model:
 1. Create the entity in `Saga.xcdatamodeld`
 2. Create the corresponding Swift model file
 3. Add the model to `PersistenceModel` enum
-4. Ensure Xcode isn't generating auto-gen files for the entity
+4. Mark the class `@objc(EntityName)` so the unqualified `representedClassName` resolves
 
 ## Releases
 
 GitHub Actions automatically compute versions and create releases when PRs merge to `main`:
 
 - PRs include release type checkboxes (Major/Minor/Patch, default Patch) and a `# What changed?` section for release notes
-- CI checks run in parallel on PR branches without pushing version bump commits to the branch, avoiding `project.pbxproj` merge conflicts across open PRs
-- On merge, `release.yml` computes the next semantic version and Sparkle build number from the latest release tag and PR release type, packages and signs the macOS app, updates `appcast.xml` with cumulative versioned release notes (capped at the last 10 versions via `scripts/release-notes.sh` and `scripts/generate-appcast.sh`), and publishes a GitHub Release using the `# What changed?` text as release notes
+- CI checks run in parallel on PR branches without pushing version bump commits to the branch, avoiding version-file merge conflicts across open PRs
+- On merge, `release.yml` computes the next semantic version and Sparkle build number from the latest release tag and PR release type, packages and signs the macOS app, checks it is a valid Sparkle update for the latest published release (`scripts/verify-release.sh`, also run on every PR), updates `appcast.xml` with cumulative versioned release notes (capped at the last 10 versions via `scripts/release-notes.sh` and `scripts/generate-appcast.sh`), and publishes a GitHub Release using the `# What changed?` text as release notes. Nothing is committed back to `main`: `https://saga.gattey.com/appcast.xml`, the feed the app polls, redirects to the latest release's appcast
 
 ### Manual management
 

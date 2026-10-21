@@ -13,10 +13,36 @@ import class Contentful.RichTextDocument
 @testable import Saga
 
 enum TestCoreDataStack {
+  /// `swift test` has no app bundle, so compile the model with `momc` once per test run.
+  static let managedObjectModel: NSManagedObjectModel = {
+    let source = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appendingPathComponent("Saga/Saga.xcdatamodeld")
+    let outputDirectory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("SagaTests-\(UUID().uuidString)")
+    let momc = Process()
+    momc.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+    momc.arguments = ["momc", source.path, outputDirectory.path]
+    do {
+      try FileManager.default.createDirectory(
+        at: outputDirectory, withIntermediateDirectories: true)
+      try momc.run()
+    } catch {
+      fatalError("Failed to run momc: \(error)")
+    }
+    momc.waitUntilExit()
+    guard momc.terminationStatus == 0 else {
+      fatalError("momc exited with status \(momc.terminationStatus)")
+    }
+    return PersistenceService.loadManagedObjectModel(
+      at: outputDirectory.appendingPathComponent("Saga.momd"))
+  }()
+
   static func makeContainer() -> NSPersistentContainer {
     let container = NSPersistentContainer(
       name: "Saga",
-      managedObjectModel: PersistenceService.managedObjectModel
+      managedObjectModel: managedObjectModel
     )
     let description = NSPersistentStoreDescription()
     description.url = URL(fileURLWithPath: "/dev/null")

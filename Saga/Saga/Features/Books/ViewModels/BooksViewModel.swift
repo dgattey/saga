@@ -10,7 +10,8 @@ import CoreData
 import SwiftUI
 
 /// Contains all our books and allows for filtering
-final class BooksViewModel: ObservableObject {
+@Observable
+final class BooksViewModel {
   private struct CachedSearchDocument {
     let bookUpdatedAt: Date?
     let title: String?
@@ -22,26 +23,19 @@ final class BooksViewModel: ObservableObject {
     let document: BookSearchDocument
   }
 
-  @Published var filteredBooks: [BookSearchResult] = []
+  var filteredBooks: [BookSearchResult] = []
   /// Drives the sidebar `.searchable` field and `filteredBooks`.
   var searchModel = SearchViewModel()
 
-  @Published var isSpotlightPresented = false
-  @Published private(set) var spotlightResults: [BookSearchResult] = []
+  var isSpotlightPresented = false
+  private(set) var spotlightResults: [BookSearchResult] = []
   /// Drives the ⌘K Spotlight bar independently of the sidebar filter.
   let spotlightModel = SearchViewModel()
-  let sidebarSearchFocusRequests = PassthroughSubject<Void, Never>()
+  @ObservationIgnored let sidebarSearchFocusRequests = PassthroughSubject<Void, Never>()
 
-  private var libraryBooks: [Book] = []
-  private var isHandlingBookChanges = false
-  private var documentCache: [NSManagedObjectID: CachedSearchDocument] = [:]
-  private var searchModelChanges: AnyCancellable?
-
-  init() {
-    searchModelChanges = searchModel.objectWillChange.sink { [weak self] _ in
-      self?.objectWillChange.send()
-    }
-  }
+  @ObservationIgnored private var libraryBooks: [Book] = []
+  @ObservationIgnored private var isHandlingBookChanges = false
+  @ObservationIgnored private var documentCache: [NSManagedObjectID: CachedSearchDocument] = [:]
 
   var hasActiveSearch: Bool {
     searchModel.hasActiveSearch

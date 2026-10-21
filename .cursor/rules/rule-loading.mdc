@@ -33,7 +33,7 @@ This file helps determine which rules to load based on the context and task at h
 - Preparing a PR or release
 - Running lint/format/build/test steps
 
-**Keywords:** lint, format, swift-format, checks, build, xcodebuild, test, CI
+**Keywords:** lint, format, swift-format, checks, build, swift build, swift test, CI
 
 ### 🎨 view.mdc - SwiftUI Views
 **Load when:**
@@ -53,7 +53,7 @@ This file helps determine which rules to load based on the context and task at h
 - Managing async operations in UI
 - Handling user interactions
 
-**Keywords:** ViewModel, ObservableObject, state management, coordinator, business logic, user action
+**Keywords:** ViewModel, @Observable, state management, coordinator, business logic, user action
 
 ### 📚 rules.mdc - Rule File Creation
 **Load when:**

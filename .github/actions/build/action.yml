@@ -1,5 +1,5 @@
 name: Build
-description: Build the macOS app with xcodebuild (without code signing)
+description: Build Saga.app with SwiftPM and run the unit tests
 
 outputs:
   result:
@@ -9,27 +9,19 @@ outputs:
 runs:
   using: composite
   steps:
-    # Config.xcconfig is gitignored, and Xcode treats a missing base configuration
-    # file as a hard error. Compiling never contacts Contentful, so stand-ins are enough.
-    - name: Write placeholder Config.xcconfig
-      shell: bash
-      run: |
-        set -euo pipefail
-        ./run config --placeholder --if-missing
-
     - name: Build app
       id: run_build
       shell: bash
       run: |
         set -euo pipefail
-        ./run app --build-only --skip-signing
+        ./run app --build-only
 
     - name: Run unit tests
       id: run_tests
       shell: bash
       run: |
         set -euo pipefail
-        ./run app --test --skip-signing
+        ./run app --test
 
     - name: Record build result
       id: build_result

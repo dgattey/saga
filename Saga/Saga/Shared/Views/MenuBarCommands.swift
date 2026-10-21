@@ -8,11 +8,11 @@
 import SwiftUI
 
 struct MenuBarCommands: Commands {
-  @EnvironmentObject var syncViewModel: SyncViewModel
-  @EnvironmentObject var cachesViewModel: CachesViewModel
-  @EnvironmentObject var booksViewModel: BooksViewModel
+  @Environment(SyncViewModel.self) var syncViewModel
+  @Environment(CachesViewModel.self) var cachesViewModel
+  @Environment(BooksViewModel.self) var booksViewModel
   #if os(macOS)
-    @EnvironmentObject var updaterViewModel: UpdaterViewModel
+    @Environment(UpdaterViewModel.self) var updaterViewModel
   #endif
   @Environment(\.openWindow) private var openWindow
   @FocusedBinding(\.isCreatingBook) private var isCreatingBook

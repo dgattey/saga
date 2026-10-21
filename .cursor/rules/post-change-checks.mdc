@@ -7,6 +7,6 @@ alwaysApply: false
 After a refactor or adding new code:
 - Run lint/format with `./run checks`
 - Fix any problems until the run passes
-- Run a build with `./run app -b` and unit tests with `./run app -t`
+- Run a build with `./run app -b` and unit tests with `./run app -t`; after visual changes, capture and look at `./run app --ui` screenshots
 - Fix any errors or warnings until the run passes
 - Do not report success to user, they will see the jobs run!

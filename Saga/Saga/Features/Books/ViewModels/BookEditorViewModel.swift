@@ -9,7 +9,8 @@ import CoreData
 import SwiftUI
 
 @MainActor
-final class BookEditorViewModel: ObservableObject {
+@Observable
+final class BookEditorViewModel {
   enum Mode: Equatable {
     case create
     case edit(NSManagedObjectID)
@@ -26,20 +27,20 @@ final class BookEditorViewModel: ObservableObject {
   typealias CoverSearch =
     @Sendable (_ isbn: String?, _ title: String, _ author: String) async -> String?
 
-  @Published var draft: BookDraft
-  @Published private(set) var coverSearchState: CoverSearchState = .idle
-  @Published private(set) var isSaving = false
-  @Published private(set) var hasAttemptedSave = false
-  @Published var error: BookMutationError?
-  @Published var coverMessage: String?
+  var draft: BookDraft
+  private(set) var coverSearchState: CoverSearchState = .idle
+  private(set) var isSaving = false
+  private(set) var hasAttemptedSave = false
+  var error: BookMutationError?
+  var coverMessage: String?
 
   let mode: Mode
   let syncedCoverURL: URL?
   private let originalDraft: BookDraft
   private let service: BookMutationService
   private let coverSearch: CoverSearch
-  private var coverSearchTask: Task<Void, Never>?
-  private var lastCoverLookup: String?
+  @ObservationIgnored private var coverSearchTask: Task<Void, Never>?
+  @ObservationIgnored private var lastCoverLookup: String?
 
   init(
     book: Book?,

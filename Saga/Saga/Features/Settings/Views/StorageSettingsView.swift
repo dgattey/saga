@@ -9,8 +9,8 @@ import SwiftUI
 
 /// Disk cache limits plus maintenance actions for caches and the local Core Data store.
 struct StorageSettingsView: View {
-  @EnvironmentObject var syncViewModel: SyncViewModel
-  @EnvironmentObject var cachesViewModel: CachesViewModel
+  @Environment(SyncViewModel.self) var syncViewModel
+  @Environment(CachesViewModel.self) var cachesViewModel
 
   @AppStorage(ImageCache.cacheLimitKey) private var imageCacheLimitGB: Double = 5
   @AppStorage(NetworkCache.cacheLimitKey) private var networkCacheLimitGB: Double = 5

@@ -10,8 +10,8 @@ import SwiftUI
 
 /// The ⌘K floating bar for jumping to a book without touching the sidebar filter.
 struct BookSearchSpotlightView: View {
-  @EnvironmentObject private var viewModel: BooksViewModel
-  @EnvironmentObject private var animationSettings: AnimationSettings
+  @Environment(BooksViewModel.self) private var viewModel
+  @Environment(AnimationSettings.self) private var animationSettings
   @Binding var entry: NavigationEntry?
 
   var body: some View {
@@ -48,8 +48,8 @@ private struct SpotlightPanel: View {
     }
   }
 
-  @EnvironmentObject private var viewModel: BooksViewModel
-  @ObservedObject var search: SearchViewModel
+  @Environment(BooksViewModel.self) private var viewModel
+  @Bindable var search: SearchViewModel
   let onOpen: (NSManagedObjectID) -> Void
 
   @FocusState private var isFieldFocused: Bool

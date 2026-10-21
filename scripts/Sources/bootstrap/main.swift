@@ -9,7 +9,7 @@ let cli = SimpleCLI(
   filePath: #filePath,
   notes: [
     "Only adds completions if not already present",
-    "Writes Saga/Saga/Config/Config.xcconfig (overwrites)",
+    "Writes Config.xcconfig (overwrites)",
     "Runs 'brew bundle' from repo root (Brewfile: 1password-cli, swift-format)",
     "Ensures 1Password CLI is authenticated; reads CONTENTFUL_SPACE_ID and "
       + "CONTENTFUL_DELIVERY_API_KEY from the saga vault",

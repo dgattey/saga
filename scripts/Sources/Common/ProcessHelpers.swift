@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Process and system helpers
 
-/// Ensures the active developer directory points to full Xcode, not CLT.
+/// Ensures the active developer directory is full Xcode, which ships `momc` and `actool` (CLT does not).
 public func checkXcodeToolsSelected() throws {
   let output = try runCommand(
     "xcode-select", ["-p"],
@@ -69,17 +69,6 @@ public func readOnePasswordSecret(
     throw ScriptError("Empty secret returned for \(reference)")
   }
   return trimmed
-}
-
-/// Returns the current machine architecture (e.g. arm64, x86_64).
-public func currentArchitecture() throws -> String {
-  #if arch(arm64)
-    return "arm64"
-  #elseif arch(x86_64)
-    return "x86_64"
-  #else
-    return try runCommand("uname", ["-m"], emitOutput: false)
-  #endif
 }
 
 /// Terminates a running process by exact name (no-op if not running).

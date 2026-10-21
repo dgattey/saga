@@ -11,7 +11,7 @@ struct HomeSidebarRow: View {
   #if os(macOS)
     @Environment(\.controlActiveState) private var controlActiveState
   #endif
-  @EnvironmentObject private var animationSettings: AnimationSettings
+  @Environment(AnimationSettings.self) private var animationSettings
   @Binding var entry: NavigationEntry?
   let makeHomeEntry: () -> NavigationEntry
 
