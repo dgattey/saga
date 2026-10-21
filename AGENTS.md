@@ -20,13 +20,13 @@ and `SyncViewModel`. App code lives under `Sources/Saga/` with feature modules a
 shared UI/utilities. It's built with DylKit (`DylCore`, `DylUI`, `DylUpdates`, `devkit`, `release-kit`), configured by `DylApp.toml`.
 
 ## Commands
-- `./run dev build` (`build/Saga.app`), `./run dev relaunch` (build + open in the background, never focused), `./run dev capture` (screenshot into `build/captures/`), `./run dev ios [--run]` (`build/Saga-iOS.app` on a headless simulator), `./run dev checks` (DylApp.toml, SwiftLint, dyl-lint, release checks), `./run dev --help`
+- `./run dev build` (`build/Saga Dev.app`, bundle ID `com.dylangattey.Saga.dev`, so it never shares state with an installed Saga), `./run dev relaunch` (build + open in the background, never focused), `./run dev capture` (screenshot into `build/captures/`), `./run dev ios [--run]` (`build/Saga-iOS.app` on a headless simulator), `./run dev checks` (DylApp.toml, SwiftLint, dyl-lint, release checks), `./run dev --help`
 - `./run ui` iPhone and iPad screenshots with fixture books (`scripts/ui-screenshots.sh`)
 - `./run format` (`--check` to lint only) runs `swift format` with `.swift-format`
 - `swift test` runs `SagaTests`
 - `./run bootstrap` writes `Config.xcconfig` from 1Password
 - `./run release <step>` is `release-kit` (version, bundle, sign, appcast, check [--live], publish, deploy); CI runs it, not you. Releases never commit to `main`: `publish` pushes the `v<version>` tag and deploys the site with the appcast and zip. The Sparkle feed `https://saga.gattey.com/appcast.xml` exists only on the site, so production deploys go through `release-kit` (Vercel git deploys of `main` are off; `site.yml` runs `./run release deploy` for `server/` changes)
-- DylKit is cloned from scone-os into `.dylkit/` until `dgattey/dyl-kit` exists; set `DYLKIT_PATH` to use another checkout of its `Packages/DylKit`
+- DylKit comes from `github.com/dgattey/dyl-kit` (`main`); `DYLKIT_PATH=/path/to/dyl-kit` uses a local checkout
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
@@ -66,7 +66,7 @@ entities in both when adding models
 ## Testing
 - Unit and UI component tests live in `Tests/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).
 - Run unit tests with `swift test`, which runs without launching the app or hitting Contentful. Tests compile `Saga.xcdatamodeld` with `momc` themselves (`TestCoreDataStack`).
-- UI coverage is headless iOS Simulator screenshots: `./run ui` (`scripts/ui-screenshots.sh`) seeds fixture books (`scripts/ui-fixture-store.swift`) into fresh iPhone and iPad simulators, launches with `--initial-view home|book` and `--appearance light|dark` (DylCore `LaunchOverrides.saga`, also `SAGA_INITIAL_VIEW` / `SAGA_APPEARANCE`), and checks each launch logged the screen it was asked for. PNGs land in `build/captures/`; CI uploads them as the `ui-screenshots` artifact. Look at them after visual changes. Never launch `build/Saga.app` on a Mac where Saga is installed: it shares the release bundle ID.
+- UI coverage is headless iOS Simulator screenshots: `./run ui` (`scripts/ui-screenshots.sh`) seeds fixture books (`scripts/ui-fixture-store.swift`) into fresh iPhone and iPad simulators, launches with `--initial-view home|book` and `--appearance light|dark` (DylCore `LaunchOverrides.saga`, also `SAGA_INITIAL_VIEW` / `SAGA_APPEARANCE`), and checks each launch logged the screen it was asked for. PNGs land in `build/captures/`; CI uploads them as the `ui-screenshots` artifact. Look at them after visual changes.
 - Use `./run format --check`, `./run dev checks`, `./run dev build`, `swift test`, and `./run ui` as the standard verification loop.
 
 ## Environment

@@ -1,8 +1,7 @@
-# DylKit's shared rules (tier 1) come from the DylKit package; devkit checks merges them with this file.
+parent_config: .build/checkouts/dyl-kit/lint/swiftlint.yml
 included:
   - Sources
   - Tests
   - scripts
 excluded:
   - .build
-  - .dylkit

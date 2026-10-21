@@ -23,10 +23,10 @@ Saga follows an MVVM architecture with SwiftUI views:
 
 ## Development process
 
-Saga is a plain SwiftPM package with no Xcode project, built with [DylKit](https://github.com/dgattey/scone-os/tree/main/Packages/DylKit)'s `devkit` and `release-kit`. App settings live in `DylApp.toml`: bundle ID, minimum OS, resources and icon to compile, dev credentials, and the release feed. Xcode must be installed and selected (`xcode-select`) for `momc` and `actool`, but you never open it.
+Saga is a plain SwiftPM package with no Xcode project, built with [DylKit](https://github.com/dgattey/dyl-kit)'s `devkit` and `release-kit`. App settings live in `DylApp.toml`: bundle ID, minimum OS, resources and icon to compile, dev credentials, and the release feed. Xcode must be installed and selected (`xcode-select`) for `momc` and `actool`, but you never open it.
 
 ```bash
-./run dev build        # build/Saga.app, ad-hoc signed
+./run dev build        # build/Saga Dev.app (bundle ID com.dylangattey.Saga.dev), ad-hoc signed
 ./run dev relaunch     # build and open it in the background
 ./run dev capture      # screenshot the main window into build/captures/
 ./run dev ios --run    # build/Saga-iOS.app on a headless simulator
@@ -36,7 +36,7 @@ Saga is a plain SwiftPM package with no Xcode project, built with [DylKit](https
 swift test             # unit tests
 ```
 
-DylKit lives in scone-os until `dgattey/dyl-kit` exists; `./run` clones it into `.dylkit/`, and `DYLKIT_PATH` points at another checkout of its `Packages/DylKit`.
+`DYLKIT_PATH=/path/to/dyl-kit` builds against a local DylKit checkout instead of its `main` branch.
 
 ### Adding new models
 

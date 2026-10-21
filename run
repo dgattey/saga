@@ -8,15 +8,6 @@
 set -eu
 root=$(cd "$(dirname "$0")" && pwd)
 
-# DylKit lives in scone-os until github.com/dgattey/dyl-kit exists (see Package.swift).
-dylkit() {
-    [ -n "${DYLKIT_PATH:-}" ] && return
-    checkout="$root/.dylkit/scone-os"
-    if [ ! -d "$checkout/.git" ]; then
-        git clone -q --depth 1 https://github.com/dgattey/scone-os "$checkout" >&2
-    fi
-}
-
 case "${1:-}" in
 dev) tool=devkit ;;
 release) tool=release-kit ;;
@@ -30,7 +21,6 @@ format)
     ;;
 ui)
     shift
-    dylkit
     exec "$root/scripts/ui-screenshots.sh" "$@"
     ;;
 bootstrap)
@@ -42,7 +32,6 @@ bootstrap)
     ;;
 esac
 shift
-dylkit
 swift build --package-path "$root" -c release --product "$tool" -q >&2
 export DYLKIT_ROOT="$root"
 exec "$root/.build/release/$tool" "$@"

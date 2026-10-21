@@ -1,5 +1,5 @@
 {
-  "originHash" : "721bb4a24e49646577b5a11ca181c29fb38d7f240b2a8060e9ae47d63e5cb08d",
+  "originHash" : "eab313d7bc87d9c0311ad3061db812a409fc48adc37fd9a1315fb2c0dec09a32",
   "pins" : [
     {
       "identity" : "contentful-persistence.swift",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "687a62d7b11c0772dc99119763c4a9a6365a4c32",
         "version" : "5.5.15"
+      }
+    },
+    {
+      "identity" : "dyl-kit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/dgattey/dyl-kit",
+      "state" : {
+        "branch" : "main",
+        "revision" : "af8714b6b5913f82b3de3ac138b2416be62910fd"
       }
     },
     {
