@@ -9,18 +9,10 @@ import SwiftUI
 
 struct SettingsView: View {
   @Environment(\.dismiss) private var dismiss
-  @Environment(SyncViewModel.self) var syncViewModel
-  @Environment(CachesViewModel.self) var cachesViewModel
-  @Environment(AnimationSettings.self) var animationSettings
-  #if os(macOS)
-    @Environment(UpdaterViewModel.self) var updaterViewModel
-  #endif
+  @Environment(CachesViewModel.self) private var cachesViewModel: CachesViewModel?
+  @State private var selectedPane: SettingsPane
 
-  @AppStorage(ImageCache.cacheLimitKey) private var imageCacheLimitGB: Double = 5
-  @AppStorage(NetworkCache.cacheLimitKey) private var networkCacheLimitGB: Double = 5
-  @State private var selectedPane: SettingsPane = .general
-
-  init(initialPane: SettingsPane = .general) {
+  init(initialPane: SettingsPane = LaunchOptions.settingsPane ?? .storage) {
     _selectedPane = State(initialValue: initialPane)
   }
 
@@ -42,15 +34,25 @@ struct SettingsView: View {
       #else
         NavigationStack {
           Form {
-            generalSections
-            storageSections
+            SettingsStorageSections()
+            SettingsInterfaceSections()
             Section("About") {
-              aboutInfoRows
-              NavigationLink(value: SettingsPane.credits) {
-                paneLabel(for: .credits)
+              SettingsAboutInfoRows()
+              NavigationLink {
+                creditsForm
+              } label: {
+                Label {
+                  Text("Credits & Acknowledgements")
+                } icon: {
+                  SettingsIconBadge(
+                    systemImage: "heart",
+                    color: SettingsPane.creditsBadgeColor
+                  )
+                }
               }
+              .accessibilityIdentifier(AccessibilityID.Settings.pane("credits"))
             }
-            linksSection
+            SettingsLinksSection()
           }
           .formStyle(.grouped)
           .tint(Color.botanicalDeepMoss)
@@ -71,10 +73,10 @@ struct SettingsView: View {
     }
     .accessibilityIdentifier(AccessibilityID.Settings.view)
     .onAppear {
-      cachesViewModel.startMonitoring()
+      cachesViewModel?.startMonitoring()
     }
     .onDisappear {
-      cachesViewModel.stopMonitoring()
+      cachesViewModel?.stopMonitoring()
     }
   }
 
@@ -88,187 +90,21 @@ struct SettingsView: View {
   }
 
   func paneForm(for pane: SettingsPane) -> some View {
+    SettingsPaneFormView(pane: pane)
+  }
+
+  var creditsForm: some View {
     Form {
-      switch pane {
-      case .general:
-        generalSections
-      case .storage:
-        storageSections
-      case .credits:
-        creditsSections
-      case .about:
-        aboutSections
-      }
+      SettingsCreditsSections()
     }
     .formStyle(.grouped)
     .tint(Color.botanicalDeepMoss)
-    .navigationTitle(pane.title)
+    .navigationTitle("Credits")
   }
 
-  // MARK: - General
-
-  @ViewBuilder
-  private var generalSections: some View {
-    #if os(macOS)
-      Section("Updates") {
-        Toggle(
-          "Automatically check for updates",
-          isOn: Bindable(updaterViewModel).automaticallyChecksForUpdates
-        )
-        .disabled(!updaterViewModel.isConfigured)
-        .accessibilityIdentifier(AccessibilityID.Settings.automaticallyCheckForUpdates)
-
-        Toggle(
-          "Automatically download updates",
-          isOn: Bindable(updaterViewModel).automaticallyDownloadsUpdates
-        )
-        .disabled(
-          !updaterViewModel.isConfigured || !updaterViewModel.automaticallyChecksForUpdates
-        )
-        .accessibilityIdentifier(AccessibilityID.Settings.automaticallyDownloadUpdates)
-
-        LabeledContent("Software updates") {
-          Button("Check for Updates…") {
-            updaterViewModel.checkForUpdates()
-          }
-          .disabled(!updaterViewModel.canCheckForUpdates)
-          .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
-        }
-      }
-    #endif
-
-    Section("Animations") {
-      springSliderRow("Spring response", value: Bindable(animationSettings).springResponse)
-      springSliderRow("Spring damping", value: Bindable(animationSettings).springDamping)
-      LabeledContent("Defaults") {
-        Button("Reset") {
-          animationSettings.resetToDefaults()
-        }
-        .disabled(isAnimationAtDefaults)
-      }
-    }
-  }
-
-  private var isAnimationAtDefaults: Bool {
-    animationSettings.springResponse == AnimationSettings.defaultSpringResponse
-      && animationSettings.springDamping == AnimationSettings.defaultSpringDamping
-  }
-
-  private func springSliderRow(_ title: String, value: Binding<Double>) -> some View {
-    #if os(macOS)
-      LabeledContent(title) {
-        HStack(spacing: 10) {
-          Slider(value: value, in: 0.1...1.0)
-            .labelsHidden()
-            .frame(maxWidth: 180)
-          Text(value.wrappedValue, format: .number.precision(.fractionLength(2)))
-            .monospacedDigit()
-            .foregroundStyle(.secondary)
-            .frame(width: 36, alignment: .trailing)
-        }
-      }
-    #else
-      VStack(alignment: .leading, spacing: 6) {
-        HStack {
-          Text(title)
-          Spacer()
-          Text(value.wrappedValue, format: .number.precision(.fractionLength(2)))
-            .monospacedDigit()
-            .foregroundStyle(.secondary)
-        }
-        Slider(value: value, in: 0.1...1.0)
-          .labelsHidden()
-      }
-      .padding(.vertical, 2)
-    #endif
-  }
-
-  // MARK: - Storage
-
-  @ViewBuilder
-  private var storageSections: some View {
-    Section("Cache Limits") {
-      cacheLimitPicker(
-        title: "Image cache",
-        limitGB: $imageCacheLimitGB,
-        currentSizeBytes: cachesViewModel.imageCacheSizeBytes
-      ) {
-        Task { @MainActor in
-          await Task.detached(priority: .utility) {
-            ImageCache.enforceDiskCacheLimit()
-          }.value
-          cachesViewModel.refreshSizes()
-        }
-      }
-
-      cacheLimitPicker(
-        title: "Network cache",
-        limitGB: $networkCacheLimitGB,
-        currentSizeBytes: cachesViewModel.networkCacheSizeBytes
-      ) {
-        NetworkCache.enforceCacheLimit()
-        cachesViewModel.refreshSizes()
-      }
-    }
-
-    Section("Maintenance") {
-      LabeledContent {
-        Button("Clear Caches", role: .destructive) {
-          Task {
-            await cachesViewModel.clearAll()
-          }
-        }
-        .accessibilityIdentifier(AccessibilityID.Settings.clearCaches)
-      } label: {
-        Text("Cached covers & responses")
-        Text("Keeps your synced books")
-      }
-
-      LabeledContent {
-        if syncViewModel.isResetting {
-          HStack(spacing: 8) {
-            ProgressView()
-              .controlSize(.small)
-            Text("Resetting…")
-              .foregroundStyle(.secondary)
-          }
-        } else {
-          Button("Reset & Re-sync", role: .destructive) {
-            Task {
-              await cachesViewModel.clearAll()
-              await syncViewModel.resetAndSync()
-            }
-          }
-          .accessibilityIdentifier(AccessibilityID.Settings.clearCachesAndData)
-        }
-      } label: {
-        Text("All local data")
-        Text("Re-downloads everything from Contentful")
-      }
-      .disabled(syncViewModel.isSyncing || syncViewModel.isResetting)
-    }
-  }
+  // MARK: - Formatting
 
   static let cacheLimitOptions: [Double] = [0.1, 0.5, 1, 5, 10, 0]
-
-  private func cacheLimitPicker(
-    title: String,
-    limitGB: Binding<Double>,
-    currentSizeBytes: Int64,
-    onLimitChange: @escaping () -> Void
-  ) -> some View {
-    Picker(selection: limitGB) {
-      ForEach(Self.cacheLimitOptions, id: \.self) { option in
-        Text(Self.formatLimit(option)).tag(option)
-      }
-    } label: {
-      Text(title)
-      Text("\(Self.formatBytes(currentSizeBytes)) used")
-    }
-    .onChange(of: limitGB.wrappedValue) { _, _ in
-      onLimitChange()
-    }
-  }
 
   static func formatBytes(_ bytes: Int64) -> String {
     let formatter = ByteCountFormatter()
@@ -287,12 +123,303 @@ struct SettingsView: View {
     }
     return "\(Int(value)) GB"
   }
+}
 
-  // MARK: - Credits
+// MARK: - Pane Form
 
-  @ViewBuilder
-  private var creditsSections: some View {
-    Section("Data") {
+private struct SettingsPaneFormView: View {
+  let pane: SettingsPane
+
+  var body: some View {
+    Form {
+      switch pane {
+      case .storage:
+        SettingsStorageSections()
+      case .interface:
+        SettingsInterfaceSections()
+      case .about:
+        SettingsAboutSections()
+      }
+    }
+    .formStyle(.grouped)
+    .tint(Color.botanicalDeepMoss)
+    .navigationTitle(pane.title)
+  }
+}
+
+// MARK: - Data & Storage Sections
+
+private struct SettingsStorageSections: View {
+  @Environment(SyncViewModel.self) private var injectedSyncViewModel: SyncViewModel?
+  @Environment(CachesViewModel.self) private var injectedCachesViewModel: CachesViewModel?
+  @AppStorage(ImageCache.cacheLimitKey) private var imageCacheLimitGB: Double = 5
+  @AppStorage(NetworkCache.cacheLimitKey) private var networkCacheLimitGB: Double = 5
+
+  private var isSyncing: Bool {
+    injectedSyncViewModel?.isSyncing ?? false
+  }
+
+  private var isResetting: Bool {
+    injectedSyncViewModel?.isResetting ?? false
+  }
+
+  private var imageCacheSizeBytes: Int64 {
+    injectedCachesViewModel?.imageCacheSizeBytes ?? 0
+  }
+
+  private var networkCacheSizeBytes: Int64 {
+    injectedCachesViewModel?.networkCacheSizeBytes ?? 0
+  }
+
+  var body: some View {
+    Section("Library Sync") {
+      LabeledContent {
+        if isSyncing {
+          HStack(spacing: 8) {
+            ProgressView()
+              .controlSize(.small)
+            Text("Syncing…")
+              .foregroundStyle(.secondary)
+          }
+        } else {
+          Button("Sync Now") {
+            guard let syncViewModel = injectedSyncViewModel else { return }
+            Task {
+              await syncViewModel.sync()
+            }
+          }
+          .accessibilityIdentifier(AccessibilityID.Settings.syncNow)
+        }
+      } label: {
+        Text("Contentful & Goodreads")
+        Text("Pulls latest shelves, books, and reviews")
+      }
+      .disabled(isSyncing || isResetting)
+
+      LabeledContent {
+        if isResetting {
+          HStack(spacing: 8) {
+            ProgressView()
+              .controlSize(.small)
+            Text("Resetting…")
+              .foregroundStyle(.secondary)
+          }
+        } else {
+          Button("Reset & Re-sync", role: .destructive) {
+            Task {
+              await injectedCachesViewModel?.clearAll()
+              await injectedSyncViewModel?.resetAndSync()
+            }
+          }
+          .accessibilityIdentifier(AccessibilityID.Settings.clearCachesAndData)
+        }
+      } label: {
+        Text("Reset local library")
+        Text("Clears local database and re-downloads all books from Contentful")
+      }
+      .disabled(isSyncing || isResetting)
+    }
+
+    Section("Local Caches") {
+      cacheLimitPicker(
+        title: "Image cache",
+        limitGB: $imageCacheLimitGB,
+        currentSizeBytes: imageCacheSizeBytes
+      ) {
+        Task { @MainActor in
+          await Task.detached(priority: .utility) {
+            ImageCache.enforceDiskCacheLimit()
+          }.value
+          injectedCachesViewModel?.refreshSizes()
+        }
+      }
+
+      cacheLimitPicker(
+        title: "Network cache",
+        limitGB: $networkCacheLimitGB,
+        currentSizeBytes: networkCacheSizeBytes
+      ) {
+        NetworkCache.enforceCacheLimit()
+        injectedCachesViewModel?.refreshSizes()
+      }
+
+      LabeledContent {
+        Button("Clear Caches", role: .destructive) {
+          Task {
+            await injectedCachesViewModel?.clearAll()
+          }
+        }
+        .accessibilityIdentifier(AccessibilityID.Settings.clearCaches)
+      } label: {
+        Text("Cached covers & responses")
+        Text("Frees disk space without removing synced books")
+      }
+    }
+  }
+
+  private func cacheLimitPicker(
+    title: String,
+    limitGB: Binding<Double>,
+    currentSizeBytes: Int64,
+    onLimitChange: @escaping () -> Void
+  ) -> some View {
+    Picker(selection: limitGB) {
+      ForEach(SettingsView.cacheLimitOptions, id: \.self) { option in
+        Text(SettingsView.formatLimit(option)).tag(option)
+      }
+    } label: {
+      Text(title)
+      Text("\(SettingsView.formatBytes(currentSizeBytes)) used")
+    }
+    .onChange(of: limitGB.wrappedValue) { _, _ in
+      onLimitChange()
+    }
+  }
+}
+
+// MARK: - Interface Sections
+
+private struct SettingsInterfaceSections: View {
+  @Environment(AnimationSettings.self) private var injectedAnimationSettings: AnimationSettings?
+
+  private var animationSettings: AnimationSettings {
+    injectedAnimationSettings ?? .shared
+  }
+
+  private var isAnimationAtDefaults: Bool {
+    animationSettings.springResponse == AnimationSettings.defaultSpringResponse
+      && animationSettings.springDamping == AnimationSettings.defaultSpringDamping
+  }
+
+  var body: some View {
+    Section("Motion & Animations") {
+      springSliderRow("Spring response", value: Bindable(animationSettings).springResponse)
+      springSliderRow("Spring damping", value: Bindable(animationSettings).springDamping)
+      LabeledContent {
+        Button("Reset to Defaults") {
+          animationSettings.resetToDefaults()
+        }
+        .disabled(isAnimationAtDefaults)
+        .accessibilityIdentifier(AccessibilityID.Settings.resetAnimations)
+      } label: {
+        Text("Defaults")
+        Text("0.30 response · 0.70 damping")
+      }
+    }
+  }
+
+  private func springSliderRow(_ title: String, value: Binding<Double>) -> some View {
+    LabeledContent(title) {
+      HStack(spacing: 10) {
+        Slider(value: value, in: 0.1...1.0)
+          .labelsHidden()
+          #if os(macOS)
+            .frame(maxWidth: 180)
+          #else
+            .frame(maxWidth: 140)
+          #endif
+        Text(value.wrappedValue, format: .number.precision(.fractionLength(2)))
+          .monospacedDigit()
+          .foregroundStyle(.secondary)
+          .frame(width: 36, alignment: .trailing)
+      }
+    }
+  }
+}
+
+// MARK: - About & Credits Sections
+
+private struct SettingsAboutSections: View {
+  #if os(macOS)
+    @Environment(UpdaterViewModel.self) private var injectedUpdaterViewModel: UpdaterViewModel?
+  #endif
+
+  var body: some View {
+    Section("Application") {
+      SettingsAboutInfoRows()
+    }
+
+    #if os(macOS)
+      Section("Software Updates") {
+        if let updaterViewModel = injectedUpdaterViewModel {
+          Toggle(
+            "Automatically check for updates",
+            isOn: Bindable(updaterViewModel).automaticallyChecksForUpdates
+          )
+          .disabled(!updaterViewModel.isConfigured)
+          .accessibilityIdentifier(AccessibilityID.Settings.automaticallyCheckForUpdates)
+
+          Toggle(
+            "Automatically download updates",
+            isOn: Bindable(updaterViewModel).automaticallyDownloadsUpdates
+          )
+          .disabled(
+            !updaterViewModel.isConfigured || !updaterViewModel.automaticallyChecksForUpdates
+          )
+          .accessibilityIdentifier(AccessibilityID.Settings.automaticallyDownloadUpdates)
+
+          LabeledContent("Software updates") {
+            Button("Check for Updates…") {
+              updaterViewModel.checkForUpdates()
+            }
+            .disabled(!updaterViewModel.canCheckForUpdates)
+            .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
+          }
+        } else {
+          Toggle("Automatically check for updates", isOn: .constant(true))
+            .disabled(true)
+            .accessibilityIdentifier(AccessibilityID.Settings.automaticallyCheckForUpdates)
+
+          Toggle("Automatically download updates", isOn: .constant(false))
+            .disabled(true)
+            .accessibilityIdentifier(AccessibilityID.Settings.automaticallyDownloadUpdates)
+
+          LabeledContent("Software updates") {
+            Button("Check for Updates…") {}
+              .disabled(true)
+              .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
+          }
+        }
+      }
+    #endif
+
+    SettingsLinksSection()
+    SettingsCreditsSections()
+  }
+}
+
+private struct SettingsAboutInfoRows: View {
+  var body: some View {
+    LabeledContent("Application") {
+      Text("Saga")
+    }
+    LabeledContent("Version") {
+      Text("\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
+        .monospacedDigit()
+    }
+    LabeledContent("Author") {
+      Text("Dylan Gattey")
+    }
+  }
+}
+
+private struct SettingsLinksSection: View {
+  var body: some View {
+    Section("Links") {
+      ForEach(QuickLinkItem.all) { item in
+        LabeledContent {
+          Link(item.url.host() ?? item.url.absoluteString, destination: item.url)
+        } label: {
+          Label(item.title, systemImage: item.systemImage)
+        }
+      }
+    }
+  }
+}
+
+private struct SettingsCreditsSections: View {
+  var body: some View {
+    Section("Services & Data") {
       ForEach(CreditItem.dataAndAPIs) { item in
         creditRow(for: item)
       }
@@ -339,53 +466,29 @@ struct SettingsView: View {
     }
     return "\(item.name) · v\(version)"
   }
+}
 
-  // MARK: - About
+// MARK: - Badges
 
-  @ViewBuilder
-  private var aboutSections: some View {
-    Section {
-      aboutInfoRows
-    }
-    linksSection
-  }
+/// A small colored squircle with a white SF Symbol, matching System Settings sidebar icons.
+struct SettingsIconBadge: View {
+  let systemImage: String
+  let color: Color
 
-  @ViewBuilder
-  private var aboutInfoRows: some View {
-    LabeledContent("Application") {
-      Text("Saga")
-    }
-    LabeledContent("Version") {
-      Text("\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
-        .monospacedDigit()
-    }
-    LabeledContent("Author") {
-      Text("Dylan Gattey")
-    }
-  }
-
-  private var linksSection: some View {
-    Section("Links") {
-      ForEach(QuickLinkItem.all) { item in
-        LabeledContent {
-          Link(item.url.host() ?? item.url.absoluteString, destination: item.url)
-        } label: {
-          Label(item.title, systemImage: item.systemImage)
-        }
-      }
-    }
+  var body: some View {
+    Image(systemName: systemImage)
+      .font(.system(size: 11, weight: .semibold))
+      .foregroundStyle(.white)
+      .frame(width: 20, height: 20)
+      .background(color, in: .rect(cornerRadius: 5, style: .continuous))
   }
 }
 
-/// A small colored squircle with a white SF Symbol, matching System Settings sidebar icons.
+/// Sidebar badge for a top-level `SettingsPane`.
 struct SettingsPaneBadge: View {
   let pane: SettingsPane
 
   var body: some View {
-    Image(systemName: pane.systemImage)
-      .font(.system(size: 11, weight: .semibold))
-      .foregroundStyle(.white)
-      .frame(width: 20, height: 20)
-      .background(pane.badgeColor, in: .rect(cornerRadius: 5, style: .continuous))
+    SettingsIconBadge(systemImage: pane.systemImage, color: pane.badgeColor)
   }
 }

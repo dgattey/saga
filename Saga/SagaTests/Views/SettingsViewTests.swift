@@ -16,8 +16,8 @@ struct SettingsViewTests {
   @Test("SettingsPane exposes expected metadata and badge view for all settings categories")
   @MainActor
   func settingsPaneMetadataInspection() throws {
-    #expect(SettingsPane.allCases == [.general, .storage, .credits, .about])
-    #expect(SettingsPane.allCases.map(\.title) == ["General", "Storage", "Credits", "About"])
+    #expect(SettingsPane.allCases == [.storage, .interface, .about])
+    #expect(SettingsPane.allCases.map(\.title) == ["Data & Storage", "Interface", "About"])
     for pane in SettingsPane.allCases {
       #expect(!pane.systemImage.isEmpty)
       #expect(pane.id == pane.rawValue)
@@ -60,24 +60,50 @@ struct SettingsViewTests {
     }
   }
 
-  @Test("SettingsView renders grouped forms for Credits and About panes")
+  @Test("SettingsView renders grouped forms for Data & Storage, Interface, About, and Credits")
   @MainActor
   func settingsPaneFormsInspection() throws {
     let settingsView = SettingsView()
+
+    let inspectedStorage = try settingsView.paneForm(for: .storage).inspect()
+    #expect(try inspectedStorage.find(text: "Library Sync").string() == "Library Sync")
+    #expect(
+      try inspectedStorage.find(text: "Contentful & Goodreads").string() == "Contentful & Goodreads"
+    )
+    #expect(try inspectedStorage.find(text: "Sync Now").string() == "Sync Now")
+    #expect(
+      try inspectedStorage.find(text: "Reset local library").string() == "Reset local library"
+    )
+    #expect(try inspectedStorage.find(text: "Reset & Re-sync").string() == "Reset & Re-sync")
+    #expect(try inspectedStorage.find(text: "Local Caches").string() == "Local Caches")
+    #expect(try inspectedStorage.find(text: "Image cache").string() == "Image cache")
+    #expect(try inspectedStorage.find(text: "Network cache").string() == "Network cache")
+    #expect(try inspectedStorage.find(text: "Clear Caches").string() == "Clear Caches")
+
+    let inspectedInterface = try settingsView.paneForm(for: .interface).inspect()
+    #expect(
+      try inspectedInterface.find(text: "Motion & Animations").string() == "Motion & Animations"
+    )
+    #expect(try inspectedInterface.find(text: "Spring response").string() == "Spring response")
+    #expect(try inspectedInterface.find(text: "Spring damping").string() == "Spring damping")
+    #expect(try inspectedInterface.find(text: "Reset to Defaults").string() == "Reset to Defaults")
+
     let inspectedAbout = try settingsView.paneForm(for: .about).inspect()
     #expect(try inspectedAbout.find(text: "Saga").string() == "Saga")
     #expect(try inspectedAbout.find(text: "Dylan Gattey").string() == "Dylan Gattey")
     #expect(try inspectedAbout.find(text: "Website").string() == "Website")
     #expect(try inspectedAbout.find(text: "GitHub").string() == "GitHub")
     #expect(try inspectedAbout.find(text: "More by Dylan").string() == "More by Dylan")
-
-    let inspectedCredits = try settingsView.paneForm(for: .credits).inspect()
-    #expect(try inspectedCredits.find(text: "Data").string() == "Data")
-    #expect(try inspectedCredits.find(text: "Open Source").string() == "Open Source")
-    #expect(try inspectedCredits.find(text: "Open Library").string() == "Open Library")
-    #expect(try inspectedCredits.find(text: "Bookcover API").string() == "Bookcover API")
+    #expect(try inspectedAbout.find(text: "Services & Data").string() == "Services & Data")
+    #expect(try inspectedAbout.find(text: "Open Source").string() == "Open Source")
+    #expect(try inspectedAbout.find(text: "Open Library").string() == "Open Library")
+    #expect(try inspectedAbout.find(text: "Bookcover API").string() == "Bookcover API")
     #expect(
-      try inspectedCredits.find(text: "Fast fuzzy search for books and authors by Ukushu")
+      try inspectedAbout.find(text: "Fast fuzzy search for books and authors by Ukushu")
         .string() == "Fast fuzzy search for books and authors by Ukushu")
+
+    let inspectedCredits = try settingsView.creditsForm.inspect()
+    #expect(try inspectedCredits.find(text: "Services & Data").string() == "Services & Data")
+    #expect(try inspectedCredits.find(text: "Open Source").string() == "Open Source")
   }
 }
