@@ -109,7 +109,8 @@ capture_device() {
     for appearance in light dark; do
       started="$(date '+%Y-%m-%d %H:%M:%S')"
       step "$label: launching $view $appearance"
-      with_timeout 90 env SIMCTL_CHILD_SAGA_INITIAL_VIEW="$view" SIMCTL_CHILD_SAGA_APPEARANCE="$appearance" \
+      # A fresh simulator's first launch on a loaded CI runner has taken over 90s.
+      with_timeout 240 env SIMCTL_CHILD_SAGA_INITIAL_VIEW="$view" SIMCTL_CHILD_SAGA_APPEARANCE="$appearance" \
         xcrun simctl launch --terminate-running-process "$udid" "$SAGA_BUNDLE_ID" >/dev/null
       sleep "$SETTLE"
 
