@@ -16,6 +16,7 @@ struct BooksListView: View {
     @Environment(\.controlActiveState) private var controlActiveState
   #endif
   @Binding var entry: NavigationEntry?
+  var onNewBook: () -> Void = {}
   @FetchRequest(
     fetchRequest: Book.sidebarFetchRequest(),
     animation: .default
@@ -30,7 +31,7 @@ struct BooksListView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 4) {
-      BookListHeaderView()
+      BookListHeaderView(onNewBook: onNewBook)
 
       ScrollViewReader { proxy in
         PersistentScrollView(scrollKey: ScrollKey(scope: .sidebarBooks, region: "list")) {
@@ -185,13 +186,14 @@ struct BooksListView: View {
   // MARK: - Book Management
 
   private func deleteBook(_ book: Book) {
-    withAnimation {
-      viewContext.delete(book)
+    let service = BookMutationService(context: viewContext)
+    let bookID = book.objectID
+    Task {
       do {
-        try viewContext.save()
+        let entryID = try await service.delete(bookID)
+        await service.syncDeletion(id: entryID)
       } catch {
-        let nsError = error as NSError
-        fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+        LoggerService.log("Failed to delete book", error: error, surface: .persistence)
       }
     }
   }
@@ -206,12 +208,28 @@ struct BooksListView: View {
 }
 
 struct BookListHeaderView: View {
+  var onNewBook: () -> Void = {}
+
   var body: some View {
-    Text("Books")
-      .font(.headline)
-      .foregroundStyle(.secondary)
-      .padding(.leading, SidebarLayout.headerLeadingPadding)
-      .padding(.trailing, SidebarLayout.rowHorizontalPadding)
+    HStack {
+      Text("Books")
+        .font(.headline)
+        .foregroundStyle(.secondary)
+      Spacer()
+      Button(action: onNewBook) {
+        Image(systemName: "plus")
+          .font(.subheadline.weight(.semibold))
+          .foregroundStyle(Color.botanicalLeaf)
+          .frame(width: 22, height: 22)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.borderless)
+      .help("New Book (⌘N)")
+      .accessibilityLabel("New Book")
+      .accessibilityIdentifier(AccessibilityID.Books.newBookButton)
+    }
+    .padding(.leading, SidebarLayout.headerLeadingPadding)
+    .padding(.trailing, SidebarLayout.rowHorizontalPadding)
   }
 }
 
