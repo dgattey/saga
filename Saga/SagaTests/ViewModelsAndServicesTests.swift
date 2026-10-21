@@ -44,59 +44,6 @@ struct ViewModelsAndServicesTests {
     #expect(decoded.plainText == doc.plainText)
   }
 
-  @Test("BookDetailViewModel updates drafts, converts ISBN-10 to ISBN-13, and commits to Core Data")
-  @MainActor
-  func bookDetailViewModelEditsAndCommits() async throws {
-    let container = TestCoreDataStack.makeContainer()
-    let context = container.viewContext
-    let book = try TestCoreDataStack.makeBook(
-      in: context,
-      title: "  Initial   Title ",
-      author: " Initial  Author ",
-      isbn: 9_780_441_478_125,
-      rating: 3,
-      reviewPlainText: "Initial review"
-    )
-
-    let viewModel = BookDetailViewModel(book: book)
-    #expect(viewModel.displayTitle == "Initial Title")
-    #expect(viewModel.displayAuthor == "Initial Author")
-
-    viewModel.titleDraft = "   "
-    #expect(viewModel.displayTitle == "Untitled book")
-    viewModel.authorDraft = "   "
-    #expect(viewModel.displayAuthor == "Unknown author")
-
-    // Focus transition automatically commits the previously focused field
-    viewModel.handleFocusChange(to: .title)
-    viewModel.titleDraft = "  Hyperion   Cantos  "
-    viewModel.handleFocusChange(to: .author)
-    await context.perform {}
-    #expect(book.title == "Hyperion Cantos")
-
-    viewModel.authorDraft = "  Dan   Simmons "
-    viewModel.handleFocusChange(to: .isbn)
-    await context.perform {}
-    #expect(book.author == "Dan Simmons")
-
-    // ISBN-10 ("0593135202") converts to ISBN-13 ("9780593135204")
-    viewModel.isbnDraft = "0-593-13520-2"
-    viewModel.commitField(.isbn)
-    await context.perform {}
-    #expect(book.isbn?.int64Value == 9_780_593_135_204)
-    #expect(viewModel.isbnDraft == "9780593135204")
-
-    viewModel.updateRatingDraft(5)
-    viewModel.commitField(.rating)
-    await context.perform {}
-    #expect(book.rating?.intValue == 5)
-
-    viewModel.reviewDraft = "A classic sci-fi pilgrimage."
-    viewModel.commitField(.review)
-    await context.perform {}
-    #expect(book.reviewDescription?.plainText == "A classic sci-fi pilgrimage.")
-  }
-
   @Test("BooksViewModel sorts unfinished books first, then by most recent date, then by title")
   @MainActor
   func booksViewModelSortingAndKeyboardNavigation() throws {
@@ -141,7 +88,7 @@ struct ViewModelsAndServicesTests {
       ])
 
     viewModel.filteredBooks = sorted.enumerated().map { index, book in
-      SearchHighlightResult(model: book, index: index)
+      BookSearchResult(book: book, index: index)
     }
 
     let initialContextID = UUID()
@@ -232,9 +179,9 @@ struct ViewModelsAndServicesTests {
     #expect(scrollStore.position(for: clonedKey) == 240.0)
   }
 
-  @Test("SearchViewModel highlights character ranges and filters books asynchronously")
+  @Test("SearchViewModel searches books asynchronously and suggests tokens from the last word")
   @MainActor
-  func searchViewModelHighlightingAndFuzzySearch() async throws {
+  func searchViewModelSearchAndSuggestions() async throws {
     let container = TestCoreDataStack.makeContainer()
     let context = container.viewContext
     let leGuin = try TestCoreDataStack.makeBook(
@@ -248,25 +195,29 @@ struct ViewModelsAndServicesTests {
       author: "Octavia E. Butler"
     )
 
+    let books = [leGuin, butler]
     let searchVM = SearchViewModel()
-    let highlighted = searchVM.makeHighlightedAttributedString(
-      from: "The Dispossessed",
-      ranges: [0...2, 4...15],
-      highlightColor: .yellow
-    )
-    #expect(String(highlighted.characters) == "The Dispossessed")
-
     searchVM.searchText = "Dispossessed"
     #expect(searchVM.hasActiveSearch)
 
-    let results: [SearchHighlightResult<Book>] = await withCheckedContinuation { continuation in
-      searchVM.search(in: [leGuin, butler]) { matched in
-        continuation.resume(returning: matched)
-      }
+    let results: [BookSearchResult] = await withCheckedContinuation { continuation in
+      searchVM.search(
+        in: books,
+        makeDocuments: { books.map(\.searchDocument) },
+        completion: { continuation.resume(returning: $0) }
+      )
     }
 
     #expect(results.count == 1)
-    #expect(results.first?.model.objectID == leGuin.objectID)
-    #expect(results.first?.highlighted(for: \BookDTO.title) != nil)
+    #expect(results.first?.book.objectID == leGuin.objectID)
+    #expect(results.first?.match.titleRanges == [4..<16])
+
+    searchVM.searchText = "parable re"
+    searchVM.search(in: books, makeDocuments: { books.map(\.searchDocument) }, completion: { _ in })
+    #expect(searchVM.suggestedTokens == [.status(.read), .status(.reading), .hasReview])
+
+    searchVM.tokens.append(.status(.read))
+    #expect(searchVM.searchText == "parable ")
+    #expect(searchVM.key == SearchViewModel.Key(text: "parable ", tokens: [.status(.read)]))
   }
 }

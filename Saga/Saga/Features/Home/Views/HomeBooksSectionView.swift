@@ -39,16 +39,16 @@ struct HomeBooksSectionView: View {
       alignment: .leading,
       spacing: Constants.gridSpacing
     ) {
-      if viewModel.filteredBooks.isEmpty, hasActiveSearch {
+      if viewModel.filteredBooks.isEmpty, viewModel.hasActiveSearch {
         Text("No results")
           .font(.headline)
           .foregroundStyle(.secondary)
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.vertical, 8)
       } else {
-        ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
+        ForEach(viewModel.filteredBooks, id: \.book.objectID) { result in
           HomeBookThumbnailView(
-            book: result.model,
+            book: result.book,
             gridItemSize: gridItemSize,
             onSelect: selectBook
           )
@@ -69,10 +69,6 @@ struct HomeBooksSectionView: View {
     withAnimation(AnimationSettings.shared.selectionSpring) {
       entry = NavigationEntry(selection: .book(bookID))
     }
-  }
-
-  private var hasActiveSearch: Bool {
-    !viewModel.searchModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
   }
 
   private var gridItemSize: CGSize {

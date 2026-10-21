@@ -30,6 +30,27 @@ extension RichTextDocument {
     return transformer.attributedString(from: self)
   }
 
+  func editorialAttributedString(pointSize: CGFloat = 16, lineSpacing: CGFloat = 5)
+    -> NSAttributedString
+  {
+    let transformer = RichTextToAttributedStringTransformer(
+      baseFont: PlatformFont.systemFont(ofSize: pointSize),
+      baseColor: labelColor
+    )
+    let result = NSMutableAttributedString(
+      attributedString: transformer.attributedString(from: self)
+    )
+    let fullRange = NSRange(location: 0, length: result.length)
+    result.enumerateAttribute(.font, in: fullRange) { value, range, _ in
+      guard let font = value as? PlatformFont else { return }
+      result.addAttribute(.font, value: font.serifVariant, range: range)
+    }
+    let paragraphStyle = NSMutableParagraphStyle()
+    paragraphStyle.lineSpacing = lineSpacing
+    result.addAttribute(.paragraphStyle, value: paragraphStyle, range: fullRange)
+    return result
+  }
+
   /// Extracts plain text directly from the document node tree without allocating
   /// platform fonts, colors, or `NSAttributedString` instances.
   var plainText: String {
@@ -65,6 +86,27 @@ extension RichTextDocument {
     default:
       break
     }
+  }
+}
+
+extension PlatformFont {
+  var serifVariant: PlatformFont {
+    #if canImport(AppKit)
+      guard !fontDescriptor.symbolicTraits.contains(.monoSpace),
+        let descriptor = fontDescriptor.withDesign(.serif),
+        let font = NSFont(descriptor: descriptor, size: pointSize)
+      else {
+        return self
+      }
+      return font
+    #else
+      guard !fontDescriptor.symbolicTraits.contains(.traitMonoSpace),
+        let descriptor = fontDescriptor.withDesign(.serif)
+      else {
+        return self
+      }
+      return UIFont(descriptor: descriptor, size: pointSize)
+    #endif
   }
 }
 

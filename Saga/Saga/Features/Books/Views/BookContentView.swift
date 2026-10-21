@@ -7,277 +7,443 @@
 
 import SwiftUI
 
-private struct Constants {
-  static let columnGap: CGFloat = 48
+enum BookEditorialMetrics {
+  static let coverWidth: CGFloat = 190
+  static let coverSize = CGSize(
+    width: coverWidth,
+    height: coverWidth / BookCoverImageView.coverAspectRatio
+  )
+  static let coverCornerRadius: CGFloat = 6
+  static let columnGap: CGFloat = 40
   static let outsidePadding: CGFloat = 32
-  static let layoutThreshold: CGFloat = 576
-  static let layoutWidthRatio: CGFloat = 0.25
-  static let minCoverWidth: CGFloat = 96
-  static let maxCoverWidth: CGFloat = 192
-  static let maxContentWidth: CGFloat = 544
+  static let maxDetailsWidth: CGFloat = 560
+  static let twoColumnThreshold: CGFloat = 600
+  static let fieldInset: CGFloat = 8
 }
 
-/// Renders the full version of a book
+extension ReadingStatus {
+  var title: String {
+    switch self {
+    case .notStarted: "Want to Read"
+    case .reading: "Currently Reading"
+    case .read: "Read"
+    }
+  }
+
+  var shortTitle: String {
+    switch self {
+    case .notStarted: "Want to Read"
+    case .reading: "Reading"
+    case .read: "Read"
+    }
+  }
+
+  var systemImage: String {
+    switch self {
+    case .notStarted: "books.vertical"
+    case .reading: "bookmark.fill"
+    case .read: "checkmark.circle.fill"
+    }
+  }
+
+  var tint: Color {
+    switch self {
+    case .notStarted: .botanicalGold
+    case .reading: .botanicalSage
+    case .read: .botanicalLeaf
+    }
+  }
+}
+
+enum ReadingDuration {
+  static func text(
+    started: Date?,
+    finished: Date?,
+    now: Date = Date(),
+    calendar: Calendar = .current
+  ) -> String? {
+    guard let started else { return nil }
+    let isFinished = finished != nil
+    let days = max(
+      0,
+      calendar.dateComponents(
+        [.day],
+        from: calendar.startOfDay(for: started),
+        to: calendar.startOfDay(for: finished ?? now)
+      ).day ?? 0
+    )
+    return switch days {
+    case 0: isFinished ? "Finished the same day" : "Started today"
+    case 1: isFinished ? "1 day" : "1 day so far"
+    default: isFinished ? "\(days) days" : "\(days) days so far"
+    }
+  }
+}
+
 struct BookContentView: View {
   @ObservedObject var book: Book
-  let detailLayoutWidth: CGFloat
+  var onDelete: () -> Void = {}
+  @Environment(\.managedObjectContext) private var viewContext
   @Environment(\.scrollContextID) private var scrollContextID
   @Environment(\.coverNamespace) private var coverNamespace
   @EnvironmentObject private var bookNavigationViewModel: BookNavigationViewModel
-  @StateObject private var viewModel: BookDetailViewModel
-  @State private var containerWidth: CGFloat = 0
-
-  @FocusState private var focusedField: BookDetailViewModel.Field?
-
-  init(book: Book, detailLayoutWidth: CGFloat) {
-    self.book = book
-    self.detailLayoutWidth = detailLayoutWidth
-    _viewModel = StateObject(wrappedValue: BookDetailViewModel(book: book))
-  }
+  @State private var isEditing = false
+  @State private var isConfirmingDelete = false
+  @State private var deleteError: BookMutationError?
 
   var body: some View {
-    ResponsiveLayout(
-      outsidePadding: Constants.outsidePadding,
-      gap: Constants.columnGap,
-      scrollScope: ScrollScope.book(book.objectID),
-      scrollContextID: scrollContextID,
-      columnA: { sidebar },
-      columnB: { content }
-    )
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .readSize { size in
-      if size.width != containerWidth {
-        containerWidth = size.width
+    Group {
+      if isEditing {
+        BookEditorView(
+          book: book,
+          context: viewContext,
+          scrollScope: .book(book.objectID),
+          scrollContextID: scrollContextID
+        ) { _ in
+          isEditing = false
+        }
+        .id(book.objectID)
+        .transition(.opacity)
+      } else {
+        readView
       }
     }
-    .textSelection(.enabled)
-    .contentShape(Rectangle())
-    .simultaneousGesture(
-      TapGesture().onEnded { focusedField = nil }
-    )
-    .onChange(of: focusedField) { _, newValue in
-      viewModel.handleFocusChange(to: newValue)
-    }
-    .onDisappear {
-      viewModel.handleFocusChange(to: nil)
-    }
-    .onChange(of: book.objectID) { _, _ in
-      viewModel.setBook(book)
-    }
-    .navigationTitle(viewModel.displayTitle)
+    .animation(.smooth(duration: 0.25), value: isEditing)
     .botanicalPageBackground()
     #if os(macOS)
-      .navigationSubtitle(viewModel.displayAuthor)
       .toolbar(removing: .title)
-      .onExitCommand { focusedField = nil }
+    #endif
+    .onChange(of: book.objectID) { _, _ in
+      isEditing = false
+    }
+  }
+
+  private var readView: some View {
+    let title = book.title?.cleanedWhitespace ?? ""
+    return BookEditorialLayout(
+      scrollScope: .book(book.objectID),
+      scrollContextID: scrollContextID
+    ) {
+      cover
+    } details: {
+      BookReadDetailsView(book: book)
+    }
+    .textSelection(.enabled)
+    .transition(.opacity)
+    .navigationTitle(book.title ?? "Untitled book")
+    #if os(macOS)
+      .navigationSubtitle(book.author ?? "")
+    #endif
+    .toolbar {
+      ToolbarItem(placement: .primaryAction) {
+        Button {
+          isEditing = true
+        } label: {
+          Label("Edit", systemImage: "pencil")
+            .labelStyle(.titleAndIcon)
+        }
+        .keyboardShortcut("e", modifiers: .command)
+        .help("Edit this book (⌘E)")
+      }
+      ToolbarItem(placement: .primaryAction) {
+        Button(role: .destructive) {
+          isConfirmingDelete = true
+        } label: {
+          Label("Delete", systemImage: "trash")
+        }
+        .help("Delete this book")
+      }
+    }
+    .confirmationDialog(
+      title.isEmpty ? "Delete this book?" : "Delete “\(title)”?",
+      isPresented: $isConfirmingDelete,
+      titleVisibility: .visible
+    ) {
+      Button("Delete Book", role: .destructive, action: deleteBook)
+    } message: {
+      Text("This removes the book from Saga and from Contentful.")
+    }
+    .alert(
+      isPresented: Binding(
+        get: { deleteError != nil },
+        set: { if !$0 { deleteError = nil } }
+      ),
+      error: deleteError
+    ) { _ in
+      Button("OK", role: .cancel) {}
+    } message: { error in
+      Text(error.recoverySuggestion ?? "")
+    }
+  }
+
+  private var cover: some View {
+    let coverImageURLText = book.displayCoverURL?.absoluteString ?? "No image URL"
+    let size = BookEditorialMetrics.coverSize
+    let baseImage = BookCoverImageView(book: book, targetSize: size)
+      .frame(width: size.width, height: size.height)
+      .physicalCoverShadow()
+    return Group {
+      if let coverNamespace {
+        baseImage.matchedGeometryEffect(
+          id: book.objectID.uriRepresentation().absoluteString, in: coverNamespace
+        )
+      } else {
+        baseImage
+      }
+    }
+    .rotationEffect(bookNavigationViewModel.coverRotation, anchor: .center)
+    .contextMenu {
+      CopyButton(labelText: "Copy image URL", value: coverImageURLText)
+      if let isbn = book.isbn?.stringValue {
+        CopyButton(labelText: "Copy ISBN", value: isbn)
+      }
+    }
+    #if os(macOS)
+      .copyable([coverImageURLText])
+      .help(coverImageURLText)
     #endif
   }
 
-  /// The "sidebar" of the two column view - shows less info and stays sticky in view
-  var sidebar: some View {
-    coverImageView
-      .frame(
-        minWidth: Constants.minCoverWidth,
-        maxWidth: Constants.maxCoverWidth,
-        alignment: .center
-      )
-      .rotationEffect(bookNavigationViewModel.coverRotation, anchor: .center)
-  }
-
-  var coverImageView: some View {
-    let coverImageURLText = book.coverImage?.assetURL?.absoluteString ?? "No image URL"
-    return
-      coverImageBase
-      .contextMenu {
-        CopyButton(labelText: "Copy image URL", value: coverImageURLText)
-        if let isbn = book.isbn?.stringValue {
-          CopyButton(
-            labelText: "Copy ISBN",
-            value: isbn
-          )
-        }
+  private func deleteBook() {
+    let service = BookMutationService(context: viewContext)
+    let bookID = book.objectID
+    Task {
+      do {
+        let entryID = try await service.delete(bookID)
+        onDelete()
+        await service.syncDeletion(id: entryID)
+      } catch let error as BookMutationError {
+        deleteError = error
+      } catch {
+        deleteError = .saveFailed(reason: error.localizedDescription)
       }
-      #if os(macOS)
-        .copyable([coverImageURLText])
-        .help(coverImageURLText)
-      #endif
-  }
-
-  @ViewBuilder
-  private var coverImageBase: some View {
-    let coverImage = BookCoverImageView(book: book, targetSize: detailCoverSize)
-      .frame(width: detailCoverSize.width, height: detailCoverSize.height)
-      .physicalCoverShadow()
-    if let coverNamespace {
-      coverImage
-        .matchedGeometryEffect(id: coverID, in: coverNamespace)
-    } else {
-      coverImage
     }
   }
+}
 
-  private var detailCoverSize: CGSize {
-    let width = detailCoverWidth
-    return CGSize(
-      width: width,
-      height: width / BookCoverImageView.coverAspectRatio
-    )
+struct BookEditorialLayout<Cover: View, Details: View>: View {
+  private let scrollScope: ScrollScope?
+  private let scrollContextID: UUID?
+  private let cover: Cover
+  private let details: Details
+
+  init(
+    scrollScope: ScrollScope? = nil,
+    scrollContextID: UUID? = nil,
+    @ViewBuilder cover: () -> Cover,
+    @ViewBuilder details: () -> Details
+  ) {
+    self.scrollScope = scrollScope
+    self.scrollContextID = scrollContextID
+    self.cover = cover()
+    self.details = details()
   }
 
-  private var detailCoverWidth: CGFloat {
-    let width = resolvedContainerWidth
-    guard width > 0 else {
-      return Constants.maxCoverWidth
-    }
-    return coverWidth(for: width)
-  }
-
-  private var resolvedContainerWidth: CGFloat {
-    if containerWidth > 0 {
-      return containerWidth
-    }
-    if detailLayoutWidth > 0 {
-      return detailLayoutWidth
-    }
-    return 0
-  }
-
-  private func coverWidth(for width: CGFloat) -> CGFloat {
-    if width >= Constants.layoutThreshold {
-      let columnWidth = width * Constants.layoutWidthRatio
-      let availableWidth = max(0, columnWidth - Constants.outsidePadding)
-      return clampCoverWidth(availableWidth)
-    }
-    let availableWidth = max(0, width - (Constants.outsidePadding * 2))
-    return clampCoverWidth(availableWidth)
-  }
-
-  private func clampCoverWidth(_ width: CGFloat) -> CGFloat {
-    min(Constants.maxCoverWidth, max(Constants.minCoverWidth, width))
-  }
-
-  private var coverID: String {
-    book.objectID.uriRepresentation().absoluteString
-  }
-
-  /// The top level metadata stack
-  var metadataStack: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      titleField
-      authorField
-    }
-  }
-
-  /// The right hand content view that grows to a max width of the two column view. Has
-  /// a lot of data and is scrollable.
-  var content: some View {
-    LazyVStack(alignment: .leading, spacing: 16) {
-      metadataStack
-      metadataBox
-      BookReadingStatusView(book: book)
-      labeledField("Description") {
-        TextEditor(text: $viewModel.reviewDraft)
-          .scrollContentBackground(.hidden)
-          .padding(10)
-          .glassEffect(
-            .regular.tint(Color.botanicalLeaf.opacity(0.05)),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-          )
-          .focused($focusedField, equals: .review)
-          .onChange(of: viewModel.reviewDraft) { _, newValue in
-            viewModel.updateReviewDraft(newValue)
+  var body: some View {
+    MeasuredContainer { size in
+      let content = Group {
+        if size.width == 0 || size.width >= BookEditorialMetrics.twoColumnThreshold {
+          HStack(alignment: .top, spacing: BookEditorialMetrics.columnGap) {
+            cover
+            details
+              .frame(maxWidth: BookEditorialMetrics.maxDetailsWidth, alignment: .topLeading)
           }
-          .frame(minHeight: 120)
+        } else {
+          VStack(alignment: .leading, spacing: 28) {
+            cover.frame(maxWidth: .infinity)
+            details
+          }
+        }
+      }
+      .padding(BookEditorialMetrics.outsidePadding)
+      .frame(maxWidth: .infinity, alignment: .topLeading)
+
+      Group {
+        if let scrollScope {
+          PersistentScrollView(
+            scrollKey: ScrollKey(scope: scrollScope, region: "page", contextID: scrollContextID)
+          ) {
+            content
+          }
+        } else {
+          ScrollView(.vertical) { content }
+        }
+      }
+      .scrollEdgeEffectStyle(.soft, for: .top)
+    }
+  }
+}
+
+struct BookMetadataEntry: Identifiable, Equatable {
+  let label: String
+  let value: String
+  var id: String { label }
+}
+
+struct BookReadDetailsView: View {
+  @ObservedObject var book: Book
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      VStack(alignment: .leading, spacing: 6) {
+        Text(book.title ?? "Untitled book")
+          .font(.editorialTitle)
+          .fixedSize(horizontal: false, vertical: true)
+        if let author = book.author?.cleanedWhitespace, !author.isEmpty {
+          Text(author)
+            .font(.editorialAuthor)
+            .foregroundStyle(.secondary)
+        }
+        HStack(spacing: 12) {
+          Label(book.readingStatus.title, systemImage: book.readingStatus.systemImage)
+            .font(.subheadline.weight(.semibold))
+            .symbolRenderingMode(.monochrome)
+            .foregroundStyle(book.readingStatus.tint)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(book.readingStatus.tint.opacity(0.18), in: Capsule())
+          if let rating = Self.rating(for: book) {
+            StarRatingView(rating: rating, size: 15)
+              .accessibilityElement(children: .ignore)
+              .accessibilityLabel("\(rating) out of 5 stars")
+          }
+        }
+        .padding(.top, 10)
+      }
+      let entries = Self.metadataEntries(for: book)
+      if !entries.isEmpty {
+        ViewThatFits(in: .horizontal) {
+          EditorialHairlineRow(count: entries.count) { entryView(entries[$0]) }
+          VStack(alignment: .leading, spacing: 14) {
+            ForEach(entries) { entryView($0) }
+          }
+        }
+        .padding(.top, 22)
+      }
+      Divider()
+        .padding(.vertical, 22)
+      if let review = book.reviewDescription,
+        !review.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      {
+        VStack(alignment: .leading, spacing: 10) {
+          EditorialSectionLabel("Notes")
+          AttributedTextViewer(attributedString: review.editorialAttributedString())
+        }
+      } else {
+        BookNotesEmptyState()
       }
     }
-    .frame(
-      maxWidth: Constants.maxContentWidth,
-      alignment: .topLeading
-    )
   }
 
-  private var titleField: some View {
-    TextField("Title", text: $viewModel.titleDraft)
-      .font(.largeTitleBold)
+  private func entryView(_ entry: BookMetadataEntry) -> some View {
+    EditorialLabeledValue(label: entry.label) {
+      Text(entry.value)
+        .font(.callout.weight(.medium))
+        .monospacedDigit()
+        .lineLimit(1)
+    }
+  }
+
+  static func rating(for book: Book) -> Int? {
+    guard let value = book.rating?.intValue, (1...5).contains(value) else { return nil }
+    return value
+  }
+
+  static func metadataEntries(for book: Book, now: Date = Date()) -> [BookMetadataEntry] {
+    var entries: [BookMetadataEntry] = []
+    if let started = book.readDateStarted {
+      entries.append(
+        BookMetadataEntry(
+          label: "Started", value: started.formatted(date: .abbreviated, time: .omitted)))
+    }
+    if let finished = book.readDateFinished {
+      entries.append(
+        BookMetadataEntry(
+          label: "Finished", value: finished.formatted(date: .abbreviated, time: .omitted)))
+    }
+    if let duration = ReadingDuration.text(
+      started: book.readDateStarted, finished: book.readDateFinished, now: now
+    ) {
+      entries.append(BookMetadataEntry(label: "Duration", value: duration))
+    }
+    if let isbn = book.isbn?.stringValue {
+      entries.append(BookMetadataEntry(label: "ISBN", value: isbn))
+    }
+    return entries
+  }
+}
+
+struct EditorialSectionLabel: View {
+  private let text: String
+
+  init(_ text: String) {
+    self.text = text
+  }
+
+  var body: some View {
+    Text(text.uppercased())
+      .font(.editorialLabel)
+      .tracking(0.8)
+      .foregroundStyle(.secondary)
+  }
+}
+
+struct EditorialLabeledValue<Value: View>: View {
+  let label: String
+  @ViewBuilder let value: Value
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 5) {
+      EditorialSectionLabel(label)
+      value
+    }
+  }
+}
+
+struct EditorialHairlineRow<Item: View>: View {
+  let count: Int
+  @ViewBuilder let item: (Int) -> Item
+
+  var body: some View {
+    HStack(alignment: .top, spacing: 0) {
+      ForEach(0..<count, id: \.self) { index in
+        if index > 0 {
+          Divider().frame(height: 34)
+        }
+        item(index)
+          .padding(.leading, index == 0 ? 0 : 16)
+          .padding(.trailing, index == count - 1 ? 0 : 16)
+      }
+    }
+    .fixedSize(horizontal: true, vertical: false)
+  }
+}
+
+struct BookNotesEmptyState: View {
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      EditorialSectionLabel("Notes")
+      Text("No notes yet. Choose Edit to add your thoughts.")
+        .font(.editorialNotes.italic())
+        .foregroundStyle(.tertiary)
+    }
+  }
+}
+
+extension View {
+  func editorialField(isFocused: Bool) -> some View {
+    let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+    return
+      self
       .textFieldStyle(.plain)
-      .focused($focusedField, equals: .title)
-      .onChange(of: viewModel.titleDraft) { _, newValue in
-        viewModel.updateTitleDraft(newValue)
-      }
-      .onSubmit { viewModel.commitField(.title) }
+      .focusEffectDisabled()
+      .padding(.horizontal, BookEditorialMetrics.fieldInset)
+      .padding(.vertical, 4)
+      .background(shape.fill(Color.primary.opacity(isFocused ? 0.03 : 0.055)))
+      .overlay(
+        shape.strokeBorder(Color.botanicalLeaf.opacity(isFocused ? 0.85 : 0), lineWidth: 1.5)
+      )
+      .padding(.horizontal, -BookEditorialMetrics.fieldInset)
+      .animation(.easeOut(duration: 0.15), value: isFocused)
   }
-
-  private var authorField: some View {
-    TextField("Author", text: $viewModel.authorDraft)
-      .font(.title2)
-      .textFieldStyle(.plain)
-      .focused($focusedField, equals: .author)
-      .onChange(of: viewModel.authorDraft) { _, newValue in
-        viewModel.updateAuthorDraft(newValue)
-      }
-      .onSubmit { viewModel.commitField(.author) }
-  }
-
-  /// Rating, ISBN, and cover URL as one quiet group of trailing-aligned rows.
-  private var metadataBox: some View {
-    GroupBox {
-      VStack(spacing: 0) {
-        metadataRow("Rating") {
-          StarRatingView(
-            rating: Binding(
-              get: { viewModel.ratingDraft },
-              set: { newValue in
-                viewModel.updateRatingDraft(newValue)
-                focusedField = .rating
-              }
-            )
-          )
-        }
-        Divider()
-        metadataRow("ISBN") {
-          TextField("ISBN-13", text: $viewModel.isbnDraft)
-            .textFieldStyle(.plain)
-            .multilineTextAlignment(.trailing)
-            .focused($focusedField, equals: .isbn)
-            .onChange(of: viewModel.isbnDraft) { _, newValue in
-              viewModel.updateISBNDraft(newValue)
-            }
-            .onSubmit { viewModel.commitField(.isbn) }
-        }
-        Divider()
-        metadataRow("Cover") {
-          TextField("Image URL", text: $viewModel.coverURLDraft)
-            .textFieldStyle(.plain)
-            .multilineTextAlignment(.trailing)
-            .lineLimit(1)
-            .focused($focusedField, equals: .coverURL)
-            .onSubmit { viewModel.commitField(.coverURL) }
-        }
-      }
-    }
-  }
-
-  private func metadataRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content)
-    -> some View
-  {
-    LabeledContent {
-      content()
-    } label: {
-      Text(label)
-        .foregroundStyle(.secondary)
-    }
-    .padding(.vertical, 6)
-  }
-
-  private func labeledField<Content: View>(_ label: String, @ViewBuilder content: () -> Content)
-    -> some View
-  {
-    VStack(alignment: .leading, spacing: 4) {
-      Text(label)
-        .font(.caption)
-        .foregroundStyle(.secondary)
-      content()
-    }
-  }
-
 }

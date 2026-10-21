@@ -46,9 +46,9 @@ struct ModelsAndPersistenceTests {
     #expect(request.sortDescriptors?.first?.ascending == false)
   }
 
-  @Test("Book and Asset persist in-memory and map to searchable DTOs")
+  @Test("Book and Asset persist in-memory and map to a search document")
   @MainActor
-  func bookAndAssetPersistenceAndDTOMapping() throws {
+  func bookAndAssetPersistenceAndSearchDocument() throws {
     let container = TestCoreDataStack.makeContainer()
     let context = container.viewContext
 
@@ -66,15 +66,18 @@ struct ModelsAndPersistenceTests {
     #expect(book.readingStatus == .read)
     #expect(book.coverImage?.assetURL == URL(string: "https://example.com/piranesi.jpg"))
 
-    let dto = book.toDTO()
-    #expect(dto.id == "book-1")
-    #expect(dto.title == "Piranesi")
-    #expect(dto.author == "Susanna Clarke")
-    #expect(dto.isbn == "9781635575637")
-    #expect(dto.rating == "5")
-    #expect(dto.reviewDescription == "The House is infinite.\n\nThe Tides are regular.")
-    #expect(dto.coverImage?.urlString == "https://example.com/piranesi.jpg")
-    #expect(dto.description == "Piranesi")
+    let finishedYear = Calendar.current.component(.year, from: try #require(book.readDateFinished))
+    #expect(
+      book.searchDocument
+        == BookSearchDocument(
+          title: "Piranesi",
+          author: "Susanna Clarke",
+          isbn: "9781635575637",
+          review: "The House is infinite.\n\nThe Tides are regular.",
+          rating: 5,
+          status: .read,
+          year: finishedYear
+        ))
   }
 
   @Test("Asset.add deduplicates existing assets case-insensitively by URL")
@@ -117,6 +120,9 @@ struct ModelsAndPersistenceTests {
       coverURLString: "https://covers.openlibrary.org/b/isbn/9780593135204-L.jpg"
     )
 
+    let coverAsset = try #require(book.coverImage)
+    coverAsset.localeCode = "en-US"
+
     let payload = try #require(book.toServerUpsertPayload())
     #expect(payload.id == "book-sync-1")
     #expect(payload.title == "Project Hail Mary")
@@ -124,24 +130,89 @@ struct ModelsAndPersistenceTests {
     #expect(payload.isbn == 9_780_593_135_204)
     #expect(payload.rating == 5)
     #expect(payload.reviewPlainText == "Amaze! Grace and Rocky.")
-    #expect(
-      payload.coverImageUrl == "https://covers.openlibrary.org/b/isbn/9780593135204-L.jpg"
-    )
-    #expect(payload.coverAssetId == book.coverImage?.id)
+    #expect(payload.coverAssetId == coverAsset.id)
+    #expect(payload.coverImageUrl == nil)
 
-    let disallowedCoverPayload = try #require(
-      book.toServerUpsertPayload(overrideCoverImageURL: "https://evil.example.com/cover.jpg")
-    )
+    book.localCoverImageURL = "https://bookcover.longitood.com/cover.jpg"
+    let pendingCoverPayload = try #require(book.toServerUpsertPayload())
+    #expect(pendingCoverPayload.coverAssetId == nil)
+    #expect(pendingCoverPayload.coverImageUrl == "https://bookcover.longitood.com/cover.jpg")
+
+    book.localCoverImageURL = "https://evil.example.com/cover.jpg"
+    let disallowedCoverPayload = try #require(book.toServerUpsertPayload())
     #expect(disallowedCoverPayload.coverImageUrl == nil)
+    #expect(disallowedCoverPayload.coverAssetId == nil)
 
-    let protocolRelativeCtfPayload = try #require(
-      book.toServerUpsertPayload(
-        overrideCoverImageURL: "//images.ctfassets.net/space/asset/cover.jpg")
-    )
+    book.localCoverImageURL = "//images.ctfassets.net/space/asset/cover.jpg"
+    let protocolRelativeCtfPayload = try #require(book.toServerUpsertPayload())
     #expect(
       protocolRelativeCtfPayload.coverImageUrl
         == "https://images.ctfassets.net/space/asset/cover.jpg"
     )
+
+    book.localCoverImageURL = "file:///tmp/Covers/cover.png"
+    let localFilePayload = try #require(book.toServerUpsertPayload())
+    #expect(localFilePayload.coverImageUrl == nil)
+    #expect(localFilePayload.coverAssetId == nil)
+
+    #expect(
+      GoodreadsSyncService.sanitizedCoverImageURL("https://user:pw@covers.openlibrary.org/a.jpg")
+        == nil
+    )
+    #expect(
+      GoodreadsSyncService.sanitizedCoverImageURL("https://covers.openlibrary.org:8443/a.jpg")
+        == nil
+    )
+  }
+
+  @Test("BookServerUpsertPayload encodes cleared fields as explicit nulls and omits empty covers")
+  func bookServerUpsertPayloadEncodesExplicitNulls() throws {
+    let payload = BookServerUpsertPayload(
+      id: "NEW-BOOK",
+      title: "Piranesi",
+      author: "Susanna Clarke",
+      isbn: nil,
+      rating: nil,
+      readDateStarted: nil,
+      readDateFinished: nil,
+      reviewPlainText: nil,
+      coverAssetId: nil,
+      coverImageUrl: nil
+    )
+    let data = try JSONEncoder().encode(payload)
+    let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    #expect(object["id"] as? String == "NEW-BOOK")
+    #expect(object["rating"] is NSNull)
+    #expect(object["readDateStarted"] is NSNull)
+    #expect(object["readDateFinished"] is NSNull)
+    #expect(object["reviewPlainText"] is NSNull)
+    #expect(object["isbn"] == nil)
+    #expect(object["coverAssetId"] == nil)
+    #expect(object["coverImageUrl"] == nil)
+    #expect(object["coverImageBase64"] == nil)
+    #expect(object["coverImageContentType"] == nil)
+
+    let upload = CoverImageUpload(data: Data([0xFF, 0xD8, 0xFF]), contentType: "image/jpeg")
+    let uploadPayload = BookServerUpsertPayload(
+      id: "NEW-BOOK",
+      title: "Piranesi",
+      author: "Susanna Clarke",
+      isbn: nil,
+      rating: nil,
+      readDateStarted: nil,
+      readDateFinished: nil,
+      reviewPlainText: nil,
+      coverAssetId: "OLD-ASSET",
+      coverImageUrl: "https://covers.openlibrary.org/b/id/1-L.jpg"
+    ).withCoverUpload(upload)
+    let uploadObject = try #require(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(uploadPayload)) as? [String: Any]
+    )
+    #expect(uploadObject["coverImageBase64"] as? String == "/9j/")
+    #expect(uploadObject["coverImageContentType"] as? String == "image/jpeg")
+    #expect(uploadObject["coverAssetId"] == nil)
+    #expect(uploadObject["coverImageUrl"] == nil)
+    #expect(uploadPayload.withoutCoverUpload().coverImageBase64 == nil)
   }
 
   @Test("GoodreadsSyncService computes deterministic HMAC-SHA256 signatures")

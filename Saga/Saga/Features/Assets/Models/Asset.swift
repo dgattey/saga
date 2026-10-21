@@ -7,10 +7,9 @@
 
 import ContentfulPersistence
 import CoreData
-import Ifrit
 
 @objc(Asset)
-final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
+final class Asset: NSManagedObject, AssetPersistable {
   static let contentTypeId = "asset"
 
   @NSManaged var id: String
@@ -55,6 +54,22 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
     self.urlString = urlString
   }
 
+  static func linkedContentfulAsset(
+    id: String,
+    urlString: String,
+    in context: NSManagedObjectContext
+  ) throws -> Asset {
+    let fetchRequest = NSFetchRequest<Asset>(entityName: "Asset")
+    fetchRequest.predicate = NSPredicate(format: "id == %@", id)
+    fetchRequest.fetchLimit = 1
+    if let existing = try context.fetch(fetchRequest).first {
+      return existing
+    }
+    let asset = Asset(context: context, urlString: urlString)
+    asset.id = id
+    return asset
+  }
+
   /// Finds a duplicate asset by url if it exists so we can update it in place.
   private static func findDuplicate(
     in context: NSManagedObjectContext,
@@ -73,36 +88,7 @@ final class Asset: NSManagedObject, AssetPersistable, SearchableModel {
     return URL(string: urlString)
   }
 
-  func toDTO() -> AssetDTO {
-    AssetDTO(
-      id: self.id,
-      title: self.title,
-      fileName: self.fileName,
-      urlString: self.urlString
-    )
+  var isContentfulManaged: Bool {
+    localeCode != nil
   }
-}
-
-final class AssetDTO: SearchableDTO, @unchecked Sendable {
-  let id: String
-  let title: String?
-  let fileName: String?
-  let urlString: String?
-  let fuzzySearchableProperties: [FuseProp]
-
-  init(id: String, title: String?, fileName: String?, urlString: String?) {
-    self.id = id
-    self.title = title
-    self.fileName = fileName
-    self.urlString = urlString
-    self.fuzzySearchableProperties = [
-      FuseProp(title ?? ""),
-      FuseProp(fileName ?? ""),
-    ]
-  }
-
-  static var fuzzySearchKeyPaths: [PartialKeyPath<AssetDTO>] = [
-    \AssetDTO.title,
-    \AssetDTO.fileName,
-  ]
 }

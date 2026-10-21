@@ -17,8 +17,7 @@ struct GoodreadsSyncResponse: Decodable, Sendable {
   let error: String?
 }
 
-/// Payload for a single book upsert sent to `POST /api/books/sync`.
-struct BookServerUpsertPayload: Encodable, Sendable {
+struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
   let id: String
   let title: String
   let author: String
@@ -27,8 +26,49 @@ struct BookServerUpsertPayload: Encodable, Sendable {
   let readDateStarted: String?
   let readDateFinished: String?
   let reviewPlainText: String?
-  let coverAssetId: String?
-  let coverImageUrl: String?
+  var coverAssetId: String?
+  var coverImageUrl: String?
+  var coverImageBase64: String? = nil
+  var coverImageContentType: String? = nil
+
+  private enum CodingKeys: String, CodingKey {
+    case id, title, author, isbn, rating, readDateStarted, readDateFinished, reviewPlainText
+    case coverAssetId, coverImageUrl, coverImageBase64, coverImageContentType
+  }
+
+  var hasCoverUpload: Bool { coverImageBase64 != nil }
+
+  func withCoverUpload(_ upload: CoverImageUpload) -> BookServerUpsertPayload {
+    var copy = self
+    copy.coverAssetId = nil
+    copy.coverImageUrl = nil
+    copy.coverImageBase64 = upload.base64
+    copy.coverImageContentType = upload.contentType
+    return copy
+  }
+
+  func withoutCoverUpload() -> BookServerUpsertPayload {
+    var copy = self
+    copy.coverImageBase64 = nil
+    copy.coverImageContentType = nil
+    return copy
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(id, forKey: .id)
+    try container.encode(title, forKey: .title)
+    try container.encode(author, forKey: .author)
+    try container.encodeIfPresent(isbn, forKey: .isbn)
+    try container.encode(rating, forKey: .rating)
+    try container.encode(readDateStarted, forKey: .readDateStarted)
+    try container.encode(readDateFinished, forKey: .readDateFinished)
+    try container.encode(reviewPlainText, forKey: .reviewPlainText)
+    try container.encodeIfPresent(coverAssetId, forKey: .coverAssetId)
+    try container.encodeIfPresent(coverImageUrl, forKey: .coverImageUrl)
+    try container.encodeIfPresent(coverImageBase64, forKey: .coverImageBase64)
+    try container.encodeIfPresent(coverImageContentType, forKey: .coverImageContentType)
+  }
 }
 
 /// Request body sent to `POST /api/books/sync`.
@@ -39,10 +79,22 @@ private struct BookServerSyncRequest: Encodable, Sendable {
 
 /// Response returned by `POST /api/books/sync`.
 struct BookServerSyncResponse: Decodable, Sendable {
+  struct Entry: Decodable, Equatable, Sendable {
+    let id: String
+    let action: String?
+    let coverAssetId: String?
+    var coverImageUrl: String? = nil
+  }
+
   let ok: Bool
   let upserted: Int?
   let deleted: Int?
+  let entries: [Entry]?
   let error: String?
+
+  func entry(forBookID id: String) -> Entry? {
+    entries?.first { $0.id.caseInsensitiveCompare(id) == .orderedSame }
+  }
 }
 
 /// Errors encountered when communicating with `dylangattey.com/api/books/*`.
@@ -93,7 +145,8 @@ enum GoodreadsSyncService {
     "images.ctfassets.net",
   ]
 
-  /// Filters cover URLs to `https:` URLs matching the server's allowlisted cover hosts.
+  private static let maxCoverImageURLLength = 2048
+
   static func sanitizedCoverImageURL(_ rawURL: String?) -> String? {
     guard let raw = rawURL?.trimmingCharacters(in: .whitespacesAndNewlines),
       !raw.isEmpty
@@ -101,10 +154,14 @@ enum GoodreadsSyncService {
       return nil
     }
     let normalized = raw.hasPrefix("//") ? "https:" + raw : raw
-    guard let url = URL(string: normalized),
+    guard normalized.count <= maxCoverImageURLLength,
+      let url = URL(string: normalized),
       url.scheme?.lowercased() == "https",
       let host = url.host?.lowercased(),
-      allowlistedCoverHosts.contains(host)
+      allowlistedCoverHosts.contains(host),
+      url.user == nil,
+      url.password == nil,
+      url.port == nil || url.port == 443
     else {
       return nil
     }

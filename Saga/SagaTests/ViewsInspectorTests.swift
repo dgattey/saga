@@ -66,11 +66,60 @@ struct ViewsInspectorTests {
   @Test("BookListHeaderView and BookListEmptyStateView render expected copy")
   @MainActor
   func bookListHeaderAndEmptyStateInspection() throws {
-    let header = BookListHeaderView()
-    #expect(try header.inspect().text().string() == "Books")
+    var didRequestNewBook = false
+    let header = BookListHeaderView(onNewBook: { didRequestNewBook = true })
+    #expect(try header.inspect().hStack().text(0).string() == "Books")
+    try header.inspect().hStack().button(2).tap()
+    #expect(didRequestNewBook)
 
     let empty = BookListEmptyStateView()
     #expect(try empty.inspect().text().string() == "No results")
+  }
+
+  @Test("BookCoverActionBar labels Auto-Find for new books and routes each action")
+  @MainActor
+  func bookCoverActionBarInspection() throws {
+    var actions: [String] = []
+    let creatingBar = BookCoverActionBar(
+      isCreating: true,
+      isSearching: false,
+      onFind: { actions.append("find") },
+      onPaste: { actions.append("paste") },
+      onChooseFile: { actions.append("file") },
+      onEnterURL: { actions.append("url") }
+    )
+    let inspected = try creatingBar.inspect()
+    for title in ["Auto-Find", "Paste", "File…", "URL…"] {
+      try inspected.find(text: title).find(ViewType.Button.self, relation: .parent).tap()
+    }
+    #expect(actions == ["find", "paste", "file", "url"])
+
+    let editingBar = BookCoverActionBar(
+      isCreating: false,
+      isSearching: false,
+      onFind: {},
+      onPaste: {},
+      onChooseFile: {},
+      onEnterURL: {}
+    )
+    #expect(try editingBar.inspect().find(text: "Find").string() == "Find")
+  }
+
+  @Test("Editorial labels and the empty notes prompt render their copy")
+  @MainActor
+  func editorialLabelInspection() throws {
+    let labeled = EditorialLabeledValue(label: "Started") {
+      Text("Feb 2, 2026")
+    }
+    #expect(try labeled.inspect().find(text: "STARTED").string() == "STARTED")
+    #expect(try labeled.inspect().find(text: "Feb 2, 2026").string() == "Feb 2, 2026")
+
+    let emptyNotes = try BookNotesEmptyState().inspect()
+    #expect(try emptyNotes.find(text: "NOTES").string() == "NOTES")
+    #expect(
+      try emptyNotes.find(text: "No notes yet. Choose Edit to add your thoughts.").string()
+        == "No notes yet. Choose Edit to add your thoughts."
+    )
   }
 
   @Test("HomeSidebarRow renders Home label and triggers makeHomeEntry when not on Home")
