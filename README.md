@@ -93,7 +93,7 @@ GitHub Actions automatically compute versions and create releases when PRs merge
 
 - PRs include release type checkboxes (Major/Minor/Patch, default Patch) and a `# What changed?` section for release notes
 - CI checks run in parallel on PR branches without pushing version bump commits to the branch, avoiding version-file merge conflicts across open PRs
-- On merge, `release.yml` computes the next semantic version and Sparkle build number from the latest release tag and PR release type, packages and signs the macOS app, checks it is a valid Sparkle update for the latest published release (`scripts/verify-release.sh`, also run on every PR), updates `appcast.xml` with cumulative versioned release notes (capped at the last 10 versions via `scripts/release-notes.sh` and `scripts/generate-appcast.sh`), and publishes a GitHub Release using the `# What changed?` text as release notes
+- On merge, `release.yml` computes the next semantic version and Sparkle build number from the latest release tag and PR release type, packages and signs the macOS app, checks it is a valid Sparkle update for the latest published release (`scripts/verify-release.sh`, also run on every PR), updates `appcast.xml` with cumulative versioned release notes (capped at the last 10 versions via `scripts/release-notes.sh` and `scripts/generate-appcast.sh`), and publishes a GitHub Release using the `# What changed?` text as release notes. Nothing is committed back to `main`: `https://saga.gattey.com/appcast.xml`, the feed the app polls, redirects to the latest release's appcast, and release CI checks the site serves it before and after publishing (`scripts/check-site-feed.sh`)
 
 ### Manual management
 

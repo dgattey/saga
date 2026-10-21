@@ -81,6 +81,40 @@ jobs:
           path: build/captures/*.png
           if-no-files-found: ignore
 
+  # Serves the site locally and checks /appcast.xml reaches the latest release's appcast, as Sparkle
+  # would fetch it. Release CI checks the live site the same way.
+  site-feed:
+    name: 🌐 Site feed
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install, test and build the site
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Check /appcast.xml serves the latest release's appcast
+        env:
+          SAGA_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          npm start >"$RUNNER_TEMP/next.log" 2>&1 &
+          curl -fsSL "https://github.com/${SAGA_REPO}/releases/latest/download/appcast.xml" -o "$RUNNER_TEMP/latest-appcast.xml"
+          ../scripts/check-site-feed.sh "$RUNNER_TEMP/latest-appcast.xml" http://localhost:3000/appcast.xml 60
+
   release-artifact:
     name: 📦 Release artifact
     runs-on: macos-latest
