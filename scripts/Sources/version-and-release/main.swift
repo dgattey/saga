@@ -6,8 +6,8 @@ import Foundation
 // MARK: - Constants
 
 enum Constants {
-  static let marketingVersionKey = "MARKETING_VERSION"
-  static let buildVersionKey = "CURRENT_PROJECT_VERSION"
+  /// Keep in sync with REPO_INCEPTION in scripts/build-macos.sh.
+  static let repoInception = 1_751_838_521
   static let releaseNotesHeading = "Release notes"
   static let highlightsHeading = "Highlights"
   static let summaryHeading = "Summary"
@@ -31,7 +31,7 @@ enum Command: String, CLISubcommandType, CaseIterable {
 
   var description: String {
     switch self {
-    case .read: "Read or compute version/build from project file and optional release event"
+    case .read: "Read or compute version/build from VERSION and optional release event"
     case .extractNotes: "Extract release notes from PR body"
     case .prComment: "Upsert PR version comment (will-be|released)"
     case .package: "Build, sign, zip, and generate Sparkle appcast.xml for macOS release"
@@ -43,8 +43,8 @@ let cli = SimpleCLI(
   filePath: #filePath,
   subcommands: Command.allCases.map { ($0.rawValue, $0.description) },
   examples: [
-    "run version-and-release read --path project.pbxproj",
-    "run version-and-release read --path project.pbxproj --event event.json",
+    "run version-and-release read",
+    "run version-and-release read --event event.json",
     "run version-and-release pr-comment --event event.json --version 2.0.0 --state released",
     "run version-and-release package --version 2.1.0 --build 1042 --output-dir dist/release",
   ]
@@ -88,22 +88,17 @@ struct Arguments {
 
 // MARK: - Version parsing
 
-func extractValue(for key: String, in content: String) -> String? {
-  let pattern = "\\b\(NSRegularExpression.escapedPattern(for: key))\\s*=\\s*([^;]+);"
-  guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
-  let range = NSRange(content.startIndex..<content.endIndex, in: content)
-  guard let match = regex.firstMatch(in: content, range: range),
-    let valueRange = Range(match.range(at: 1), in: content)
-  else { return nil }
-  return String(content[valueRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+func readVersionFile(repoRoot: String) throws -> String {
+  let path = "\(repoRoot)/VERSION"
+  let raw = try String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8)
+  let version = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+  guard !version.isEmpty else { throw ScriptError("\(path) is empty") }
+  return version
 }
 
-func replacingValue(for key: String, with newValue: String, in content: String) throws -> String {
-  let pattern = "\\b\(NSRegularExpression.escapedPattern(for: key))\\s*=\\s*[^;]+;"
-  let regex = try NSRegularExpression(pattern: pattern)
-  let range = NSRange(content.startIndex..<content.endIndex, in: content)
-  return regex.stringByReplacingMatches(
-    in: content, range: range, withTemplate: "\(key) = \(newValue);")
+/// Half-hours since repo inception, which preserves Saga's 22xxx Sparkle build scale.
+func halfHoursSinceInception(at epoch: Int) -> Int {
+  (epoch - Constants.repoInception) / 1800
 }
 
 func normalizedSemver(from raw: String) throws -> (major: Int, minor: Int, patch: Int) {
@@ -448,57 +443,28 @@ func loadPullRequestEvent(from path: String) throws -> PullRequestEvent {
 
 func runRead(arguments: Arguments) throws {
   let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
-  let defaultPbxproj = "\(repoRoot)/Saga/Saga.xcodeproj/project.pbxproj"
-  let path: String
-  if let customPath = arguments.value(for: "--path"), !customPath.isEmpty {
-    path = customPath
-  } else {
-    path = defaultPbxproj
-  }
-  let fileURL = URL(fileURLWithPath: path)
-  let content = try String(contentsOf: fileURL, encoding: .utf8)
-  guard var version = extractValue(for: Constants.marketingVersionKey, in: content) else {
-    throw ScriptError("MARKETING_VERSION not found")
-  }
-  guard var build = extractValue(for: Constants.buildVersionKey, in: content) else {
-    throw ScriptError("CURRENT_PROJECT_VERSION not found")
-  }
+  var version = try readVersionFile(repoRoot: repoRoot)
+  var build = String(halfHoursSinceInception(at: Int(Date().timeIntervalSince1970)))
 
   if let eventPath = arguments.value(for: "--event"), !eventPath.isEmpty {
     let event = try loadPullRequestEvent(from: eventPath)
     let selectedReleaseType = releaseType(from: event.pullRequest.body ?? "")
     let currentSemver = try normalizedSemver(from: version)
-    let pbxprojBuild = Int(build) ?? 1
-    let semverTags = allSemverTags()
-
     let resolvedSemver: (major: Int, minor: Int, patch: Int)
-    let alreadyBumpedInPbxproj: Bool
-    if let latestTag = semverTags.first {
-      alreadyBumpedInPbxproj = isSemverHigher(currentSemver, than: latestTag)
+    if let latestTag = allSemverTags().first {
       let bumpedFromTag = try bumpVersion(latestTag, releaseType: selectedReleaseType)
       resolvedSemver = maxSemver(currentSemver, bumpedFromTag)
     } else {
-      alreadyBumpedInPbxproj = false
       resolvedSemver = try bumpVersion(currentSemver, releaseType: selectedReleaseType)
     }
-    let resolvedVersion = formatSemver(resolvedSemver)
+    version = formatSemver(resolvedSemver)
 
-    // Compute a strictly increasing Sparkle build number across sequential merges:
-    // 1. Half-hours since repo inception (preserves Saga's 22xxx build scale)
-    // 2. pbxproj build + count of tags newer than pbxproj + 1 (if not already bumped in pbxproj)
-    // 3. Live appcast.xml sparkle:version + 1 (if reachable)
-    let repoInception = 1_751_838_521
+    // Sparkle requires strictly increasing build numbers across sequential merges:
+    // take the later of the merge time's half-hour count and the live appcast's build + 1.
     let eventEpoch =
       (event.pullRequest.mergedAt.flatMap { try? epochSeconds(from: $0) })
       ?? (event.pullRequest.updatedAt.flatMap { try? epochSeconds(from: $0) })
       ?? Int(Date().timeIntervalSince1970)
-    let halfHoursSinceInception = (eventEpoch - repoInception) / 1800
-
-    let tagsNewerThanPbxproj = semverTags.filter { isSemverHigher($0, than: currentSemver) }.count
-    let pbxprojFloor =
-      alreadyBumpedInPbxproj
-      ? pbxprojBuild
-      : (pbxprojBuild + tagsNewerThanPbxproj + 1)
 
     let envRepo = ProcessInfo.processInfo.environment["SAGA_REPO"] ?? "dgattey/saga"
     let eventRepo: String? = {
@@ -510,16 +476,7 @@ func runRead(arguments: Arguments) throws {
     let repoSlug = eventRepo ?? envRepo
     let liveAppcastFloor = (latestAppcastBuildNumber(repoSlug: repoSlug) ?? -1) + 1
 
-    let resolvedBuild = String(max(pbxprojFloor, halfHoursSinceInception, liveAppcastFloor))
-    if resolvedVersion != version || resolvedBuild != build {
-      let updatedVersionContent = try replacingValue(
-        for: Constants.marketingVersionKey, with: resolvedVersion, in: content)
-      let updatedContent = try replacingValue(
-        for: Constants.buildVersionKey, with: resolvedBuild, in: updatedVersionContent)
-      try updatedContent.write(to: fileURL, atomically: true, encoding: .utf8)
-      version = resolvedVersion
-      build = resolvedBuild
-    }
+    build = String(max(halfHoursSinceInception(at: eventEpoch), liveAppcastFloor))
   }
 
   print("VERSION=\(version)")
@@ -574,28 +531,10 @@ func runPrComment(arguments: Arguments) throws {
 
 func runPackage(arguments: Arguments) throws {
   let repoRoot = gitRoot() ?? FileManager.default.currentDirectoryPath
-  let defaultPbxproj = "\(repoRoot)/Saga/Saga.xcodeproj/project.pbxproj"
-  let pbxprojPath = arguments.value(for: "--path") ?? defaultPbxproj
-
-  let version: String
-  let build: String
-  if let v = arguments.value(for: "--version"), !v.isEmpty,
-    let b = arguments.value(for: "--build"), !b.isEmpty
-  {
-    version = v
-    build = b
-  } else {
-    let content = try String(contentsOf: URL(fileURLWithPath: pbxprojPath), encoding: .utf8)
-    guard let v = extractValue(for: Constants.marketingVersionKey, in: content),
-      let b = extractValue(for: Constants.buildVersionKey, in: content)
-    else {
-      throw ScriptError(
-        "Could not read MARKETING_VERSION / CURRENT_PROJECT_VERSION from \(pbxprojPath)")
-    }
-    version = arguments.value(for: "--version") ?? v
-    build = arguments.value(for: "--build") ?? b
-  }
-
+  let version = try arguments.value(for: "--version") ?? readVersionFile(repoRoot: repoRoot)
+  let build =
+    arguments.value(for: "--build")
+    ?? String(halfHoursSinceInception(at: Int(Date().timeIntervalSince1970)))
   let outputDir = arguments.value(for: "--output-dir") ?? "\(repoRoot)/dist/release"
   let scriptPath = "\(repoRoot)/scripts/package-release.sh"
   try runCommand(

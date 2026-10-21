@@ -9,9 +9,9 @@ import SwiftUI
 
 /// The toolbar for the content view
 struct ContentViewToolbar: ToolbarContent {
-  @EnvironmentObject var viewModel: SyncViewModel
-  @EnvironmentObject var animationSettings: AnimationSettings
-  @ObservedObject var navigationHistory: NavigationHistory
+  @Environment(SyncViewModel.self) var viewModel
+  @Environment(AnimationSettings.self) var animationSettings
+  let navigationHistory: NavigationHistory
   @Binding var entry: NavigationEntry?
   @Binding var isShowingSettings: Bool
 

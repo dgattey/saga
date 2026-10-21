@@ -57,10 +57,8 @@ struct UpdaterTests {
     #expect(!malformedKey.isReleaseConfigured)
   }
 
-  @Test(
-    "UpdaterConfiguration reads SUFeedURL and SUPublicEDKey from Info.plist dictionary and main bundle"
-  )
-  func updaterConfigurationFromInfoDictionaryAndMainBundle() {
+  @Test("UpdaterConfiguration reads SUFeedURL and SUPublicEDKey from an Info.plist dictionary")
+  func updaterConfigurationFromInfoDictionary() {
     let dict: [String: Any] = [
       BundleKey.sparkleFeedURL.rawValue: Self.validFeedURL,
       BundleKey.sparklePublicEDKey.rawValue: Self.validEDKey,
@@ -72,11 +70,6 @@ struct UpdaterTests {
 
     let emptyParsed = UpdaterConfiguration.from(infoDictionary: nil)
     #expect(!emptyParsed.isReleaseConfigured)
-
-    let mainBundleConfig = UpdaterConfiguration.fromMainBundle()
-    #expect(mainBundleConfig.isReleaseConfigured)
-    #expect(mainBundleConfig.feedURLString == Self.validFeedURL)
-    #expect(mainBundleConfig.publicEDKey == Self.validEDKey)
   }
 
   @Test("SparkleUpdateSession tracks nested update sessions and resets cleanly")

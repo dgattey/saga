@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct PersistentScrollView<Content: View>: View {
-  @EnvironmentObject private var scrollStore: ScrollPositionStore
+  @Environment(ScrollPositionStore.self) private var scrollStore
 
   let scrollKey: ScrollKey
   let axis: Axis.Set
@@ -51,7 +51,7 @@ private final class ScrollLifecycleState {
 }
 
 private struct PersistentScrollViewBody<Content: View>: View {
-  @ObservedObject var scrollStore: ScrollPositionStore
+  let scrollStore: ScrollPositionStore
 
   let scrollKey: ScrollKey
   let axis: Axis.Set

@@ -21,25 +21,26 @@ shared UI/utilities.
 
 ## Commands
 - `./run --help` or `run --help` to list scripts
-- `run app` (build + launch in background via `open -g -j`, macOS only), `run app -b` (build only), `run app -t` / `run app --test` (run `SagaTests` unit tests without stealing focus), `run app -r` (Release), `run app -g` (background + exit), `run app -f` (foreground), `run app -v` (verbose)
+- `run app` (`scripts/build-macos.sh` + launch in background via `open -g -j`, macOS only), `run app -b` (build only), `run app -t` / `run app --test` (`swift test`), `run app -u` / `run app --ui` (iOS Simulator screenshots), `run app -r` (release), `run app -g` (background + exit), `run app -f` (foreground)
+- `scripts/build-ios-sim.sh` builds `build/Saga-iOS.app` for the iOS Simulator
 - `run checks` (format + lint), `run checks --format`, `run checks --lint`
 - `run bootstrap` to set up shell completions for `run`
-- `run config` to write `Config.xcconfig` (`--placeholder` for build-only environments)
-- `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml` via `scripts/generate-appcast.sh` and `scripts/release-notes.sh` with cumulative release notes capped at the last 10 versions)
+- `run config` to write `Config.xcconfig` from the environment
+- `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml` via `scripts/generate-appcast.sh` and `scripts/release-notes.sh` with cumulative release notes capped at the last 10 versions); `scripts/verify-release.sh` checks the result against the latest published release; the app's Sparkle feed is `https://saga.gattey.com/appcast.xml`, which the site redirects to the latest GitHub release's appcast (`server/next.config.ts`); releases never commit to `main`
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
 - Prefer `private` helpers and computed subviews to keep `body` concise
 - Use `// MARK:` sections to organize larger views/types
 - Favor `guard` + early return for invalid state
-- Use `@AppStorage` for user settings and `@EnvironmentObject` for shared state
+- Use `@AppStorage` for user settings in views and `@Environment(Type.self)` for shared state
 - Log failures with `LoggerService.log` in app code (scripts can use `print`)
 - Reserve `fatalError` for unrecoverable setup failures
 - Make impossible states unrepresentable
 
 ## Architecture & Patterns
-- MVVM with SwiftUI views and `ObservableObject` view models
-- Inject shared state via `@StateObject` in `SagaApp` and `@EnvironmentObject` elsewhere
+- MVVM with SwiftUI views and `@Observable` view models (Core Data `NSManagedObject`s stay `@ObservedObject`)
+- Own shared state with `@State` in `SagaApp`, inject it with `.environment(_:)`, read it with `@Environment(Type.self)`, and use `@Bindable` for bindings
 - Navigation state is managed via `NavigationHistory` + `SidebarSelection`
 - Scroll position persistence uses `ScrollPositionStore`, `ScrollKey`,
   and `PersistentScrollView`
@@ -67,39 +68,20 @@ entities in both when adding models
 - Ask for clarification when requirements are ambiguous; surface 2–3 options when trade-offs matter
 - Update documentation and related rules when introducing new patterns or services
 
-## Hot Reload
-Hot reload is supported via InjectionNext for rapid iteration without rebuilding.
-
-**Setup (one-time)**:
-1. Install [InjectionNext](https://github.com/johnno1962/InjectionNext/releases) to `/Applications`
-2. Open InjectionNext → uncheck "Launch Xcode" → click "...or Watch Project" → select `Saga/` folder
-3. Build once in Xcode GUI (creates build logs InjectionNext needs)
-4. After that, use `run app` — hot reload works when you save files
-
-**How it works**: InjectionNext watches for file saves, recompiles changed files, injects
-new code into the running app, and triggers view recreation via `.hotReloadable()`.
-
-**Caveats**:
-- Requires one Xcode GUI build first (or after adding new files)
-- Can only change function bodies, not add/remove properties or change signatures
-- Icon should be orange when connected; yellow means compile error
-
-See `Saga/Saga/Shared/HotReload/HotReloadable.swift` for full documentation.
-
 ## Testing
 - Unit and UI component tests live in `Saga/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).
-- Run unit tests with `run app --test` (or `run app -t`), which runs `-only-testing:SagaTests` in headless accessory mode without stealing window focus or hitting Contentful.
-- Use `run checks`, `run app -b`, and `run app -t` as the standard verification loop.
+- Run unit tests with `run app --test` (or `run app -t`), which runs `swift test` without launching the app or hitting Contentful. Tests compile `Saga.xcdatamodeld` with `momc` themselves (`TestCoreDataStack`).
+- UI coverage is headless iOS Simulator screenshots: `run app --ui` (`scripts/ui-screenshots.sh`) seeds fixture books (`scripts/ui-fixture-store.swift`) into fresh iPhone and iPad simulators, launches with `--initial-view home|book` and `--appearance light|dark` (`LaunchOptions`, also `SAGA_INITIAL_VIEW` / `SAGA_APPEARANCE`), and checks each launch logged the screen it was asked for. PNGs land in `build/captures/`; CI uploads them as the `ui-screenshots` artifact. Look at them after visual changes. Never launch `build/Saga.app` on a Mac where Saga is installed: it shares the release bundle ID.
+- Use `run checks`, `run app -b`, `run app -t`, and `run app --ui` as the standard verification loop.
 
 ## Environment
-- Requires Xcode + SwiftUI/Combine
-- `run bootstrap` writes `Saga/Saga/Config/Config.xcconfig` from 1Password; `run config`
+- Pure SwiftPM (`Package.swift`); no Xcode project. Xcode must be installed for `momc`, `actool`, and the SDKs
+- `run bootstrap` writes `Config.xcconfig` from 1Password; `run config`
  writes the same file from `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` (plus optional `SAGA_API_SECRET`)
-- The file is gitignored and Xcode errors if it is missing, so any build needs it first
- (CI uses `run config --placeholder --if-missing`)
+- The file is gitignored and optional: `scripts/lib/app-config.sh` falls back to placeholder credentials, which is what CI and releases build with
 - **1Password CLI (`op`) rules**:
   - Never call `op` repeatedly across separate shell commands or loops (each shell tool call is a new terminal session and triggers a separate Touch ID prompt).
-  - If a secret is needed and not already cached locally in `Saga/Saga/Config/Config.xcconfig` or `.env.local`, batch every needed `op` read into a single shell command, write them into a gitignored `.env.local` (or `Config.xcconfig`), and source that file on subsequent commands.
+  - If a secret is needed and not already cached locally in `Config.xcconfig` or `.env.local`, batch every needed `op` read into a single shell command, write them into a gitignored `.env.local` (or `Config.xcconfig`), and source that file on subsequent commands.
   - Never print secret values.
 - `swift-format` is listed in the repo `Brewfile` (install with `brew bundle`)
 - Validate formatting and linting before final review, and build the app too.

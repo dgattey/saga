@@ -6,3 +6,5 @@ scripts/.build/
 /dist/
 /.cert/
 sparkle_private.key
+/.build/
+/.swiftpm/

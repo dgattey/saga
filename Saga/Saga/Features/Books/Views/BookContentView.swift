@@ -86,7 +86,7 @@ struct BookContentView: View {
   @Environment(\.managedObjectContext) private var viewContext
   @Environment(\.scrollContextID) private var scrollContextID
   @Environment(\.coverNamespace) private var coverNamespace
-  @EnvironmentObject private var bookNavigationViewModel: BookNavigationViewModel
+  @Environment(BookNavigationViewModel.self) private var bookNavigationViewModel
   @State private var isEditing = false
   @State private var isConfirmingDelete = false
   @State private var deleteError: BookMutationError?

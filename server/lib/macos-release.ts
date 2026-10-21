@@ -1,6 +1,3 @@
-import fs from "fs";
-import path from "path";
-
 export type MacOSRelease = {
   version: string;
   build: string;
@@ -62,17 +59,11 @@ export function getAppcastUrl(): string {
   return process.env.SAGA_APPCAST_URL || DEFAULT_APPCAST_URL;
 }
 
-function readBundledAppcastXml(): string | null {
-  const appcastPath = path.join(process.cwd(), "public", "appcast.xml");
-  if (!fs.existsSync(appcastPath)) return null;
-  return fs.readFileSync(appcastPath, "utf8");
-}
-
 /**
  * Fetches the latest Sparkle `appcast.xml` from GitHub Releases (revalidated every 60s)
  * so new releases published by `.github/workflows/release.yml` automatically update the
  * version label and `/download/macos` redirect without redeploying the site.
- * Falls back to bundled `public/appcast.xml` or `FALLBACK_MACOS_RELEASE` (`v1.4.1`).
+ * Falls back to `FALLBACK_MACOS_RELEASE` (`v1.4.1`).
  */
 export async function getMacOSRelease(): Promise<MacOSRelease> {
   try {
@@ -88,15 +79,7 @@ export async function getMacOSRelease(): Promise<MacOSRelease> {
       }
     }
   } catch {
-    // Fall through to bundled appcast or static fallback.
-  }
-
-  const bundledXml = readBundledAppcastXml();
-  if (bundledXml) {
-    const parsed = parseAppcastXml(bundledXml);
-    if (parsed) {
-      return { ...parsed, downloadReady: true };
-    }
+    // Fall through to the static fallback.
   }
 
   return FALLBACK_MACOS_RELEASE;

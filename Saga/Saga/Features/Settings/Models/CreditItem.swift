@@ -142,16 +142,6 @@ struct CreditItem: Identifiable, Equatable {
       url: URL(staticString: "https://github.com/nalexn/ViewInspector"),
       systemImage: "checkmark.seal"
     ),
-    CreditItem(
-      id: "injectionnext",
-      name: "InjectionNext",
-      version: "Debug",
-      subtitle: "SwiftUI hot-reloading during development by John Holdsworth",
-      badge: "MIT",
-      badgeURL: URL(staticString: "https://github.com/johnno1962/InjectionNext/blob/main/LICENSE"),
-      url: URL(staticString: "https://github.com/johnno1962/InjectionNext"),
-      systemImage: "bolt"
-    ),
   ]
 }
 

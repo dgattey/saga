@@ -32,7 +32,7 @@ jobs:
           SAGA_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          read_output="$(./run version-and-release read --path "${{ vars.PBXPROJ_PATH }}" --event "$GITHUB_EVENT_PATH")"
+          read_output="$(./run version-and-release read --event "$GITHUB_EVENT_PATH")"
           version="$(echo "$read_output" | awk -F= '/^VERSION=/{print $2}')"
           build="$(echo "$read_output" | awk -F= '/^BUILD=/{print $2}')"
           if [[ -z "$version" || -z "$build" ]]; then
@@ -59,7 +59,7 @@ jobs:
             echo "$sparkle_delimiter"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Build and package macOS release + Sparkle appcast
+      - name: Build, package, and verify macOS release + Sparkle appcast
         id: package
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,6 +72,9 @@ jobs:
             --version "${{ steps.version.outputs.version }}" \
             --build "${{ steps.version.outputs.build }}" \
             --output-dir "dist/release"
+          ./scripts/verify-release.sh \
+            "dist/release/Saga-${{ steps.version.outputs.version }}.zip" \
+            "dist/release/appcast.xml"
 
       - name: Create GitHub release
         id: release

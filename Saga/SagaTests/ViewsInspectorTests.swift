@@ -142,7 +142,7 @@ struct ViewsInspectorTests {
       }
     )
 
-    let inspected = try row.environmentObject(AnimationSettings.shared).inspect()
+    let inspected = try row.environment(AnimationSettings.shared).inspect()
     #expect(try inspected.find(text: "Home").string() == "Home")
     #expect(!didCallMakeHome)
   }

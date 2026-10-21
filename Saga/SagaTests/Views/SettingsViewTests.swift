@@ -51,7 +51,6 @@ struct SettingsViewTests {
         "Ifrit",
         "Sparkle",
         "ViewInspector",
-        "InjectionNext",
       ]
     )
     for item in CreditItem.openSourceLibraries {

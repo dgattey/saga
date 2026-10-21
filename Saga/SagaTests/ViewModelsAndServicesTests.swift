@@ -118,6 +118,33 @@ struct ViewModelsAndServicesTests {
     #expect(viewModel.navigateToPreviousBook(entry: &entry) == .ignored)
   }
 
+  @Test("Held arrow keys stop at the last book going down and return to Home going up")
+  @MainActor
+  func booksViewModelKeyRepeatNavigation() throws {
+    let context = TestCoreDataStack.makeContainer().viewContext
+    let books = try (0..<5).map { index in
+      try TestCoreDataStack.makeBook(in: context, title: "Book \(index)", coverURLString: nil)
+    }
+    let viewModel = BooksViewModel()
+    viewModel.filteredBooks = books.enumerated().map { index, book in
+      BookSearchResult(book: book, index: index)
+    }
+    var entry: NavigationEntry? = NavigationEntry(selection: .home(lastSelectedBookID: nil))
+
+    for _ in 0..<10 {
+      #expect(viewModel.navigateToNextBook(entry: &entry) == .handled)
+    }
+    #expect(entry?.selection == .book(books[4].objectID))
+
+    for _ in 0..<5 {
+      #expect(viewModel.navigateToPreviousBook(entry: &entry) == .handled)
+    }
+    #expect(entry?.selection == .home(lastSelectedBookID: books[0].objectID))
+    for _ in 0..<5 {
+      #expect(viewModel.navigateToPreviousBook(entry: &entry) == .ignored)
+    }
+  }
+
   @Test("NavigationHistory tracks back/forward stacks, observers, and home scroll cloning")
   @MainActor
   func navigationHistoryBackForwardAndCloning() throws {

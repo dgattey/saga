@@ -9,11 +9,11 @@ import SwiftUI
 
 struct SettingsView: View {
   @Environment(\.dismiss) private var dismiss
-  @EnvironmentObject var syncViewModel: SyncViewModel
-  @EnvironmentObject var cachesViewModel: CachesViewModel
-  @EnvironmentObject var animationSettings: AnimationSettings
+  @Environment(SyncViewModel.self) var syncViewModel
+  @Environment(CachesViewModel.self) var cachesViewModel
+  @Environment(AnimationSettings.self) var animationSettings
   #if os(macOS)
-    @EnvironmentObject var updaterViewModel: UpdaterViewModel
+    @Environment(UpdaterViewModel.self) var updaterViewModel
   #endif
 
   @AppStorage(ImageCache.cacheLimitKey) private var imageCacheLimitGB: Double = 5
@@ -105,14 +105,14 @@ struct SettingsView: View {
       Section("Updates") {
         Toggle(
           "Automatically check for updates",
-          isOn: $updaterViewModel.automaticallyChecksForUpdates
+          isOn: Bindable(updaterViewModel).automaticallyChecksForUpdates
         )
         .disabled(!updaterViewModel.isConfigured)
         .accessibilityIdentifier(AccessibilityID.Settings.automaticallyCheckForUpdates)
 
         Toggle(
           "Automatically download updates",
-          isOn: $updaterViewModel.automaticallyDownloadsUpdates
+          isOn: Bindable(updaterViewModel).automaticallyDownloadsUpdates
         )
         .disabled(
           !updaterViewModel.isConfigured || !updaterViewModel.automaticallyChecksForUpdates
@@ -130,8 +130,8 @@ struct SettingsView: View {
     #endif
 
     Section("Animations") {
-      springSliderRow("Spring response", value: $animationSettings.springResponse)
-      springSliderRow("Spring damping", value: $animationSettings.springDamping)
+      springSliderRow("Spring response", value: Bindable(animationSettings).springResponse)
+      springSliderRow("Spring damping", value: Bindable(animationSettings).springDamping)
       LabeledContent("Defaults") {
         Button("Reset") {
           animationSettings.resetToDefaults()
@@ -314,7 +314,7 @@ struct SettingsView: View {
     guard let version = item.version else {
       return item.name
     }
-    return version == "Debug" ? "\(item.name) · Debug" : "\(item.name) · v\(version)"
+    return "\(item.name) · v\(version)"
   }
 
   // MARK: - About
