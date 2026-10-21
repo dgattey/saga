@@ -5,28 +5,37 @@
 //  Created by Dylan Gattey on 7/8/25.
 //
 
+import Combine
 import CoreData
 import SwiftUI
 
 /// Contains all our books and allows for filtering
 @Observable
 final class BooksViewModel {
-  private struct CachedBookDTO {
+  private struct CachedSearchDocument {
     let bookUpdatedAt: Date?
-    let coverUpdatedAt: Date?
     let title: String?
     let author: String?
     let isbn: NSNumber?
     let rating: NSNumber?
     let readDateStarted: Date?
     let readDateFinished: Date?
-    let dto: BookDTO
+    let document: BookSearchDocument
   }
 
-  var filteredBooks: [SearchHighlightResult<Book>] = []
+  var filteredBooks: [BookSearchResult] = []
+  /// Drives the sidebar `.searchable` field and `filteredBooks`.
   var searchModel = SearchViewModel()
+
+  var isSpotlightPresented = false
+  private(set) var spotlightResults: [BookSearchResult] = []
+  /// Drives the ⌘K Spotlight bar independently of the sidebar filter.
+  let spotlightModel = SearchViewModel()
+  @ObservationIgnored let sidebarSearchFocusRequests = PassthroughSubject<Void, Never>()
+
+  @ObservationIgnored private var libraryBooks: [Book] = []
   @ObservationIgnored private var isHandlingBookChanges = false
-  @ObservationIgnored private var dtoCache: [NSManagedObjectID: CachedBookDTO] = [:]
+  @ObservationIgnored private var documentCache: [NSManagedObjectID: CachedSearchDocument] = [:]
 
   var hasActiveSearch: Bool {
     searchModel.hasActiveSearch
@@ -54,7 +63,7 @@ final class BooksViewModel {
     let changedBooks = changed.compactMap { $0 as? Book }
     guard !changedBooks.isEmpty else { return }
     for book in changedBooks {
-      dtoCache.removeValue(forKey: book.objectID)
+      documentCache.removeValue(forKey: book.objectID)
     }
     isHandlingBookChanges = true
     performSearch(with: books, debounce: .milliseconds(150))
@@ -65,7 +74,7 @@ final class BooksViewModel {
 
   func delete(_ book: Book, in context: NSManagedObjectContext) {
     let deletedBookID = book.id
-    dtoCache.removeValue(forKey: book.objectID)
+    documentCache.removeValue(forKey: book.objectID)
     withAnimation {
       context.delete(book)
       do {
@@ -81,31 +90,45 @@ final class BooksViewModel {
   }
 
   func performSearch(with books: FetchedResults<Book>, debounce: Duration? = nil) {
-    let sortedBooks = sorted(from: books)
-    searchModel.search(
-      in: sortedBooks,
+    libraryBooks = sorted(from: books)
+    search(libraryBooks, with: searchModel, debounce: debounce) { [weak self] results in
+      self?.filteredBooks = results
+    }
+    if isSpotlightPresented {
+      performSpotlightSearch()
+    }
+  }
+
+  func performSpotlightSearch() {
+    search(libraryBooks, with: spotlightModel, debounce: .milliseconds(80)) { [weak self] results in
+      self?.spotlightResults = results
+    }
+  }
+
+  private func search(
+    _ books: [Book],
+    with model: SearchViewModel,
+    debounce: Duration?,
+    completion: @escaping ([BookSearchResult]) -> Void
+  ) {
+    model.search(
+      in: books,
       debounce: debounce,
-      makeDTOs: { [weak self] in
-        guard let self else { return sortedBooks.map { $0.toDTO() } }
-        return self.cachedDTOs(for: sortedBooks)
+      makeDocuments: { [weak self] in
+        self?.cachedDocuments(for: books) ?? books.map(\.searchDocument)
       },
-      completion: { results in
-        self.filteredBooks = results
-      }
+      completion: completion
     )
   }
 
-  private func cachedDTOs(for books: [Book]) -> [BookDTO] {
-    if dtoCache.count > books.count * 2 {
-      dtoCache.removeAll(keepingCapacity: true)
+  private func cachedDocuments(for books: [Book]) -> [BookSearchDocument] {
+    if documentCache.count > books.count * 2 {
+      documentCache.removeAll(keepingCapacity: true)
     }
     return books.map { book in
       let objectID = book.objectID
-      let bookUpdatedAt = book.updatedAt
-      let coverUpdatedAt = book.coverImage?.updatedAt
-      if let cached = dtoCache[objectID],
-        cached.bookUpdatedAt == bookUpdatedAt,
-        cached.coverUpdatedAt == coverUpdatedAt,
+      if let cached = documentCache[objectID],
+        cached.bookUpdatedAt == book.updatedAt,
         cached.title == book.title,
         cached.author == book.author,
         cached.isbn == book.isbn,
@@ -113,21 +136,20 @@ final class BooksViewModel {
         cached.readDateStarted == book.readDateStarted,
         cached.readDateFinished == book.readDateFinished
       {
-        return cached.dto
+        return cached.document
       }
-      let dto = book.toDTO()
-      dtoCache[objectID] = CachedBookDTO(
-        bookUpdatedAt: bookUpdatedAt,
-        coverUpdatedAt: coverUpdatedAt,
+      let document = book.searchDocument
+      documentCache[objectID] = CachedSearchDocument(
+        bookUpdatedAt: book.updatedAt,
         title: book.title,
         author: book.author,
         isbn: book.isbn,
         rating: book.rating,
         readDateStarted: book.readDateStarted,
         readDateFinished: book.readDateFinished,
-        dto: dto
+        document: document
       )
-      return dto
+      return document
     }
   }
 
@@ -169,22 +191,22 @@ final class BooksViewModel {
 
     switch entry?.selection {
     case .home:
-      nextBookID = filteredBooks[0].model.objectID
+      nextBookID = filteredBooks[0].book.objectID
 
     case .book(let currentID):
-      guard let currentIndex = filteredBooks.firstIndex(where: { $0.model.objectID == currentID })
+      guard let currentIndex = filteredBooks.firstIndex(where: { $0.book.objectID == currentID })
       else {
-        nextBookID = filteredBooks[0].model.objectID
+        nextBookID = filteredBooks[0].book.objectID
         break
       }
       let nextIndex = currentIndex + 1
       guard nextIndex < filteredBooks.count else {
         return .handled
       }
-      nextBookID = filteredBooks[nextIndex].model.objectID
+      nextBookID = filteredBooks[nextIndex].book.objectID
 
     case nil:
-      nextBookID = filteredBooks[0].model.objectID
+      nextBookID = filteredBooks[0].book.objectID
     }
 
     guard entry?.selection != .book(nextBookID) else { return .handled }
@@ -203,7 +225,7 @@ final class BooksViewModel {
       return .ignored
 
     case .book(let currentID):
-      guard let currentIndex = filteredBooks.firstIndex(where: { $0.model.objectID == currentID })
+      guard let currentIndex = filteredBooks.firstIndex(where: { $0.book.objectID == currentID })
       else {
         return .ignored
       }
@@ -217,7 +239,7 @@ final class BooksViewModel {
         return .handled
       }
 
-      let previousBookID = filteredBooks[currentIndex - 1].model.objectID
+      let previousBookID = filteredBooks[currentIndex - 1].book.objectID
       guard entry?.selection != .book(previousBookID) else { return .handled }
       entry = NavigationEntry(selection: .book(previousBookID), scrollContextID: scrollContextID)
       return .handled

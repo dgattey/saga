@@ -93,6 +93,9 @@ struct ContentView: View {
         }
       }
     )
+    .overlay {
+      BookSearchSpotlightView(entry: $entry)
+    }
     .environment(navigationHistory)
     .environment(scrollStore)
     .environment(bookNavigationViewModel)
