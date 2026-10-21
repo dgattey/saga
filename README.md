@@ -57,6 +57,7 @@ run app              # build build/Saga.app (debug) and launch it in the backgro
 run app -b           # build only
 run app -r           # release configuration
 run app -t           # swift test
+run app --ui         # iOS Simulator screenshots of the main screens into build/captures/
 run app --help       # show usage
 scripts/build-ios-sim.sh [--install]   # build/Saga-iOS.app for the iOS Simulator
 ```

@@ -17,3 +17,10 @@ func runUnitTests(repoRoot: String) throws {
   print("Running Saga unit tests (SagaTests)...")
   try runCommand("swift", ["test"], cwd: URL(fileURLWithPath: repoRoot))
 }
+
+/// Builds the iOS Simulator app and screenshots its main screens without launching on this Mac.
+func runUITests(repoRoot: String) throws {
+  print("Capturing Saga screenshots in headless iOS Simulators...")
+  try runCommand(
+    "\(repoRoot)/scripts/ui-screenshots.sh", [], cwd: URL(fileURLWithPath: repoRoot))
+}

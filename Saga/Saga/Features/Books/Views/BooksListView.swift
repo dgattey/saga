@@ -117,10 +117,14 @@ struct BooksListView: View {
         }
       }
       .task(id: books.count) {
-        guard ProcessInfo.processInfo.arguments.contains("--open-first-book"),
-          let targetBook = currentlyReadingBook ?? books.first
-        else { return }
+        guard let initialView = LaunchOptions.initialView, !books.isEmpty else { return }
+        LoggerService.log(
+          "Initial view \(initialView.rawValue) with \(books.count) books", surface: .launch)
+        guard initialView == .book, let targetBook = currentlyReadingBook ?? books.first else {
+          return
+        }
         selectBook(targetBook.objectID)
+        LoggerService.log("Opened book \(targetBook.title ?? "")", surface: .launch)
       }
     #endif
     .searchable(

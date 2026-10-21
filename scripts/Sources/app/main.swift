@@ -11,6 +11,7 @@ enum Option: String, CLIOptionType, CaseIterable {
   case background
   case foreground
   case test
+  case ui
 
   var shortName: String? {
     switch self {
@@ -19,6 +20,7 @@ enum Option: String, CLIOptionType, CaseIterable {
     case .background: "g"
     case .foreground: "f"
     case .test: "t"
+    case .ui: "u"
     }
   }
 
@@ -29,6 +31,7 @@ enum Option: String, CLIOptionType, CaseIterable {
     case .background: "Launch in background without stealing focus (open -g -j) and exit"
     case .foreground: "Bring the app to the foreground when launching"
     case .test: "Run unit tests (SagaTests) with swift test"
+    case .ui: "Screenshot the main screens in headless iOS Simulators (scripts/ui-screenshots.sh)"
     }
   }
 }
@@ -39,6 +42,7 @@ struct Config {
   var background = false
   var foreground = false
   var runUnitTests = false
+  var runUITests = false
 
   /// Avoid stealing focus unless `--foreground` is explicitly requested.
   var shouldOpenInBackground: Bool {
@@ -77,11 +81,17 @@ func parseArguments(_ args: [String]) throws -> Config {
       config.foreground = true
     case .test:
       config.runUnitTests = true
+    case .ui:
+      config.runUITests = true
     }
   }
 
   if config.background, config.foreground {
     throw ScriptError("--background and --foreground cannot be used together")
+  }
+
+  if config.runUITests, config.buildOnly || config.release || config.runUnitTests {
+    throw ScriptError("--ui can't be combined with --build-only, --release or --test")
   }
 
   if config.runUnitTests, config.buildOnly {
@@ -115,6 +125,10 @@ runMain(usage: cli.usage()) {
   try checkXcodeToolsSelected()
   if config.runUnitTests {
     try runUnitTests(repoRoot: repoRoot)
+    return
+  }
+  if config.runUITests {
+    try runUITests(repoRoot: repoRoot)
     return
   }
   let appPath = try buildApp(repoRoot: repoRoot, release: config.release)

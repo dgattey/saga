@@ -69,6 +69,17 @@ jobs:
       - name: Build iOS Simulator app
         run: ./scripts/build-ios-sim.sh
 
+      - name: Screenshot main screens on iPhone and iPad
+        run: ./scripts/ui-screenshots.sh --no-build
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: build/captures/*.png
+          if-no-files-found: ignore
+
   release-artifact:
     name: 📦 Release artifact
     runs-on: macos-latest

@@ -21,7 +21,7 @@ shared UI/utilities.
 
 ## Commands
 - `./run --help` or `run --help` to list scripts
-- `run app` (`scripts/build-macos.sh` + launch in background via `open -g -j`, macOS only), `run app -b` (build only), `run app -t` / `run app --test` (`swift test`), `run app -r` (release), `run app -g` (background + exit), `run app -f` (foreground)
+- `run app` (`scripts/build-macos.sh` + launch in background via `open -g -j`, macOS only), `run app -b` (build only), `run app -t` / `run app --test` (`swift test`), `run app -u` / `run app --ui` (iOS Simulator screenshots), `run app -r` (release), `run app -g` (background + exit), `run app -f` (foreground)
 - `scripts/build-ios-sim.sh` builds `build/Saga-iOS.app` for the iOS Simulator
 - `run checks` (format + lint), `run checks --format`, `run checks --lint`
 - `run bootstrap` to set up shell completions for `run`
@@ -66,7 +66,8 @@ entities in both when adding models
 ## Testing
 - Unit and UI component tests live in `Saga/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).
 - Run unit tests with `run app --test` (or `run app -t`), which runs `swift test` without launching the app or hitting Contentful. Tests compile `Saga.xcdatamodeld` with `momc` themselves (`TestCoreDataStack`).
-- Use `run checks`, `run app -b`, and `run app -t` as the standard verification loop.
+- UI coverage is headless iOS Simulator screenshots: `run app --ui` (`scripts/ui-screenshots.sh`) seeds fixture books (`scripts/ui-fixture-store.swift`) into fresh iPhone and iPad simulators, launches with `--initial-view home|book` and `--appearance light|dark` (`LaunchOptions`, also `SAGA_INITIAL_VIEW` / `SAGA_APPEARANCE`), and checks each launch logged the screen it was asked for. PNGs land in `build/captures/`; CI uploads them as the `ui-screenshots` artifact. Look at them after visual changes. Never launch `build/Saga.app` on a Mac where Saga is installed: it shares the release bundle ID.
+- Use `run checks`, `run app -b`, `run app -t`, and `run app --ui` as the standard verification loop.
 
 ## Environment
 - Pure SwiftPM (`Package.swift`); no Xcode project. Xcode must be installed for `momc`, `actool`, and the SDKs

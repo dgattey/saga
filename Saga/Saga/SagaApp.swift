@@ -27,6 +27,7 @@ struct SagaApp: App {
       ContentView()
         .environment(\.managedObjectContext, syncViewModel.viewContext)
         .windowBackground()
+        .preferredColorScheme(LaunchOptions.colorScheme)
         #if os(macOS)
           .onAppear {
             updaterViewModel.mainWindowDidAppear()

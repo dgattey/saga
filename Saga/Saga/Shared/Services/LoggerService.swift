@@ -20,6 +20,8 @@ enum LogSurface: String {
   case richText = "RichText"
   /// Automatic update checks and installation via Sparkle.
   case updates = "Updates"
+  /// Launch flags (`LaunchOptions`) that screenshot runs assert on.
+  case launch = "Launch"
 }
 
 enum LogLevel {
