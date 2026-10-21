@@ -7,7 +7,6 @@
 
 import SwiftUI
 
-/// Represents a top-level section in the Settings window/sheet.
 enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
   case general
   case storage
@@ -32,27 +31,27 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
   var systemImage: String {
     switch self {
     case .general:
-      "gearshape.fill"
+      "gearshape"
     case .storage:
-      "internaldrive.fill"
+      "internaldrive"
     case .credits:
-      "heart.fill"
+      "heart"
     case .about:
-      "info.circle.fill"
+      "info.circle"
     }
   }
 
-  /// Muted earth-tone fill for the sidebar squircle badge.
+  /// Muted botanical-palette fill used for the sidebar squircle badge.
   var badgeColor: Color {
     switch self {
     case .general:
-      Color(red: 0.369, green: 0.455, blue: 0.408)
+      Color(red: 0.369, green: 0.455, blue: 0.408)  // sage #5E7468
     case .storage:
-      Color(red: 0.357, green: 0.478, blue: 0.549)
+      Color(red: 0.357, green: 0.478, blue: 0.549)  // slate #5B7A8C
     case .credits:
-      Color(red: 0.753, green: 0.541, blue: 0.243)
+      Color(red: 0.753, green: 0.541, blue: 0.243)  // ochre #C08A3E
     case .about:
-      Color(red: 0.706, green: 0.392, blue: 0.290)
+      Color(red: 0.706, green: 0.392, blue: 0.290)  // terracotta #B4644A
     }
   }
 }

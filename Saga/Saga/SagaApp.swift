@@ -50,6 +50,7 @@ struct SagaApp: App {
     #if os(macOS)
       Window("Settings", id: "settings") {
         SettingsView()
+          .windowBackground()
       }
       .windowResizability(.contentSize)
       .defaultSize(width: 680, height: 520)
