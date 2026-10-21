@@ -4,75 +4,77 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   bump:
     name: 📦 Bump version
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
-      - name: Verify PR release info
+      - name: Check exactly one Release info box
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          set -euo pipefail
-          if printf '%s\n' "$PR_BODY" | grep -qiE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Major\b'; then
-            release_type="major"
-          elif printf '%s\n' "$PR_BODY" | grep -qiE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Minor\b'; then
-            release_type="minor"
-          else
-            release_type="patch"
+          checked="$(printf '%s\n' "$PR_BODY" | grep -ciE '^[[:space:]]*-[[:space:]]*\[x\][[:space:]]*(Major|Minor|Patch)\b' || true)"
+          if [ "$checked" != "1" ]; then
+            echo "::error::Check exactly one Release info box (Major, Minor or Patch); found ${checked}."
+            exit 1
           fi
-          echo "Release bump type: ${release_type} (version and build are computed at release time on merge)"
+          echo "Release info OK"
 
   format:
     name: 🎨 Format
     runs-on: macos-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Check formatting
-        uses: ./.github/actions/format
+      - uses: actions/checkout@v4
+      - name: swift-format
+        run: ./run format --check
 
   lint:
     name: 🔍 Lint
     runs-on: macos-latest
+    timeout-minutes: 20
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
         with:
-          fetch-depth: 0
-
-      - name: Lint
-        uses: ./.github/actions/lint
+          path: .build
+          key: swiftpm-lint-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: swiftpm-lint-${{ runner.os }}-
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: swiftlint
+      - name: Manifest, SwiftLint, dyl-lint and release checks
+        run: ./run dev checks
 
   build:
     name: 🔨 Build
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
         with:
-          fetch-depth: 0
-
-      - name: Build
-        uses: ./.github/actions/build
+          path: .build
+          key: swiftpm-build-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: swiftpm-build-${{ runner.os }}-
+      - name: Build build/Saga.app
+        run: ./run dev build
+      - name: Unit tests
+        run: swift test
 
   ios:
     name: 📱 iOS Simulator
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
-
-      - name: Build iOS Simulator app
-        run: ./scripts/build-ios-sim.sh
-
+      - uses: actions/checkout@v4
       - name: Screenshot main screens on iPhone and iPad
-        run: ./scripts/ui-screenshots.sh --no-build
-
+        run: ./run ui
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -81,29 +83,50 @@ jobs:
           path: build/captures/*.png
           if-no-files-found: ignore
 
+  site:
+    name: 🌐 Site
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install, typecheck, test and build
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+
+  # The release steps minus publishing, so every PR proves it would ship a valid Sparkle update for
+  # installs of the live release.
   release-artifact:
     name: 📦 Release artifact
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Fetch tags
-        run: git fetch --tags
-
-      # Same steps as release.yml, minus publishing, so every PR proves it would ship a valid
-      # Sparkle update for installs of the latest published release.
-      - name: Package release and verify against the latest published release
+      - name: Plan the version from this PR's Release info
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SPARKLE_ED_PRIVATE_KEY_BASE64: ${{ secrets.SPARKLE_ED_PRIVATE_KEY_BASE64 }}
-          SAGA_REPO: ${{ github.repository }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          set -euo pipefail
-          read_output="$(./run version-and-release read --event "$GITHUB_EVENT_PATH")"
-          version="$(echo "$read_output" | awk -F= '/^VERSION=/{print $2}')"
-          build="$(echo "$read_output" | awk -F= '/^BUILD=/{print $2}')"
-          ./run version-and-release package --version "$version" --build "$build" --output-dir dist/release
-          ./scripts/verify-release.sh "dist/release/Saga-${version}.zip" dist/release/appcast.xml
+          printf '%s\n' "$PR_BODY" >"$RUNNER_TEMP/pr-body.md"
+          ./run release version --type auto --pr-body-file "$RUNNER_TEMP/pr-body.md"
+      - name: Bundle
+        run: ./run release bundle
+      - name: Sign
+        run: ./run release sign
+      - name: Appcast
+        env:
+          SPARKLE_ED_PRIVATE_KEY_BASE64: ${{ secrets.SPARKLE_ED_PRIVATE_KEY_BASE64 }}
+        run: ./run release appcast
+      - name: Check against the live release
+        run: ./run release check --live

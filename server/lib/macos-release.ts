@@ -9,8 +9,7 @@ export type MacOSRelease = {
   downloadReady: boolean;
 };
 
-export const DEFAULT_APPCAST_URL =
-  "https://github.com/dgattey/saga/releases/latest/download/appcast.xml";
+export const DEFAULT_APPCAST_URL = "https://saga.gattey.com/appcast.xml";
 
 export const FALLBACK_MACOS_RELEASE: MacOSRelease = {
   version: "1.4.1",
@@ -60,9 +59,9 @@ export function getAppcastUrl(): string {
 }
 
 /**
- * Fetches the latest Sparkle `appcast.xml` from GitHub Releases (revalidated every 60s)
- * so new releases published by `.github/workflows/release.yml` automatically update the
- * version label and `/download/macos` redirect without redeploying the site.
+ * Fetches the site's Sparkle `appcast.xml` (revalidated every 60s). release-kit deploys it with each
+ * release rather than committing it, so the version label and `/download/macos` redirect read it at
+ * request time.
  * Falls back to `FALLBACK_MACOS_RELEASE` (`v1.4.1`).
  */
 export async function getMacOSRelease(): Promise<MacOSRelease> {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Headless iOS Simulator screenshots of Saga's main screens, checked against what each launch asked for.
 #
-# Builds build/Saga-iOS.app, seeds a fixture store (scripts/ui-fixture-store.swift) into a fresh iPhone
+# Builds build/Saga-iOS.app (`devkit ios`), seeds a fixture store (scripts/ui-fixture-store.swift) into a fresh iPhone
 # and iPad simulator, launches with --initial-view home|book in light and dark, and writes PNGs to
 # build/captures/. Fails if the app crashes, doesn't log the screen and book count it was asked for,
 # loses the seeded books, or renders two different screens identically. Simulator.app never opens and
@@ -12,8 +12,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-# shellcheck source=scripts/lib/app-config.sh
-source "$ROOT/scripts/lib/app-config.sh"
+SAGA_BUNDLE_ID="$(sed -n 's/^bundle-id = "\(.*\)"$/\1/p' "$ROOT/DylApp.toml" | head -1)"
 
 APP="$ROOT/build/Saga-iOS.app"
 CAPTURES="$ROOT/build/captures"
@@ -73,9 +72,9 @@ sys.exit(1)
 }
 
 if [[ "${1:-}" != "--no-build" ]]; then
-  "$ROOT/scripts/build-ios-sim.sh" >/dev/null
+  "$ROOT/run" dev ios >/dev/null
 fi
-[[ -d "$APP" ]] || fail "$APP is missing; run scripts/build-ios-sim.sh"
+[[ -d "$APP" ]] || fail "$APP is missing; run ./run dev ios"
 
 FIXTURE="$WORK_DIR/Saga.sqlite"
 step "writing fixture store"

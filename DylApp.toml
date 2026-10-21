@@ -1,0 +1,45 @@
+# Saga app manifest, read by devkit and release-kit (DylKit). `./run dev checks` validates it.
+
+[app]
+name = "Saga"
+bundle-id = "com.dylangattey.Saga"
+platforms = { macos = "26.0", ios = "26.0" }
+category = "public.app-category.productivity"
+
+[build]
+product = "Saga"
+entitlements = "Saga.entitlements"
+resources = ["Sources/Saga/Saga.xcdatamodeld", "Sources/Saga/Assets.xcassets"]
+icon = "Sources/Saga/AppIcon.icon"
+accent-color = "AccentColor"
+
+# Contentful credentials for dev builds. Releases ship the defaults; `./run bootstrap` writes the file from 1Password.
+[local-values]
+file = "Config.xcconfig"
+keys = { ContentfulSpaceId = "CONTENTFUL_SPACE_ID", ContentfulAccessToken = "CONTENTFUL_ACCESS_TOKEN", SagaAPISecret = "SAGA_API_SECRET" }
+defaults = { ContentfulSpaceId = "placeholder", ContentfulAccessToken = "placeholder", SagaAPISecret = "" }
+
+[ios]
+simulator = "iPhone 17 Pro"
+
+[ios.info]
+UIApplicationSceneManifest = { UIApplicationSupportsMultipleScenes = true }
+UIApplicationSupportsIndirectInputEvents = true
+UIStatusBarStyle = "UIStatusBarStyleDefault"
+"UISupportedInterfaceOrientations~iphone" = ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]
+"UISupportedInterfaceOrientations~ipad" = ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown", "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"]
+
+[release]
+sparkle-public-key = "sparkle-public-key.txt"
+site-url = "https://saga.gattey.com"
+artifacts-dir = "server/public"
+check-interval = 3600
+# Only what ships in the app.
+inputs = [
+    "Sources/**",
+    "Package.swift",
+    "Package.resolved",
+    "DylApp.toml",
+    "Saga.entitlements",
+    "sparkle-public-key.txt",
+]

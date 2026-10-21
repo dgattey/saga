@@ -16,17 +16,17 @@ clarify uncertainty before coding, and align suggestions with the rules linked b
 ## Repository Overview
 Saga is a SwiftUI MVVM app (macOS/iOS) for tracking books and other media.
 Data is stored in Core Data and synced via Contentful using `PersistenceService`
-and `SyncViewModel`. App code lives under `Saga/Saga/` with feature modules and
-shared UI/utilities.
+and `SyncViewModel`. App code lives under `Sources/Saga/` with feature modules and
+shared UI/utilities. It's built with DylKit (`DylCore`, `DylUI`, `DylUpdates`, `devkit`, `release-kit`), configured by `DylApp.toml`.
 
 ## Commands
-- `./run --help` or `run --help` to list scripts
-- `run app` (`scripts/build-macos.sh` + launch in background via `open -g -j`, macOS only), `run app -b` (build only), `run app -t` / `run app --test` (`swift test`), `run app -u` / `run app --ui` (iOS Simulator screenshots), `run app -r` (release), `run app -g` (background + exit), `run app -f` (foreground)
-- `scripts/build-ios-sim.sh` builds `build/Saga-iOS.app` for the iOS Simulator
-- `run checks` (format + lint), `run checks --format`, `run checks --lint`
-- `run bootstrap` to set up shell completions for `run`
-- `run config` to write `Config.xcconfig` from the environment
-- `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml` via `scripts/generate-appcast.sh` and `scripts/release-notes.sh` with cumulative release notes capped at the last 10 versions); `scripts/verify-release.sh` checks the result against the latest published release; the app's Sparkle feed is `https://saga.gattey.com/appcast.xml`, which the site redirects to the latest GitHub release's appcast (`server/next.config.ts`); releases never commit to `main`
+- `./run dev build` (`build/Saga.app`), `./run dev relaunch` (build + open in the background, never focused), `./run dev capture` (screenshot into `build/captures/`), `./run dev ios [--run]` (`build/Saga-iOS.app` on a headless simulator), `./run dev checks` (DylApp.toml, SwiftLint, dyl-lint, release checks), `./run dev --help`
+- `./run ui` iPhone and iPad screenshots with fixture books (`scripts/ui-screenshots.sh`)
+- `./run format` (`--check` to lint only) runs `swift format` with `.swift-format`
+- `swift test` runs `SagaTests`
+- `./run bootstrap` writes `Config.xcconfig` from 1Password
+- `./run release <step>` is `release-kit` (version, bundle, sign, appcast, check [--live], publish, deploy); CI runs it, not you. Releases never commit to `main`: `publish` pushes the `v<version>` tag and deploys the site with the appcast and zip. The Sparkle feed `https://saga.gattey.com/appcast.xml` exists only on the site, so production deploys go through `release-kit` (Vercel git deploys of `main` are off; `site.yml` runs `./run release deploy` for `server/` changes)
+- DylKit is cloned from scone-os into `.dylkit/` until `dgattey/dyl-kit` exists; set `DYLKIT_PATH` to use another checkout of its `Packages/DylKit`
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
@@ -46,19 +46,14 @@ shared UI/utilities.
   and `PersistentScrollView`
 - Caching is handled by `ImageCache` and `NetworkCache`
 - Shared animations come from `AnimationSettings.shared`
-- Book pages share `BookEditorialLayout` in `BookContentView` and `BookEditorView` so read, in-place edit, and new-book modes morph in place
 - Shared UI lives in `Shared/Views`; shared models and utilities in `Shared/*` modules
 - App specific UI and models live in `Features/*`, each with their own set of folders for Models, Views, etc.
 
 ## Key Integration Points
 **Services**: `PersistenceService` (Core Data + Contentful CDA), `GoodreadsSyncService` (HMAC-SHA256 signed client for `https://dylangattey.com/api/books/goodreads-sync` and `https://dylangattey.com/api/books/sync`), `LoggerService`,
-`ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`, `UpdaterViewModel` (Sparkle automatic updates on macOS),
-book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`, unified by `CoverImageResolver.bestCoverURL`),
-`CoverImageStore` (dropped/pasted covers in Application Support, stored on `Book.localCoverImageURL`, compressed to ≤1600px JPEG for `coverImageBase64` + `coverImageContentType` uploads),
-`BookMutationService` (create/edit/delete books locally, then push to `/api/books/sync`)
-**Editing**: `BookContentView` swaps read mode for `BookEditorView` (⌘E); `File > New Book…` (⌘N) and the
-sidebar `+` present the same editor in create mode. Edits live in a `BookDraft` until Done.
-**UI**: `ContentView` entry, `HomeView`/`BooksListView`, `ResponsiveLayout`,
+`ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`, `AppUpdater.shared` (DylUpdates: Sparkle on macOS, inert on iOS),
+book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`)
+**UI**: DylUI's `AppWindow` (main window, palette `SagaPalette`, launch overrides, Check for Updates menu) and `SettingsWindow`/`SettingsView` with `SettingsPage.saga`, `ContentView` entry, `HomeView`/`BooksListView`, `ResponsiveLayout`,
 `PersistentScrollView`, `MenuBarCommands`
 **Data**: `Saga.xcdatamodeld` + `PersistenceModel` for Core Data entities; register new
 entities in both when adding models
@@ -69,21 +64,19 @@ entities in both when adding models
 - Update documentation and related rules when introducing new patterns or services
 
 ## Testing
-- Unit and UI component tests live in `Saga/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).
-- Run unit tests with `run app --test` (or `run app -t`), which runs `swift test` without launching the app or hitting Contentful. Tests compile `Saga.xcdatamodeld` with `momc` themselves (`TestCoreDataStack`).
-- UI coverage is headless iOS Simulator screenshots: `run app --ui` (`scripts/ui-screenshots.sh`) seeds fixture books (`scripts/ui-fixture-store.swift`) into fresh iPhone and iPad simulators, launches with `--initial-view home|book` and `--appearance light|dark` (`LaunchOptions`, also `SAGA_INITIAL_VIEW` / `SAGA_APPEARANCE`), and checks each launch logged the screen it was asked for. PNGs land in `build/captures/`; CI uploads them as the `ui-screenshots` artifact. Look at them after visual changes. Never launch `build/Saga.app` on a Mac where Saga is installed: it shares the release bundle ID.
-- Use `run checks`, `run app -b`, `run app -t`, and `run app --ui` as the standard verification loop.
+- Unit and UI component tests live in `Tests/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).
+- Run unit tests with `swift test`, which runs without launching the app or hitting Contentful. Tests compile `Saga.xcdatamodeld` with `momc` themselves (`TestCoreDataStack`).
+- UI coverage is headless iOS Simulator screenshots: `./run ui` (`scripts/ui-screenshots.sh`) seeds fixture books (`scripts/ui-fixture-store.swift`) into fresh iPhone and iPad simulators, launches with `--initial-view home|book` and `--appearance light|dark` (DylCore `LaunchOverrides.saga`, also `SAGA_INITIAL_VIEW` / `SAGA_APPEARANCE`), and checks each launch logged the screen it was asked for. PNGs land in `build/captures/`; CI uploads them as the `ui-screenshots` artifact. Look at them after visual changes. Never launch `build/Saga.app` on a Mac where Saga is installed: it shares the release bundle ID.
+- Use `./run format --check`, `./run dev checks`, `./run dev build`, `swift test`, and `./run ui` as the standard verification loop.
 
 ## Environment
-- Pure SwiftPM (`Package.swift`); no Xcode project. Xcode must be installed for `momc`, `actool`, and the SDKs
-- `run bootstrap` writes `Config.xcconfig` from 1Password; `run config`
- writes the same file from `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` (plus optional `SAGA_API_SECRET`)
-- The file is gitignored and optional: `scripts/lib/app-config.sh` falls back to placeholder credentials, which is what CI and releases build with
+- Pure SwiftPM (`Package.swift`, Swift 6 language mode); no Xcode project. Xcode must be installed for `momc`, `actool`, and the SDKs
+- `./run bootstrap` writes the gitignored `Config.xcconfig` from 1Password. devkit copies its values into the dev app's Info.plist (`[local-values]` in `DylApp.toml`); environment variables with the same names win, and without either the app gets placeholder credentials, which is what CI and releases build with
 - **1Password CLI (`op`) rules**:
   - Never call `op` repeatedly across separate shell commands or loops (each shell tool call is a new terminal session and triggers a separate Touch ID prompt).
   - If a secret is needed and not already cached locally in `Config.xcconfig` or `.env.local`, batch every needed `op` read into a single shell command, write them into a gitignored `.env.local` (or `Config.xcconfig`), and source that file on subsequent commands.
   - Never print secret values.
-- `swift-format` is listed in the repo `Brewfile` (install with `brew bundle`)
+- `swift format` ships with the toolchain; `mise.toml` pins SwiftLint (`mise install`)
 - Validate formatting and linting before final review, and build the app too.
 
 ## Special Notes

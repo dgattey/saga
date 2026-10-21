@@ -1,6 +1,6 @@
 ---
 description: ViewModel patterns and async work
-globs: Saga/Saga/**/*ViewModel.swift
+globs: Sources/Saga/**/*ViewModel.swift
 alwaysApply: false
 ---
 # ViewModel Patterns
