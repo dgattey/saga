@@ -46,9 +46,9 @@ struct ModelsAndPersistenceTests {
     #expect(request.sortDescriptors?.first?.ascending == false)
   }
 
-  @Test("Book and Asset persist in-memory and map to searchable DTOs")
+  @Test("Book and Asset persist in-memory and map to a search document")
   @MainActor
-  func bookAndAssetPersistenceAndDTOMapping() throws {
+  func bookAndAssetPersistenceAndSearchDocument() throws {
     let container = TestCoreDataStack.makeContainer()
     let context = container.viewContext
 
@@ -66,15 +66,18 @@ struct ModelsAndPersistenceTests {
     #expect(book.readingStatus == .read)
     #expect(book.coverImage?.assetURL == URL(string: "https://example.com/piranesi.jpg"))
 
-    let dto = book.toDTO()
-    #expect(dto.id == "book-1")
-    #expect(dto.title == "Piranesi")
-    #expect(dto.author == "Susanna Clarke")
-    #expect(dto.isbn == "9781635575637")
-    #expect(dto.rating == "5")
-    #expect(dto.reviewDescription == "The House is infinite.\n\nThe Tides are regular.")
-    #expect(dto.coverImage?.urlString == "https://example.com/piranesi.jpg")
-    #expect(dto.description == "Piranesi")
+    let finishedYear = Calendar.current.component(.year, from: try #require(book.readDateFinished))
+    #expect(
+      book.searchDocument
+        == BookSearchDocument(
+          title: "Piranesi",
+          author: "Susanna Clarke",
+          isbn: "9781635575637",
+          review: "The House is infinite.\n\nThe Tides are regular.",
+          rating: 5,
+          status: .read,
+          year: finishedYear
+        ))
   }
 
   @Test("Asset.add deduplicates existing assets case-insensitively by URL")

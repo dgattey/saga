@@ -23,6 +23,7 @@ struct BooksListView: View {
 
   /// Focus state to ensure keyboard events are received
   @FocusState private var isListFocused: Bool
+  @FocusState private var isSearchFocused: Bool
 
   /// Throttle keyboard navigation to allow animations to complete
   @StateObject private var navThrottle = NavigationThrottle()
@@ -34,22 +35,22 @@ struct BooksListView: View {
       ScrollViewReader { proxy in
         PersistentScrollView(scrollKey: ScrollKey(scope: .sidebarBooks, region: "list")) {
           LazyVStack(alignment: .leading, spacing: 4) {
-            if viewModel.filteredBooks.isEmpty, hasActiveSearch {
+            if viewModel.filteredBooks.isEmpty, viewModel.hasActiveSearch {
               BookListEmptyStateView()
             } else {
-              ForEach(viewModel.filteredBooks, id: \.model.objectID) { result in
+              ForEach(viewModel.filteredBooks, id: \.book.objectID) { result in
                 BookListRowView(
                   result: result,
-                  isSelected: entry?.selection == .book(result.model.objectID),
+                  isSelected: entry?.selection == .book(result.book.objectID),
                   selectionBackgroundColor: selectionBackgroundColor,
                   onSelect: {
-                    selectBook(result.model.objectID)
+                    selectBook(result.book.objectID)
                   },
                   onDelete: {
-                    deleteBook(result.model)
+                    deleteBook(result.book)
                   }
                 )
-                .id(result.model.objectID)
+                .id(result.book.objectID)
                 .accessibilityIdentifier(AccessibilityID.Books.bookRow(result.index))
               }
             }
@@ -85,10 +86,10 @@ struct BooksListView: View {
     #if os(macOS)
       .frame(minWidth: 200, idealWidth: 300)
     #endif
-    .task(id: viewModel.searchModel.searchText) {
+    .task(id: viewModel.searchModel.key) {
       viewModel.performSearch(
         with: books,
-        debounce: viewModel.searchModel.searchText.isEmpty ? nil : .milliseconds(200)
+        debounce: viewModel.searchModel.query.isEmpty ? nil : .milliseconds(200)
       )
     }
     .onChange(of: books.count) {
@@ -125,8 +126,16 @@ struct BooksListView: View {
     #endif
     .searchable(
       text: $viewModel.searchModel.searchText,
+      tokens: $viewModel.searchModel.tokens,
+      suggestedTokens: .constant(viewModel.searchModel.suggestedTokens),
       placement: .sidebar
-    )
+    ) { token in
+      Label(token.label, systemImage: token.systemImage)
+    }
+    .searchFocused($isSearchFocused)
+    .onReceive(viewModel.sidebarSearchFocusRequests) { _ in
+      isSearchFocused = true
+    }
     .navigationTitle("All books")
   }
 
@@ -159,16 +168,12 @@ struct BooksListView: View {
 
   // MARK: - Scroll Management
 
-  private var hasActiveSearch: Bool {
-    !viewModel.searchModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-  }
-
   private func scrollToSelection(
     selection: SidebarSelection?,
     proxy: ScrollViewProxy
   ) {
     guard case .book(let selectedID) = selection else { return }
-    guard viewModel.filteredBooks.contains(where: { $0.model.objectID == selectedID }) else {
+    guard viewModel.filteredBooks.contains(where: { $0.book.objectID == selectedID }) else {
       return
     }
     // Use a fast animation that completes quickly for smooth rapid navigation
@@ -221,7 +226,7 @@ struct BookListEmptyStateView: View {
 }
 
 private struct BookListRowView: View {
-  let result: SearchHighlightResult<Book>
+  let result: BookSearchResult
   let isSelected: Bool
   let selectionBackgroundColor: Color
   let onSelect: () -> Void
