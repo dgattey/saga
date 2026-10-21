@@ -146,6 +146,7 @@ struct BookEditingTests {
     draft.rating = 0
     draft.isbnText = "0-593-13520-2"
     draft.reviewText = "   "
+    draft.notesText = "  Keep a copy for the studio shelf. \n\n Second paragraph. "
     draft.apply(to: book)
 
     #expect(book.title == "Always Coming Home")
@@ -154,6 +155,15 @@ struct BookEditingTests {
     #expect(book.rating == nil)
     #expect(book.isbn?.int64Value == 9_780_593_135_204)
     #expect(book.reviewDescription == nil)
+    #expect(book.notes?.plainText == "Keep a copy for the studio shelf.\n\nSecond paragraph.")
+
+    let reloadedDraft = BookDraft(book: book, now: Self.reference)
+    #expect(reloadedDraft.notesText == "Keep a copy for the studio shelf.\n\nSecond paragraph.")
+
+    var clearingDraft = reloadedDraft
+    clearingDraft.notesText = "   \n "
+    clearingDraft.apply(to: book)
+    #expect(book.notes == nil)
   }
 
   @Test("ReadingDuration describes finished and in-progress reads")

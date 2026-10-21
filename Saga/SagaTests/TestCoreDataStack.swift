@@ -41,6 +41,7 @@ enum TestCoreDataStack {
     readDateStarted: Date? = Date(timeIntervalSince1970: 1_700_000_000),
     readDateFinished: Date? = Date(timeIntervalSince1970: 1_700_600_000),
     reviewPlainText: String? = "A masterpiece of speculative fiction.",
+    notesPlainText: String? = nil,
     coverURLString: String? = "https://images.ctfassets.net/cover.jpg"
   ) throws -> Book {
     let book = Book(context: context)
@@ -55,6 +56,9 @@ enum TestCoreDataStack {
     book.readDateFinished = readDateFinished
     if let reviewPlainText {
       book.reviewDescription = RichTextDocument(fromPlainText: reviewPlainText)
+    }
+    if let notesPlainText {
+      book.notes = RichTextDocument(fromPlainText: notesPlainText)
     }
     if let coverURLString {
       let asset = Asset(context: context)

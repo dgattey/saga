@@ -114,8 +114,11 @@ struct ViewsInspectorTests {
     #expect(try labeled.inspect().find(text: "STARTED").string() == "STARTED")
     #expect(try labeled.inspect().find(text: "Feb 2, 2026").string() == "Feb 2, 2026")
 
+    let reviewLabel = try EditorialSectionLabel("Review").inspect()
+    #expect(try reviewLabel.find(text: "REVIEW").string() == "REVIEW")
+
     let emptyNotes = try BookNotesEmptyState().inspect()
-    #expect(try emptyNotes.find(text: "NOTES").string() == "NOTES")
+    #expect(try emptyNotes.find(text: "PRIVATE NOTES").string() == "PRIVATE NOTES")
     #expect(
       try emptyNotes.find(text: "No notes yet. Choose Edit to add your thoughts.").string()
         == "No notes yet. Choose Edit to add your thoughts."

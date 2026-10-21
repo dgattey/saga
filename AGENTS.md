@@ -56,7 +56,7 @@ book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`, unified by 
 `CoverImageStore` (dropped/pasted covers in Application Support, stored on `Book.localCoverImageURL`, compressed to ≤1600px JPEG for `coverImageBase64` + `coverImageContentType` uploads),
 `BookMutationService` (create/edit/delete books locally, then push to `/api/books/sync`)
 **Editing**: `BookContentView` swaps read mode for `BookEditorView` (⌘E); `File > New Book…` (⌘N) and the
-sidebar `+` present the same editor in create mode. Edits live in a `BookDraft` until Done.
+sidebar `+` present the same editor in create mode. Edits live in a `BookDraft` until Done, covering both the public `reviewDescription` ("Review") and private freeform `notes` ("Private Notes", indexed by `BookSearchEngine` and the `.hasNotes` token).
 **UI**: `ContentView` entry, `HomeView`/`BooksListView`, `ResponsiveLayout`,
 `PersistentScrollView`, `MenuBarCommands`
 **Data**: `Saga.xcdatamodeld` + `PersistenceModel` for Core Data entities; register new

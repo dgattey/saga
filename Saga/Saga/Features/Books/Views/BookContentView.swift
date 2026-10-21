@@ -326,8 +326,18 @@ struct BookReadDetailsView: View {
         !review.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       {
         VStack(alignment: .leading, spacing: 10) {
-          EditorialSectionLabel("Notes")
+          EditorialSectionLabel("Review")
           AttributedTextViewer(attributedString: review.editorialAttributedString())
+        }
+        Divider()
+          .padding(.vertical, 22)
+      }
+      if let notes = book.notes,
+        !notes.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      {
+        VStack(alignment: .leading, spacing: 10) {
+          EditorialSectionLabel("Private Notes", systemImage: "lock.fill")
+          AttributedTextViewer(attributedString: notes.editorialAttributedString())
         }
       } else {
         BookNotesEmptyState()
@@ -375,16 +385,24 @@ struct BookReadDetailsView: View {
 
 struct EditorialSectionLabel: View {
   private let text: String
+  private let systemImage: String?
 
-  init(_ text: String) {
+  init(_ text: String, systemImage: String? = nil) {
     self.text = text
+    self.systemImage = systemImage
   }
 
   var body: some View {
-    Text(text.uppercased())
-      .font(.editorialLabel)
-      .tracking(0.8)
-      .foregroundStyle(.secondary)
+    HStack(spacing: 5) {
+      if let systemImage {
+        Image(systemName: systemImage)
+          .font(.caption2.weight(.semibold))
+      }
+      Text(text.uppercased())
+        .font(.editorialLabel)
+        .tracking(0.8)
+    }
+    .foregroundStyle(.secondary)
   }
 }
 
@@ -422,7 +440,7 @@ struct EditorialHairlineRow<Item: View>: View {
 struct BookNotesEmptyState: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
-      EditorialSectionLabel("Notes")
+      EditorialSectionLabel("Private Notes", systemImage: "lock.fill")
       Text("No notes yet. Choose Edit to add your thoughts.")
         .font(.editorialNotes.italic())
         .foregroundStyle(.tertiary)

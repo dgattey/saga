@@ -22,7 +22,7 @@ struct BookEditorView: View {
   }
 
   private enum Field: Hashable {
-    case title, author, isbn, notes
+    case title, author, isbn, review, notes
   }
 
   private enum MetadataField: Hashable {
@@ -130,7 +130,10 @@ struct BookEditorView: View {
       validationMessages
       Divider()
         .padding(.vertical, 22)
-      notesEditor
+      reviewEditor
+      Divider()
+        .padding(.vertical, 22)
+      privateNotesEditor
     }
   }
 
@@ -249,15 +252,15 @@ struct BookEditorView: View {
     }
   }
 
-  private var notesEditor: some View {
+  private var reviewEditor: some View {
     VStack(alignment: .leading, spacing: 10) {
-      EditorialSectionLabel("Notes")
+      EditorialSectionLabel("Review")
       TextEditor(text: $viewModel.draft.reviewText)
         .font(.editorialNotes)
         .lineSpacing(5)
         .scrollContentBackground(.hidden)
-        .focused($focusedField, equals: .notes)
-        .frame(minHeight: 180)
+        .focused($focusedField, equals: .review)
+        .frame(minHeight: 130)
         .overlay(alignment: .topLeading) {
           if viewModel.draft.reviewText.isEmpty {
             Text("What did you think?")
@@ -268,8 +271,38 @@ struct BookEditorView: View {
           }
         }
         .padding(.vertical, 6)
+        .editorialField(isFocused: focusedField == .review)
+        .accessibilityLabel("Review")
+    }
+  }
+
+  private var privateNotesEditor: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        EditorialSectionLabel("Private Notes", systemImage: "lock.fill")
+        Spacer()
+        Text("Only visible in Saga")
+          .font(.caption2)
+          .foregroundStyle(.tertiary)
+      }
+      TextEditor(text: $viewModel.draft.notesText)
+        .font(.editorialNotes)
+        .lineSpacing(5)
+        .scrollContentBackground(.hidden)
+        .focused($focusedField, equals: .notes)
+        .frame(minHeight: 140)
+        .overlay(alignment: .topLeading) {
+          if viewModel.draft.notesText.isEmpty {
+            Text("Private notes, quotes, or reminders…")
+              .font(.editorialNotes.italic())
+              .foregroundStyle(.tertiary)
+              .padding(.leading, 5)
+              .allowsHitTesting(false)
+          }
+        }
+        .padding(.vertical, 6)
         .editorialField(isFocused: focusedField == .notes)
-        .accessibilityLabel("Notes")
+        .accessibilityLabel("Private Notes")
     }
   }
 
