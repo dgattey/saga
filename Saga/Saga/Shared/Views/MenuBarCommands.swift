@@ -15,6 +15,7 @@ struct MenuBarCommands: Commands {
     @Environment(UpdaterViewModel.self) var updaterViewModel
   #endif
   @Environment(\.openWindow) private var openWindow
+  @FocusedBinding(\.isCreatingBook) private var isCreatingBook
 
   var body: some Commands {
     #if os(macOS)
@@ -22,6 +23,14 @@ struct MenuBarCommands: Commands {
         CheckForUpdatesMenuItem(updaterViewModel: updaterViewModel)
       }
     #endif
+
+    CommandGroup(replacing: .newItem) {
+      Button("New Book…") {
+        isCreatingBook = true
+      }
+      .keyboardShortcut("n", modifiers: [.command])
+      .disabled(isCreatingBook == nil)
+    }
 
     // Lives in the File menu so ⌘F wins over the Edit menu's Find item.
     CommandGroup(after: .newItem) {
@@ -74,4 +83,8 @@ struct MenuBarCommands: Commands {
       }
     #endif
   }
+}
+
+extension FocusedValues {
+  @Entry var isCreatingBook: Binding<Bool>?
 }

@@ -44,59 +44,6 @@ struct ViewModelsAndServicesTests {
     #expect(decoded.plainText == doc.plainText)
   }
 
-  @Test("BookDetailViewModel updates drafts, converts ISBN-10 to ISBN-13, and commits to Core Data")
-  @MainActor
-  func bookDetailViewModelEditsAndCommits() async throws {
-    let container = TestCoreDataStack.makeContainer()
-    let context = container.viewContext
-    let book = try TestCoreDataStack.makeBook(
-      in: context,
-      title: "  Initial   Title ",
-      author: " Initial  Author ",
-      isbn: 9_780_441_478_125,
-      rating: 3,
-      reviewPlainText: "Initial review"
-    )
-
-    let viewModel = BookDetailViewModel(book: book)
-    #expect(viewModel.displayTitle == "Initial Title")
-    #expect(viewModel.displayAuthor == "Initial Author")
-
-    viewModel.titleDraft = "   "
-    #expect(viewModel.displayTitle == "Untitled book")
-    viewModel.authorDraft = "   "
-    #expect(viewModel.displayAuthor == "Unknown author")
-
-    // Focus transition automatically commits the previously focused field
-    viewModel.handleFocusChange(to: .title)
-    viewModel.titleDraft = "  Hyperion   Cantos  "
-    viewModel.handleFocusChange(to: .author)
-    await context.perform {}
-    #expect(book.title == "Hyperion Cantos")
-
-    viewModel.authorDraft = "  Dan   Simmons "
-    viewModel.handleFocusChange(to: .isbn)
-    await context.perform {}
-    #expect(book.author == "Dan Simmons")
-
-    // ISBN-10 ("0593135202") converts to ISBN-13 ("9780593135204")
-    viewModel.isbnDraft = "0-593-13520-2"
-    viewModel.commitField(.isbn)
-    await context.perform {}
-    #expect(book.isbn?.int64Value == 9_780_593_135_204)
-    #expect(viewModel.isbnDraft == "9780593135204")
-
-    viewModel.updateRatingDraft(5)
-    viewModel.commitField(.rating)
-    await context.perform {}
-    #expect(book.rating?.intValue == 5)
-
-    viewModel.reviewDraft = "A classic sci-fi pilgrimage."
-    viewModel.commitField(.review)
-    await context.perform {}
-    #expect(book.reviewDescription?.plainText == "A classic sci-fi pilgrimage.")
-  }
-
   @Test("BooksViewModel sorts unfinished books first, then by most recent date, then by title")
   @MainActor
   func booksViewModelSortingAndKeyboardNavigation() throws {

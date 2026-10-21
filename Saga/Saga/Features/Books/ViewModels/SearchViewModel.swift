@@ -72,6 +72,13 @@ final class SearchViewModel {
 
     let query = query
     let tokens = tokens
+    let deliverResults = { (hits: [BookSearchHit]) in
+      completion(
+        hits.enumerated().map { outputIndex, hit in
+          BookSearchResult(book: books[hit.index], index: outputIndex, match: hit.match)
+        }
+      )
+    }
     searchTask = Task(priority: .userInitiated) {
       if let debounce {
         try? await Task.sleep(for: debounce)
@@ -81,11 +88,7 @@ final class SearchViewModel {
       let hits = BookSearchEngine.search(query, tokens: tokens, in: documents)
       guard !Task.isCancelled else { return }
       await MainActor.run {
-        completion(
-          hits.enumerated().map { outputIndex, hit in
-            BookSearchResult(book: books[hit.index], index: outputIndex, match: hit.match)
-          }
-        )
+        deliverResults(hits)
       }
     }
   }

@@ -15,7 +15,8 @@ struct PersistenceService {
     let env = ProcessInfo.processInfo.environment
     return env["XCTestConfigurationFilePath"] != nil
       || env["XCTestSessionIdentifier"] != nil
-      || NSClassFromString("XCTestCase") != nil
+      || env["XCTestBundlePath"] != nil
+      || Bundle.allBundles.contains { $0.bundlePath.hasSuffix(".xctest") }
   }
 
   static let managedObjectModel: NSManagedObjectModel = {
