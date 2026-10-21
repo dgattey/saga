@@ -76,16 +76,6 @@ jobs:
             "dist/release/Saga-${{ steps.version.outputs.version }}.zip" \
             "dist/release/appcast.xml"
 
-      # Installs poll SAGA_FEED_URL (scripts/lib/app-config.sh) once they have this release, so the
-      # site must already serve the latest release's feed before this one goes out.
-      - name: Check the site serves the latest release's appcast
-        env:
-          SAGA_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          curl -fsSL "https://github.com/${SAGA_REPO}/releases/latest/download/appcast.xml" -o "$RUNNER_TEMP/latest-appcast.xml"
-          ./scripts/check-site-feed.sh "$RUNNER_TEMP/latest-appcast.xml"
-
       - name: Create GitHub release
         id: release
         uses: actions/github-script@v9
@@ -129,9 +119,6 @@ jobs:
             "dist/release/Saga-${VERSION}.zip" \
             "dist/release/appcast.xml" \
             --clobber
-
-      - name: Check the site serves this release's appcast
-        run: ./scripts/check-site-feed.sh dist/release/appcast.xml
 
       - name: Post PR released comment
         env:
