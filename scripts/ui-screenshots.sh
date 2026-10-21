@@ -117,7 +117,8 @@ capture_device() {
       grep -qF "UIKitApplication:$SAGA_BUNDLE_ID" <<<"$(xcrun simctl spawn "$udid" launchctl list)" \
         || fail "$label $view $appearance: Saga isn't running after ${SETTLE}s (crashed?)"
       output="$CAPTURES/saga-$label-$view-$appearance.png"
-      with_timeout 60 xcrun simctl io "$udid" screenshot --type=png "$output" >/dev/null 2>&1
+      # Not 2>&1: that would also swallow with_timeout's failure message.
+      with_timeout 120 xcrun simctl io "$udid" screenshot --type=png "$output" >/dev/null
       [[ -s "$output" ]] || fail "$label $view $appearance: empty screenshot"
 
       logs="$(xcrun simctl spawn "$udid" log show --style compact --start "$started" \
