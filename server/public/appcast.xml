@@ -9,7 +9,7 @@
       <link>https://github.com/dgattey/saga/releases/tag/v1.6.2</link>
       <sparkle:version>22577</sparkle:version>
       <sparkle:shortVersionString>1.6.2</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <sparkle:fullReleaseNotesLink>https://github.com/dgattey/saga/releases</sparkle:fullReleaseNotesLink>
       <description><![CDATA[<h3 style="margin: 0 0 6px 0; font-size: 13px;">1.6.2</h3>
 <ul>

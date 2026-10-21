@@ -24,6 +24,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/signing.sh
 source "$ROOT/scripts/lib/signing.sh"
+# shellcheck source=scripts/lib/app-config.sh
+source "$ROOT/scripts/lib/app-config.sh"
 
 VERSION="${1:?generate-appcast: version is required (arg 1)}"
 BUILD_NUMBER="${2:?generate-appcast: build number is required (arg 2)}"
@@ -177,7 +179,7 @@ cat >"$APPCAST_PATH" <<XML
       <link>${RELEASE_LINK}</link>
       <sparkle:version>${BUILD_NUMBER}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <sparkle:minimumSystemVersion>${SAGA_MIN_OS}</sparkle:minimumSystemVersion>
       <sparkle:fullReleaseNotesLink>${FULL_RELEASE_NOTES_URL}</sparkle:fullReleaseNotesLink>
       <description><![CDATA[${NOTES_HTML}]]></description>
       <enclosure url="${DOWNLOAD_URL}" length="${ZIP_BYTES}" type="application/octet-stream"${ED_SIGNATURE_ATTR}/>
