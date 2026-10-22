@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+/// A quick-action link pill displayed in the About header of Settings.
 struct QuickLinkItem: Identifiable, Equatable {
   let id: String
   let title: String
@@ -35,6 +36,7 @@ struct QuickLinkItem: Identifiable, Equatable {
   ]
 }
 
+/// An attribution entry for an external API, data source, or open-source library.
 struct CreditItem: Identifiable, Equatable {
   let id: String
   let name: String
@@ -44,6 +46,7 @@ struct CreditItem: Identifiable, Equatable {
   let badgeURL: URL?
   let url: URL
   let systemImage: String
+  let tintColor: Color
 
   static let dataAndAPIs: [CreditItem] = [
     CreditItem(
@@ -54,7 +57,8 @@ struct CreditItem: Identifiable, Equatable {
       badge: "Open API",
       badgeURL: URL(staticString: "https://openlibrary.org/developers/api"),
       url: URL(staticString: "https://openlibrary.org"),
-      systemImage: "books.vertical"
+      systemImage: "books.vertical.fill",
+      tintColor: .botanicalLeaf
     ),
     CreditItem(
       id: "bookcover-api",
@@ -64,7 +68,8 @@ struct CreditItem: Identifiable, Equatable {
       badge: "MIT",
       badgeURL: URL(staticString: "https://github.com/w3slley/bookcover-api/blob/main/LICENSE"),
       url: URL(staticString: "https://github.com/w3slley/bookcover-api"),
-      systemImage: "book.closed"
+      systemImage: "book.closed.fill",
+      tintColor: .botanicalMoss
     ),
     CreditItem(
       id: "goodreads",
@@ -74,7 +79,8 @@ struct CreditItem: Identifiable, Equatable {
       badge: "RSS",
       badgeURL: nil,
       url: URL(staticString: "https://www.goodreads.com"),
-      systemImage: "bookmark"
+      systemImage: "bookmark.fill",
+      tintColor: .botanicalGold
     ),
     CreditItem(
       id: "contentful-service",
@@ -84,7 +90,8 @@ struct CreditItem: Identifiable, Equatable {
       badge: "Sync",
       badgeURL: nil,
       url: URL(staticString: "https://www.contentful.com"),
-      systemImage: "icloud"
+      systemImage: "icloud.fill",
+      tintColor: .botanicalSage
     ),
   ]
 
@@ -98,7 +105,8 @@ struct CreditItem: Identifiable, Equatable {
       badgeURL: URL(
         staticString: "https://github.com/contentful/contentful.swift/blob/main/LICENSE"),
       url: URL(staticString: "https://github.com/contentful/contentful.swift"),
-      systemImage: "shippingbox"
+      systemImage: "shippingbox.fill",
+      tintColor: .botanicalLeaf
     ),
     CreditItem(
       id: "contentful-persistence-swift",
@@ -110,7 +118,8 @@ struct CreditItem: Identifiable, Equatable {
         staticString: "https://github.com/contentful/contentful-persistence.swift/blob/main/LICENSE"
       ),
       url: URL(staticString: "https://github.com/contentful/contentful-persistence.swift"),
-      systemImage: "arrow.triangle.2.circlepath.circle"
+      systemImage: "arrow.triangle.2.circlepath.circle.fill",
+      tintColor: .botanicalSage
     ),
     CreditItem(
       id: "ifrit",
@@ -120,7 +129,8 @@ struct CreditItem: Identifiable, Equatable {
       badge: "MIT",
       badgeURL: URL(staticString: "https://github.com/ukushu/Ifrit/blob/main/LICENSE"),
       url: URL(staticString: "https://github.com/ukushu/Ifrit"),
-      systemImage: "magnifyingglass.circle"
+      systemImage: "magnifyingglass.circle.fill",
+      tintColor: .botanicalGold
     ),
     CreditItem(
       id: "sparkle",
@@ -130,7 +140,8 @@ struct CreditItem: Identifiable, Equatable {
       badge: "MIT",
       badgeURL: URL(staticString: "https://github.com/sparkle-project/Sparkle/blob/2.x/LICENSE"),
       url: URL(staticString: "https://github.com/sparkle-project/Sparkle"),
-      systemImage: "sparkles"
+      systemImage: "sparkles",
+      tintColor: .botanicalMoss
     ),
     CreditItem(
       id: "viewinspector",
@@ -140,12 +151,14 @@ struct CreditItem: Identifiable, Equatable {
       badge: "MIT",
       badgeURL: URL(staticString: "https://github.com/nalexn/ViewInspector/blob/0.10.5/LICENSE.md"),
       url: URL(staticString: "https://github.com/nalexn/ViewInspector"),
-      systemImage: "checkmark.seal"
+      systemImage: "checkmark.seal.fill",
+      tintColor: .botanicalLeaf
     ),
   ]
 }
 
 extension URL {
+  /// Constructs a URL from a compile-time static string literal without force unwrapping.
   init(staticString: StaticString) {
     guard let url = URL(string: "\(staticString)") else {
       preconditionFailure("Invalid static URL string: \(staticString)")
