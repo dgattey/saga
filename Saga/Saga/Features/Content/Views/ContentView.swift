@@ -17,6 +17,9 @@ struct ContentView: View {
   @Environment(SyncViewModel.self) private var syncViewModel
   @Environment(CachesViewModel.self) private var cachesViewModel
   @Environment(AnimationSettings.self) private var animationSettings
+  #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+  #endif
   @State private var entry: NavigationEntry?
   @State private var isShowingSettings = LaunchOptions.initialView == .settings
   @State private var isCreatingBook = false
@@ -149,6 +152,11 @@ struct ContentView: View {
       await syncViewModel.syncWithContentful()
     }
     #if os(macOS)
+      .onAppear {
+        if LaunchOptions.initialView == .settings {
+          openWindow(id: "settings")
+        }
+      }
       .onReceive(
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
       ) { _ in

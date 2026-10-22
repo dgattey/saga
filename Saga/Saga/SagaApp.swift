@@ -53,7 +53,7 @@ struct SagaApp: App {
           .windowBackground()
       }
       .windowResizability(.contentSize)
-      .defaultSize(width: 680, height: 520)
+      .defaultSize(width: 700, height: 540)
       .restorationBehavior(.disabled)
       .handlesExternalEvents(matching: ["settings"])
       .environment(syncViewModel)
