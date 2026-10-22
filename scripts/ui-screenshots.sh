@@ -12,7 +12,6 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-SAGA_BUNDLE_ID="$(sed -n 's/^bundle-id = "\(.*\)"$/\1/p' "$ROOT/DylApp.toml" | head -1)"
 
 APP="$ROOT/build/Saga-iOS.app"
 CAPTURES="$ROOT/build/captures"
@@ -75,6 +74,7 @@ if [[ "${1:-}" != "--no-build" ]]; then
   "$ROOT/run" dev ios >/dev/null
 fi
 [[ -d "$APP" ]] || fail "$APP is missing; run ./run dev ios"
+SAGA_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")"
 
 FIXTURE="$WORK_DIR/Saga.sqlite"
 step "writing fixture store"

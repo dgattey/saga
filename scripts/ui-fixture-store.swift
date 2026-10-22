@@ -68,7 +68,7 @@ for suffix in ["", "-wal", "-shm"] {
   try? FileManager.default.removeItem(atPath: storeURL.path + suffix)
 }
 let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
-try coordinator.addPersistentStore(
+_ = try coordinator.addPersistentStore(
   type: .sqlite,
   at: storeURL,
   options: [NSSQLitePragmasOption: ["journal_mode": "DELETE"]]
