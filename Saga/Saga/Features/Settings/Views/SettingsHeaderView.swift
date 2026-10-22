@@ -52,9 +52,7 @@ struct SettingsHeaderView: View {
       Spacer(minLength: 0)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.horizontal, 20)
-    .padding(.top, 18)
-    .padding(.bottom, 6)
+    .padding(.bottom, 4)
   }
 
   private var icon: some View {

@@ -132,31 +132,37 @@ private struct SettingsPaneFormView: View {
   let pane: SettingsPane
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
+    Form {
       #if os(macOS)
-        SettingsHeaderView(pane: pane)
+        Section {
+        } header: {
+          SettingsHeaderView(pane: pane)
+        }
       #endif
 
-      Form {
-        switch pane {
-        case .general:
-          SettingsGeneralSections()
-        case .sync:
-          SettingsSyncSections()
-        case .storage:
-          SettingsStorageSections()
-        case .animations:
-          SettingsAnimationsSections()
-        case .credits:
-          SettingsCreditsSections()
-        case .about:
-          SettingsAboutSections()
-        }
+      switch pane {
+      case .general:
+        SettingsGeneralSections()
+      case .sync:
+        SettingsSyncSections()
+      case .storage:
+        SettingsStorageSections()
+      case .animations:
+        SettingsAnimationsSections()
+      case .credits:
+        SettingsCreditsSections()
+      case .about:
+        SettingsAboutSections()
       }
-      .formStyle(.grouped)
-      .tint(Color.botanicalDeepMoss)
     }
-    .navigationTitle(pane.title)
+    .formStyle(.grouped)
+    .tint(Color.botanicalDeepMoss)
+    #if os(macOS)
+      .navigationTitle("")
+      .toolbar(removing: .title)
+    #else
+      .navigationTitle(pane.title)
+    #endif
   }
 }
 
