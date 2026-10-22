@@ -57,10 +57,10 @@
     },
     "icon.png": {
       "dimensions": [
-        512,
-        512
+        1024,
+        1024
       ],
-      "sha256": "2988993d409bdc9f434037b4a6236594f6e28b3203892ef284b3adef3e32c779"
+      "sha256": "5b8a53d757bda997426c2e18a2f8c7e9dd1b066835ef7ec591fe010c506396a1"
     },
     "opengraph-image.png": {
       "dimensions": [

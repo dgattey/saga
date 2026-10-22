@@ -215,7 +215,7 @@ os.makedirs(public_dir, exist_ok=True)
 # 1. Save RGBA squircle PNGs
 squircle_sizes = {
     "app-icon.png": 1024,
-    "icon.png": 512,
+    "icon.png": 1024,
     "icon-512.png": 512,
     "icon-192.png": 192,
     "favicon-64x64.png": 64,
