@@ -56,7 +56,25 @@ struct BooksListView: View {
               }
             }
           }
-          .padding(.bottom, 4)
+          .padding(.bottom, 16)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+          if !isSearchActive, let activeBook = currentlyReadingBook {
+            NowReadingBarView(
+              book: activeBook,
+              onSelect: {
+                selectBook(activeBook.objectID)
+              }
+            )
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            #if os(iOS)
+              .padding(.bottom, 8)
+            #else
+              .padding(.bottom, 12)
+            #endif
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+          }
         }
         .scrollVelocityThrottle()
         .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
@@ -67,6 +85,15 @@ struct BooksListView: View {
         .accessibilityIdentifier(AccessibilityID.Books.sidebarScrollArea)
         .onChange(of: entry?.selection) { _, newSelection in
           scrollToSelection(selection: newSelection, proxy: proxy)
+        }
+        .task(id: viewModel.filteredBooks.count) {
+          guard LaunchOptions.scrollSidebarToBottom,
+            let lastBookID = viewModel.filteredBooks.last?.book.objectID
+          else { return }
+          try? await Task.sleep(for: .milliseconds(300))
+          withAnimation(.none) {
+            proxy.scrollTo(lastBookID, anchor: .center)
+          }
         }
         #if os(macOS)
           .onMoveCommand { direction in
@@ -84,6 +111,7 @@ struct BooksListView: View {
         #endif
       }
     }
+    .animation(animationSettings.selectionSpring, value: isSearchActive)
     #if os(macOS)
       .frame(minWidth: 200, idealWidth: 300)
     #endif
@@ -104,40 +132,25 @@ struct BooksListView: View {
     ) { notification in
       viewModel.handleBooksChangeNotification(notification, books: books)
     }
-    #if os(iOS)
-      .safeAreaInset(edge: .bottom, spacing: 0) {
-        if let activeBook = currentlyReadingBook {
-          NowReadingFloatingCardView(
-            book: activeBook,
-            onSelect: {
-              selectBook(activeBook.objectID)
-            }
-          )
-          .padding(.horizontal, 12)
-          .padding(.top, 8)
-          .padding(.bottom, 22)
+    .task(id: books.count) {
+      guard let initialView = LaunchOptions.initialView, !books.isEmpty else { return }
+      LoggerService.log(
+        "Initial view \(initialView.rawValue) with \(books.count) books", surface: .launch)
+      switch initialView {
+      case .home, .settings:
+        break
+      case .book, .bookEdit:
+        guard let targetBook = currentlyReadingBook ?? books.first else { return }
+        selectBook(targetBook.objectID)
+        LoggerService.log("Opened book \(targetBook.title ?? "")", surface: .launch)
+      case .search:
+        viewModel.searchModel.tokens = [.hasNotes]
+        if let query = LaunchOptions.searchQuery, !query.isEmpty {
+          viewModel.searchModel.searchText = query
         }
+        viewModel.performSearch(with: books, debounce: nil)
       }
-      .task(id: books.count) {
-        guard let initialView = LaunchOptions.initialView, !books.isEmpty else { return }
-        LoggerService.log(
-          "Initial view \(initialView.rawValue) with \(books.count) books", surface: .launch)
-        switch initialView {
-        case .home, .settings:
-          break
-        case .book, .bookEdit:
-          guard let targetBook = currentlyReadingBook ?? books.first else { return }
-          selectBook(targetBook.objectID)
-          LoggerService.log("Opened book \(targetBook.title ?? "")", surface: .launch)
-        case .search:
-          viewModel.searchModel.tokens = [.hasNotes]
-          if let query = LaunchOptions.searchQuery, !query.isEmpty {
-            viewModel.searchModel.searchText = query
-          }
-          viewModel.performSearch(with: books, debounce: nil)
-        }
-      }
-    #endif
+    }
     .searchable(
       text: Bindable(viewModel).searchModel.searchText,
       tokens: Bindable(viewModel).searchModel.tokens,
@@ -155,6 +168,10 @@ struct BooksListView: View {
 
   private var currentlyReadingBook: Book? {
     books.first(where: { $0.readingStatus == .reading })
+  }
+
+  private var isSearchActive: Bool {
+    viewModel.hasActiveSearch || isSearchFocused
   }
 
   // MARK: - Selection
@@ -284,99 +301,6 @@ private struct BookListRowView: View {
     }
   }
 }
-
-#if os(iOS)
-  private struct NowReadingFloatingCardView: View {
-    @ObservedObject var book: Book
-    let onSelect: () -> Void
-
-    private let cornerRadius: CGFloat = 14
-
-    var body: some View {
-      Button(action: onSelect) {
-        HStack(spacing: 12) {
-          BookCoverImageView(book: book, targetSize: CGSize(width: 36, height: 52))
-            .frame(width: 36, height: 52)
-            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .shadow(color: .black.opacity(0.32), radius: 6, y: 3)
-
-          VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 5) {
-              Image(systemName: "bookmark.fill")
-                .font(.caption2)
-                .foregroundStyle(Color.botanicalSage)
-              Text("Currently reading")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.botanicalSage)
-            }
-            Text(book.title ?? book.id)
-              .font(.subheadline.weight(.semibold))
-              .foregroundStyle(.primary)
-              .lineLimit(1)
-            if let author = book.author {
-              Text(author)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            }
-          }
-
-          Spacer(minLength: 8)
-
-          Image(systemName: "chevron.right")
-            .font(.footnote.weight(.bold))
-            .foregroundStyle(Color.botanicalSage)
-            .frame(width: 28, height: 28)
-            .glassEffect(
-              .regular.tint(Color.botanicalLeaf.opacity(0.24)),
-              in: Circle()
-            )
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-      }
-      .buttonStyle(.plain)
-      .background {
-        ZStack {
-          RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(
-              LinearGradient(
-                colors: [
-                  Color.botanicalForest.opacity(0.88),
-                  Color.botanicalSurfaceTint.opacity(0.92),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-              )
-            )
-          Color.clear
-            .glassEffect(
-              .regular.tint(Color.botanicalLeaf.opacity(0.36)).interactive(),
-              in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            )
-        }
-      }
-      .overlay {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-          .strokeBorder(
-            LinearGradient(
-              colors: [
-                Color.white.opacity(0.62),
-                Color.botanicalSage.opacity(0.55),
-                Color.white.opacity(0.22),
-              ],
-              startPoint: .topLeading,
-              endPoint: .bottomTrailing
-            ),
-            lineWidth: 1.5
-          )
-      }
-      .compositingGroup()
-      .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
-    }
-  }
-#endif
 
 // MARK: - Navigation Throttle
 

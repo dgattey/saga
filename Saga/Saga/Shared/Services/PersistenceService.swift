@@ -45,6 +45,9 @@ struct PersistenceService {
       let description = NSPersistentStoreDescription()
       description.url = URL(fileURLWithPath: "/dev/null")
       container.persistentStoreDescriptions = [description]
+    } else if let storePath = LaunchOptions.storePath {
+      let description = NSPersistentStoreDescription(url: URL(fileURLWithPath: storePath))
+      container.persistentStoreDescriptions = [description]
     }
     container.loadPersistentStores { (storeDescription, error) in
       if let error = error as NSError? {
