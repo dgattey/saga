@@ -6,7 +6,8 @@
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test lib/macos-release.test.ts"
+    "check:assets": "../scripts/sync-web-icons.sh --check",
+    "test": "tsx --test lib/macos-release.test.ts && ../scripts/sync-web-icons.sh --check"
   },
   "dependencies": {
     "next": "^15.3.0"

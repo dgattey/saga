@@ -23,7 +23,8 @@ shared UI/utilities.
 - `./run --help` or `run --help` to list scripts
 - `run app` (`scripts/build-macos.sh` + launch in background via `open -g -j`, macOS only), `run app -b` (build only), `run app -t` / `run app --test` (`swift test`), `run app -u` / `run app --ui` (iOS Simulator screenshots), `run app -r` (release), `run app -g` (background + exit), `run app -f` (foreground)
 - `scripts/build-ios-sim.sh` builds `build/Saga-iOS.app` for the iOS Simulator
-- `run checks` (format + lint), `run checks --format`, `run checks --lint`
+- `run checks` (format + lint + `scripts/sync-web-icons.sh --check`), `run checks --format`, `run checks --lint`
+- `scripts/sync-web-icons.sh` regenerates `server/public/` favicons, app icons (`app-icon.png`, `icon.png`, `icon-512.png`, `icon-192.png`, `apple-touch-icon.png`, `favicon-*.png`, `favicon.ico`, `favicon.svg`), `opengraph-image.png`, and `server/web-assets-manifest.json` from `Saga/Saga/AppIcon.icon`; `scripts/sync-web-icons.sh --check` verifies they are in sync
 - `run bootstrap` to set up shell completions for `run`
 - `run config` to write `Config.xcconfig` from the environment
 - `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml` via `scripts/generate-appcast.sh` and `scripts/release-notes.sh` with cumulative release notes capped at the last 10 versions); `scripts/verify-release.sh` checks the result against the latest published release; the app's Sparkle feed is `https://saga.gattey.com/appcast.xml`, which the site redirects to the latest GitHub release's appcast (`server/next.config.ts`); releases never commit to `main`
@@ -67,6 +68,7 @@ entities in both when adding models
 ## Workflow
 - Ask for clarification when requirements are ambiguous; surface 2–3 options when trade-offs matter
 - Update documentation and related rules when introducing new patterns or services
+- **Keep `saga.gattey.com` (`server/`) and `dylangattey.com` (`dgattey/dg`) in sync**: Whenever `Saga/Saga/AppIcon.icon`, `Saga/Saga/Assets.xcassets`, or major UI screens change, run `./scripts/sync-web-icons.sh` (and update `server/public/saga-*.png` + `server/app/page.tsx` when UI designs change), verify with `./scripts/sync-web-icons.sh --check` and `cd server && npm test && npm run typecheck && npm run build`, and coordinate with `dgattey/dg` (`dylangattey.com`) so favicons and web previews stay in sync.
 
 ## Testing
 - Unit and UI component tests live in `Saga/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).

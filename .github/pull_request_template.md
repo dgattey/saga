@@ -9,6 +9,13 @@ Closes
 
 - 
 
+# Design sync
+
+If this PR changes the app UI, brand colors, or `Saga/Saga/AppIcon.icon`:
+
+- [ ] saga.gattey.com (`server/`) matches the new design and icons (`./scripts/sync-web-icons.sh`)
+- [ ] dylangattey.com (`dgattey/dg`) has been asked to update
+
 # Release info
 
 - [ ] Major
