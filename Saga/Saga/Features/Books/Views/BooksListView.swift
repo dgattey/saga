@@ -83,7 +83,25 @@ struct BooksListView: View {
           }
         #endif
       }
+
+      if !isSearchActive, let activeBook = currentlyReadingBook {
+        NowReadingBarView(
+          book: activeBook,
+          onSelect: {
+            selectBook(activeBook.objectID)
+          }
+        )
+        .padding(.horizontal, 12)
+        .padding(.top, 4)
+        #if os(iOS)
+          .padding(.bottom, 22)
+        #else
+          .padding(.bottom, 12)
+        #endif
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+      }
     }
+    .animation(animationSettings.selectionSpring, value: isSearchActive)
     #if os(macOS)
       .frame(minWidth: 200, idealWidth: 300)
     #endif
@@ -103,23 +121,6 @@ struct BooksListView: View {
       )
     ) { notification in
       viewModel.handleBooksChangeNotification(notification, books: books)
-    }
-    .safeAreaInset(edge: .bottom, spacing: 0) {
-      if let activeBook = currentlyReadingBook {
-        NowReadingBarView(
-          book: activeBook,
-          onSelect: {
-            selectBook(activeBook.objectID)
-          }
-        )
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
-        #if os(iOS)
-          .padding(.bottom, 22)
-        #else
-          .padding(.bottom, 12)
-        #endif
-      }
     }
     .task(id: books.count) {
       guard let initialView = LaunchOptions.initialView, !books.isEmpty else { return }
@@ -157,6 +158,10 @@ struct BooksListView: View {
 
   private var currentlyReadingBook: Book? {
     books.first(where: { $0.readingStatus == .reading })
+  }
+
+  private var isSearchActive: Bool {
+    viewModel.hasActiveSearch || isSearchFocused
   }
 
   // MARK: - Selection
