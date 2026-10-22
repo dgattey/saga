@@ -11,6 +11,9 @@ struct SettingsView: View {
   @Environment(\.dismiss) private var dismiss
   @Environment(CachesViewModel.self) private var cachesViewModel: CachesViewModel?
   @State private var selectedPane: SettingsPane
+  #if os(macOS)
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+  #endif
 
   init(initialPane: SettingsPane = LaunchOptions.settingsPane ?? .general) {
     _selectedPane = State(initialValue: initialPane)
@@ -19,29 +22,18 @@ struct SettingsView: View {
   var body: some View {
     Group {
       #if os(macOS)
-        NavigationSplitView {
-          List(selection: $selectedPane) {
-            ForEach(SettingsPaneSection.allCases) { section in
-              if let title = section.title {
-                Section(title) {
-                  ForEach(section.panes) { pane in
-                    paneLabel(for: pane)
-                      .tag(pane)
-                  }
-                }
-              } else {
-                ForEach(section.panes) { pane in
-                  paneLabel(for: pane)
-                    .tag(pane)
-                }
-              }
-            }
-          }
-          .accessibilityIdentifier(AccessibilityID.Settings.sidebar)
-          .navigationSplitViewColumnWidth(195)
-          .toolbar(removing: .sidebarToggle)
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+          SettingsSidebarView(selectedPane: $selectedPane)
+            .toolbar(removing: .sidebarToggle)
+            .navigationSplitViewColumnWidth(min: 205, ideal: 205, max: 205)
         } detail: {
           paneForm(for: selectedPane)
+            .toolbar {
+              ToolbarItem(placement: .navigation) {
+                SettingsHeaderView(pane: selectedPane)
+              }
+              .sharedBackgroundVisibility(.hidden)
+            }
         }
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .frame(width: 700, height: 540)
@@ -91,15 +83,6 @@ struct SettingsView: View {
     }
   }
 
-  private func paneLabel(for pane: SettingsPane) -> some View {
-    Label {
-      Text(pane.title)
-    } icon: {
-      SettingsPaneBadge(pane: pane)
-    }
-    .accessibilityIdentifier(AccessibilityID.Settings.pane(pane.id))
-  }
-
   func paneForm(for pane: SettingsPane) -> some View {
     SettingsPaneFormView(pane: pane)
   }
@@ -126,6 +109,69 @@ struct SettingsView: View {
   }
 }
 
+// MARK: - macOS Sidebar
+
+#if os(macOS)
+  private struct SettingsSidebarView: View {
+    @Environment(AnimationSettings.self) private var injectedAnimationSettings: AnimationSettings?
+    @Binding var selectedPane: SettingsPane
+
+    private var animationSettings: AnimationSettings {
+      injectedAnimationSettings ?? .shared
+    }
+
+    var body: some View {
+      VStack(alignment: .leading, spacing: 5) {
+        ForEach(SettingsPaneSection.allCases) { section in
+          if let title = section.title {
+            Text(title)
+              .font(.subheadline)
+              .foregroundStyle(.secondary)
+              .fontWeight(.medium)
+              .padding(.top, 10)
+              .padding(.bottom, 5)
+              .padding(.horizontal, 15)
+          }
+          ForEach(section.panes) { pane in
+            sidebarRow(for: pane)
+          }
+        }
+        Spacer(minLength: 0)
+      }
+      .padding(.top, 8)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      .accessibilityIdentifier(AccessibilityID.Settings.sidebar)
+    }
+
+    private func sidebarRow(for pane: SettingsPane) -> some View {
+      let isSelected = selectedPane == pane
+
+      return Button {
+        withAnimation(animationSettings.selectionSpring) {
+          selectedPane = pane
+        }
+      } label: {
+        HStack(alignment: .center, spacing: 8) {
+          SettingsPaneBadge(pane: pane)
+          Text(pane.title)
+            .font(.body)
+            .foregroundStyle(.primary)
+          Spacer(minLength: 0)
+        }
+        .padding(7)
+        .background(
+          isSelected ? Color.primary.opacity(0.11) : Color.clear
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 10)
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityIdentifier(AccessibilityID.Settings.pane(pane.id))
+    }
+  }
+#endif
+
 // MARK: - Pane Form
 
 private struct SettingsPaneFormView: View {
@@ -133,13 +179,6 @@ private struct SettingsPaneFormView: View {
 
   var body: some View {
     Form {
-      #if os(macOS)
-        Section {
-        } header: {
-          SettingsHeaderView(pane: pane)
-        }
-      #endif
-
       switch pane {
       case .general:
         SettingsGeneralSections()
@@ -158,8 +197,9 @@ private struct SettingsPaneFormView: View {
     .formStyle(.grouped)
     .tint(Color.botanicalDeepMoss)
     #if os(macOS)
+      .scrollContentBackground(.hidden)
+      .scrollEdgeEffectStyle(.soft, for: .top)
       .navigationTitle("")
-      .toolbar(removing: .title)
     #else
       .navigationTitle(pane.title)
     #endif
@@ -439,17 +479,26 @@ private struct SettingsAboutSections: View {
 
 // MARK: - Badges
 
-/// A small colored squircle with a white SF Symbol, matching System Settings / Notch sidebar icons.
+/// A small colored squircle with a white SF Symbol, matching Tuneful / System Settings icons.
 struct SettingsIconBadge: View {
   let systemImage: String
   let color: Color
+  var size: CGFloat = 20
+
+  private var cornerRadius: CGFloat {
+    round(size * 0.28)
+  }
+
+  private var fontSize: CGFloat {
+    round(size * 0.52)
+  }
 
   var body: some View {
     Image(systemName: systemImage)
-      .font(.system(size: 11, weight: .semibold))
+      .font(.system(size: fontSize, weight: .semibold))
       .foregroundStyle(.white)
-      .frame(width: 22, height: 22)
-      .background(color.gradient, in: .rect(cornerRadius: 6, style: .continuous))
+      .frame(width: size, height: size)
+      .background(color.gradient, in: .rect(cornerRadius: cornerRadius, style: .continuous))
   }
 }
 
@@ -458,6 +507,6 @@ struct SettingsPaneBadge: View {
   let pane: SettingsPane
 
   var body: some View {
-    SettingsIconBadge(systemImage: pane.systemImage, color: pane.badgeColor)
+    SettingsIconBadge(systemImage: pane.systemImage, color: pane.badgeColor, size: 20)
   }
 }

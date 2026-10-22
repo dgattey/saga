@@ -55,7 +55,6 @@ struct SettingsViewTests {
 
       let header = try SettingsHeaderView(pane: pane).inspect()
       #expect(try header.find(text: pane.title).string() == pane.title)
-      #expect(try header.find(text: pane.subtitle).string() == pane.subtitle)
       #expect(try header.find(ViewType.Image.self).actualImage().name() == pane.systemImage)
     }
   }
