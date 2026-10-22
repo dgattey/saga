@@ -10,15 +10,18 @@ export default async function HomePage() {
     <main className={styles.page}>
       <div className={styles.heroUnit}>
         <div className={styles.photoColumn}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/saga-preview.png"
-            alt="Saga book library and reading tracker on macOS showing editorial reviews, private notes, and the Currently reading sidebar card"
-            width={1600}
-            height={1067}
-            fetchPriority="high"
-            className={styles.windowPreview}
-          />
+          <picture className={styles.previewPicture}>
+            <source media="(prefers-color-scheme: light)" srcSet="/saga-preview-light.png" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/saga-preview.png"
+              alt="Saga book library and reading tracker on macOS showing editorial reviews, private notes, and the Currently reading sidebar card"
+              width={1600}
+              height={1067}
+              fetchPriority="high"
+              className={styles.windowPreview}
+            />
+          </picture>
         </div>
 
         <div className={styles.downloadColumn}>

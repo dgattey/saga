@@ -67,13 +67,20 @@
   justify-content: flex-end;
 }
 
+.previewPicture {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 0;
+}
+
 .windowPreview {
   display: block;
   width: 100%;
-  max-width: 660px;
+  max-width: 640px;
   height: auto;
   border-radius: 12px;
-  filter: drop-shadow(0 24px 56px rgba(0, 0, 0, 0.52));
+  filter: drop-shadow(0 24px 56px rgba(0, 0, 0, 0.45));
 }
 
 .downloadColumn {

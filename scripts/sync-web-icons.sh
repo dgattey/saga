@@ -398,6 +398,7 @@ tracked_outputs = [
     "opengraph-image.png",
     "site.webmanifest",
     "saga-preview.png",
+    "saga-preview-light.png",
 ]
 
 outputs_manifest = {}
