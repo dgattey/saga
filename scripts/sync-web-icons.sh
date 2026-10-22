@@ -342,10 +342,10 @@ draw.text((56, 300), "Editorial reviews, Private Notes, ⌘K Spotlight", font=f_
 draw.text((56, 332), "search, and Contentful + Goodreads sync.", font=f_sub, fill=(176, 204, 189, 255))
 
 pills = [
-    "Private Notes",
-    "⌘K Spotlight",
-    "Now Reading Bar",
-    "6-Pane Settings",
+    "Books & Shelves",
+    "Reviews & Private Notes",
+    "⌘K Search",
+    "Goodreads Sync",
 ]
 px_cursor, py_cursor = 56, 404
 for pill in pills:
@@ -398,9 +398,6 @@ tracked_outputs = [
     "opengraph-image.png",
     "site.webmanifest",
     "saga-preview.png",
-    "saga-search-preview.png",
-    "saga-settings-storage-preview.png",
-    "saga-settings-about-preview.png",
 ]
 
 outputs_manifest = {}

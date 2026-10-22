@@ -67,7 +67,7 @@
         1200,
         630
       ],
-      "sha256": "cf8bb8c34bd7952ddfaeb018851a7cd8b59580a39a3ce4735dd7327f26ebdc91"
+      "sha256": "61042dbc73916abdc29e1fce8736bec72c3863e5a7fcaf61135e5b4317693669"
     },
     "saga-preview.png": {
       "dimensions": [
@@ -75,27 +75,6 @@
         1067
       ],
       "sha256": "418538d634a1a405638efcca926647d3bf403a9412e774ef2413e5f088a2aecb"
-    },
-    "saga-search-preview.png": {
-      "dimensions": [
-        1600,
-        1067
-      ],
-      "sha256": "2c2d2983c0abb0483aca688ecd87f2a654f325f2a1ec7845cb04f60f363846b6"
-    },
-    "saga-settings-about-preview.png": {
-      "dimensions": [
-        1280,
-        1100
-      ],
-      "sha256": "52a3b0235385e7e0db8fd3f67ff356a9758c85fbfe199b4ef15ecf8da482c19a"
-    },
-    "saga-settings-storage-preview.png": {
-      "dimensions": [
-        1280,
-        1100
-      ],
-      "sha256": "ce36443d06d02a8cfb989ac2aa5f6d73be7c9001ab5660e052aeaa15d07cf4d2"
     },
     "site.webmanifest": {
       "sha256": "655fb1d2fdb51f0e40bded29753ddd1f9bc5749efd739e22b552bf95002f0315"
