@@ -18,8 +18,8 @@ extension Bundle {
 
   var iconFileName: String? {
     #if os(iOS)
-      guard let icons = infoDictionary?["CFBundleIcons"] as? [String: Any],
-        let primaryIcon = icons["CFBundlePrimaryIcon"] as? [String: Any],
+      guard let icons = object(forInfoDictionaryKey: "CFBundleIcons") as? NSDictionary,
+        let primaryIcon = icons["CFBundlePrimaryIcon"] as? NSDictionary,
         let iconFiles = primaryIcon["CFBundleIconFiles"] as? [String],
         let iconFileName = iconFiles.last
       else { return nil }

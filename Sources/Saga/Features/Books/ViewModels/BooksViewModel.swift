@@ -10,6 +10,7 @@ import CoreData
 import SwiftUI
 
 /// Contains all our books and allows for filtering
+@MainActor
 @Observable
 final class BooksViewModel {
   private struct CachedSearchDocument {
@@ -67,8 +68,8 @@ final class BooksViewModel {
     }
     isHandlingBookChanges = true
     performSearch(with: books, debounce: .milliseconds(150))
-    DispatchQueue.main.async {
-      self.isHandlingBookChanges = false
+    Task { @MainActor [weak self] in
+      self?.isHandlingBookChanges = false
     }
   }
 

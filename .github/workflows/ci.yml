@@ -2,28 +2,33 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  format:
-    name: 🎨 Format
-    runs-on: macos-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - name: swift-format
-        run: ./run format --check
-
   lint:
     name: 🔍 Lint
     runs-on: macos-latest
     timeout-minutes: 20
+    outputs:
+      ui_changed: ${{ steps.changes.outputs.ui_changed }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect UI changes
+        id: changes
+        run: |
+          if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- Sources scripts/ui-screenshots.sh scripts/ui-fixture-store.swift Package.swift Package.resolved; then
+            echo "ui_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ui_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: swift-format
+        run: swift format lint --strict --recursive --parallel Sources Tests Package.swift scripts
       - uses: actions/cache@v4
         with:
           path: .build
@@ -46,13 +51,15 @@ jobs:
           path: .build
           key: swiftpm-build-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: swiftpm-build-${{ runner.os }}-
-      - name: Build build/Saga.app
+      - name: Build build/Saga Dev.app
         run: ./run dev build
       - name: Unit tests
         run: swift test
 
   ios:
     name: 📱 iOS Simulator
+    needs: [lint, build]
+    if: needs.lint.outputs.ui_changed == 'true'
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -67,13 +74,10 @@ jobs:
           path: build/captures/*.png
           if-no-files-found: ignore
 
-  site:
-    name: 🌐 Site
+  web:
+    name: 🌐 Web (saga.gattey.com)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: server
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -81,8 +85,12 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: server/package-lock.json
-      - name: Install, typecheck and build
+      - name: Verify web icons & preview assets match AppIcon.icon
+        run: ./scripts/sync-web-icons.sh --check
+      - name: Install, test, typecheck, and build server/
+        working-directory: server
         run: |
           npm ci
+          npm test
           npm run typecheck
           npm run build

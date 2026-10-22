@@ -18,7 +18,7 @@ enum LogSurface: String {
   case network = "Network"
   /// Rich text parsing and rendering.
   case richText = "RichText"
-  /// Launch flags (`LaunchOverrides.saga`) that screenshot runs assert on.
+  /// Launch flags (`LaunchOverrides.current`) that screenshot runs assert on.
   case launch = "Launch"
 }
 

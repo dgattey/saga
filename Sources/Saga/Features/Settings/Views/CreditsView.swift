@@ -7,73 +7,132 @@
 
 import SwiftUI
 
-/// Data source and open source attributions as grouped form sections.
-struct CreditsView: View {
+/// Grouped form sections for Data & Services and Open Source attributions.
+struct SettingsCreditsSections: View {
   var body: some View {
-    Group {
-      Section("Data") {
-        ForEach(CreditItem.dataAndAPIs) { item in
-          CreditRowView(item: item)
-        }
-      }
-      Section("Open Source") {
-        ForEach(CreditItem.openSourceLibraries) { item in
-          CreditRowView(item: item)
-        }
+    Section("Data & Services") {
+      ForEach(CreditItem.dataAndAPIs) { item in
+        CreditRowView(item: item)
       }
     }
     .accessibilityIdentifier(AccessibilityID.Settings.creditsView)
+
+    Section("Open Source") {
+      ForEach(CreditItem.openSourceLibraries) { item in
+        CreditRowView(item: item)
+      }
+    }
   }
 }
 
-/// A single attribution row: name, version and role on the left, license badge and link on the
-/// right.
+/// A rich attribution row with a 32×32 tinted rounded-square icon badge, version capsule pill,
+/// role subtitle, botanical-tinted license capsule badge, and circular external link button.
 struct CreditRowView: View {
   let item: CreditItem
+  @State private var isHovering = false
 
   var body: some View {
-    LabeledContent {
-      HStack(spacing: 10) {
-        badge
+    HStack(spacing: 12) {
+      iconBadge
+
+      VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: 6) {
+          Link(destination: item.url) {
+            Text(item.name)
+              .font(.subheadline.weight(.semibold))
+              .foregroundStyle(.primary)
+          }
+          .buttonStyle(.plain)
+          #if os(macOS)
+            .pointerStyle(.link)
+          #endif
+
+          if let version = item.version {
+            Text(version == "Debug" ? version : "v\(version)")
+              .font(.caption2.monospaced())
+              .foregroundStyle(.secondary)
+              .padding(.horizontal, 6)
+              .padding(.vertical, 2)
+              .background(Capsule().fill(.quaternary.opacity(0.6)))
+          }
+        }
+
+        Text(item.subtitle)
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+          .lineLimit(2)
+      }
+
+      Spacer(minLength: 8)
+
+      HStack(spacing: 6) {
+        badgeView
+
         Link(destination: item.url) {
           Image(systemName: "arrow.up.right")
             .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(width: 24, height: 24)
+            .background(
+              Circle()
+                .fill(.quaternary.opacity(isHovering ? 0.9 : 0.45))
+            )
         }
-        .accessibilityLabel("Open \(item.name)")
+        .buttonStyle(.plain)
         #if os(macOS)
           .pointerStyle(.link)
         #endif
+        .accessibilityLabel("Open \(item.name)")
       }
-    } label: {
-      Label {
-        Text(title)
-        Text(item.subtitle)
-      } icon: {
-        Image(systemName: item.systemImage)
-          .foregroundStyle(item.tintColor)
+    }
+    .padding(.vertical, 2)
+    .onHover { hovering in
+      withAnimation(.easeOut(duration: 0.15)) {
+        isHovering = hovering
       }
     }
   }
 
-  private var title: String {
-    guard let version = item.version else {
-      return item.name
-    }
-    return version == "Debug" ? "\(item.name) · Debug" : "\(item.name) · v\(version)"
+  private var iconBadge: some View {
+    Image(systemName: item.systemImage)
+      .font(.system(size: 14, weight: .semibold))
+      .foregroundStyle(item.tintColor)
+      .frame(width: 32, height: 32)
+      .background {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+          .fill(item.tintColor.opacity(0.14))
+      }
+      .glassEffect(
+        .regular.tint(item.tintColor.opacity(0.12)),
+        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+      )
   }
 
   @ViewBuilder
-  private var badge: some View {
+  private var badgeView: some View {
     if let badgeURL = item.badgeURL {
-      Link(item.badge, destination: badgeURL)
-        .font(.callout.monospaced())
-        #if os(macOS)
-          .pointerStyle(.link)
-        #endif
+      Link(destination: badgeURL) {
+        badgeLabel
+      }
+      .buttonStyle(.plain)
+      #if os(macOS)
+        .pointerStyle(.link)
+      #endif
     } else {
-      Text(item.badge)
-        .font(.callout.monospaced())
-        .foregroundStyle(.secondary)
+      badgeLabel
     }
+  }
+
+  private var badgeLabel: some View {
+    Text(item.badge)
+      .font(.caption2.monospaced().weight(.medium))
+      .foregroundStyle(Color.botanicalLeaf)
+      .padding(.horizontal, 8)
+      .padding(.vertical, 3)
+      .background(Color.botanicalLeaf.opacity(0.10), in: Capsule())
+      .overlay(
+        Capsule()
+          .strokeBorder(Color.botanicalLeaf.opacity(0.22), lineWidth: 1)
+      )
   }
 }

@@ -44,6 +44,7 @@ struct PersistentScrollView<Content: View>: View {
   }
 }
 
+@MainActor
 private final class ScrollLifecycleState {
   var isRestoring = false
   var didNotifyRestore = false
@@ -132,7 +133,7 @@ private struct PersistentScrollViewBody<Content: View>: View {
     }
 
     let currentLifecycle = lifecycle
-    DispatchQueue.main.async {
+    Task { @MainActor in
       currentLifecycle.isRestoring = false
       currentLifecycle.pendingRestoreNotify = true
     }

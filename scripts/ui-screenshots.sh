@@ -109,7 +109,8 @@ capture_device() {
       started="$(date '+%Y-%m-%d %H:%M:%S')"
       step "$label: launching $view $appearance"
       # A fresh simulator's first launch on a loaded CI runner has taken over 90s.
-      with_timeout 240 env SIMCTL_CHILD_SAGA_INITIAL_VIEW="$view" SIMCTL_CHILD_SAGA_APPEARANCE="$appearance" \
+      xcrun simctl ui "$udid" appearance "$appearance"
+      with_timeout 240 env SIMCTL_CHILD_DYLKIT_INITIAL_VIEW="$view" SIMCTL_CHILD_DYLKIT_APPEARANCE="$appearance" \
         xcrun simctl launch --terminate-running-process "$udid" "$SAGA_BUNDLE_ID" >/dev/null
       sleep "$SETTLE"
 

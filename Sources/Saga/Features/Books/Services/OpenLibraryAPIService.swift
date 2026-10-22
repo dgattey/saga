@@ -84,7 +84,16 @@ struct OpenLibraryAPIService {
       )
       return nil
     }
-    return try? JSONDecoder().decode(SearchResponse.self, from: data)
+    do {
+      return try JSONDecoder().decode(SearchResponse.self, from: data)
+    } catch {
+      LoggerService.log(
+        "Failed to decode OpenLibrary search response for \"\(title)\"",
+        error: error,
+        surface: .network
+      )
+      return nil
+    }
   }
 
   private static func coverCandidate(forISBN isbn: String) async throws -> CoverImageCandidate? {
@@ -167,11 +176,7 @@ struct OpenLibraryAPIService {
   }
 
   private static func cleanedTitle(_ title: String) -> String {
-    title.replacingOccurrences(
-      of: #" \([^(#)]*#\d+\)$"#,
-      with: "",
-      options: .regularExpression
-    )
+    title.replacing(/[ ]\([^(#)]*#\d+\)$/, with: "")
   }
 
   private static func normalized(_ value: String) -> String {

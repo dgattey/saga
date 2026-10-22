@@ -5,7 +5,6 @@
 //  Created by Dylan Gattey on 7/6/25.
 //
 
-import DylCore
 import DylUI
 import SwiftUI
 
@@ -24,7 +23,6 @@ struct SagaApp: App {
     AppWindow(
       "Saga",
       palette: SagaPalette(),
-      launch: .saga,
       defaultSize: CGSize(width: 1000, height: 600)
     ) {
       ContentView()
@@ -40,10 +38,18 @@ struct SagaApp: App {
     .environment(animationSettings)
 
     #if os(macOS)
-      SettingsWindow(palette: SagaPalette(), pages: .saga)
-        .environment(syncViewModel)
-        .environment(cachesViewModel)
-        .environment(animationSettings)
+      Window("Settings", id: "settings") {
+        SettingsView()
+          .palette(SagaPalette())
+          .windowBackground()
+      }
+      .windowResizability(.contentSize)
+      .defaultSize(width: 700, height: 540)
+      .restorationBehavior(.disabled)
+      .handlesExternalEvents(matching: ["settings"])
+      .environment(syncViewModel)
+      .environment(cachesViewModel)
+      .environment(animationSettings)
     #endif
   }
 }

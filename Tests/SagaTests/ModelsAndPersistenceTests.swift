@@ -60,6 +60,7 @@ struct ModelsAndPersistenceTests {
       isbn: 9_781_635_575_637,
       rating: 5,
       reviewPlainText: "The House is infinite.\n\nThe Tides are regular.",
+      notesPlainText: "Private note: recommended by Sam.",
       coverURLString: "https://example.com/piranesi.jpg"
     )
 
@@ -74,6 +75,7 @@ struct ModelsAndPersistenceTests {
           author: "Susanna Clarke",
           isbn: "9781635575637",
           review: "The House is infinite.\n\nThe Tides are regular.",
+          notes: "Private note: recommended by Sam.",
           rating: 5,
           status: .read,
           year: finishedYear
@@ -117,6 +119,7 @@ struct ModelsAndPersistenceTests {
       isbn: 9_780_593_135_204,
       rating: 5,
       reviewPlainText: "Amaze! Grace and Rocky.",
+      notesPlainText: "  Private book club thoughts.  ",
       coverURLString: "https://covers.openlibrary.org/b/isbn/9780593135204-L.jpg"
     )
 
@@ -130,6 +133,7 @@ struct ModelsAndPersistenceTests {
     #expect(payload.isbn == 9_780_593_135_204)
     #expect(payload.rating == 5)
     #expect(payload.reviewPlainText == "Amaze! Grace and Rocky.")
+    #expect(payload.notesPlainText == "Private book club thoughts.")
     #expect(payload.coverAssetId == coverAsset.id)
     #expect(payload.coverImageUrl == nil)
 
@@ -186,6 +190,7 @@ struct ModelsAndPersistenceTests {
     #expect(object["readDateStarted"] is NSNull)
     #expect(object["readDateFinished"] is NSNull)
     #expect(object["reviewPlainText"] is NSNull)
+    #expect(object["notesPlainText"] is NSNull)
     #expect(object["isbn"] == nil)
     #expect(object["coverAssetId"] == nil)
     #expect(object["coverImageUrl"] == nil)

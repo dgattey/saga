@@ -9,7 +9,7 @@ import SwiftUI
 
 /// Creates a stylized version of the cover image, async loaded
 struct BookCoverImageView: View {
-  static let coverAspectRatio: CGFloat = 1 / 1.5
+  nonisolated static let coverAspectRatio: CGFloat = 1 / 1.5
 
   let book: Book
   let targetSize: CGSize?

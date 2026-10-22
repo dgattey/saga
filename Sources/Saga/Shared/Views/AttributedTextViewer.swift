@@ -12,25 +12,32 @@ struct AttributedTextViewer: View {
   @State private var calculatedHeight: CGFloat = 20  // safe initial guess
 
   var body: some View {
-    PlatformAttributedText(
-      attributedString: attributedString,
-      calculatedHeight: $calculatedHeight
-    )
-    .frame(height: calculatedHeight)  // Only constrain height!
-    .background(
-      GeometryReader { geo in
-        Color.clear
-          .onAppear {
-            updateHeight(for: geo.size.width)
-          }
-          .onChange(of: geo.size.width) { _, newWidth in
-            updateHeight(for: newWidth)
-          }
-          .onChange(of: attributedString) {
-            updateHeight(for: geo.size.width)
-          }
-      }
-    )
+    #if os(iOS) || os(tvOS)
+      PlatformAttributedText(
+        attributedString: attributedString,
+        calculatedHeight: $calculatedHeight
+      )
+    #else
+      PlatformAttributedText(
+        attributedString: attributedString,
+        calculatedHeight: $calculatedHeight
+      )
+      .frame(height: calculatedHeight)  // Only constrain height!
+      .background(
+        GeometryReader { geo in
+          Color.clear
+            .onAppear {
+              updateHeight(for: geo.size.width)
+            }
+            .onChange(of: geo.size.width) { _, newWidth in
+              updateHeight(for: newWidth)
+            }
+            .onChange(of: attributedString) {
+              updateHeight(for: geo.size.width)
+            }
+        }
+      )
+    #endif
   }
 
   private func updateHeight(for width: CGFloat) {
@@ -57,15 +64,35 @@ struct AttributedTextViewer: View {
       textView.backgroundColor = .clear
       textView.textContainerInset = .zero
       textView.textContainer.lineFragmentPadding = 0
-      // Allows flexible height, but it's controlled by SwiftUI's frame.
+      textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+      textView.setContentHuggingPriority(.defaultLow, for: .horizontal)
       return textView
     }
 
     func updateUIView(_ uiView: UITextView, context: Context) {
       uiView.attributedText = attributedString
-      // Set width, height doesn't matter (handled by SwiftUI frame)
-      let width = uiView.bounds.width > 0 ? uiView.bounds.width : UIScreen.main.bounds.width
-      uiView.textContainer.size = CGSize(width: width, height: .greatestFiniteMagnitude)
+      let width = uiView.bounds.width
+      if width > 0 {
+        uiView.textContainer.size = CGSize(width: width, height: .greatestFiniteMagnitude)
+      }
+    }
+
+    func sizeThatFits(
+      _ proposal: ProposedViewSize,
+      uiView: UITextView,
+      context: Context
+    ) -> CGSize? {
+      if let width = proposal.width, width > 0, width.isFinite {
+        uiView.attributedText = attributedString
+        let fittingSize = uiView.sizeThatFits(
+          CGSize(width: width, height: .greatestFiniteMagnitude)
+        )
+        return CGSize(width: width, height: ceil(fittingSize.height))
+      }
+      if proposal.width == 0 {
+        return CGSize(width: 0, height: calculatedHeight)
+      }
+      return CGSize(width: 280, height: calculatedHeight)
     }
 
   }

@@ -31,10 +31,18 @@ struct BookcoverAPIService {
     guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
       return nil
     }
-    guard
-      let coverImageResponse = try? JSONDecoder().decode(CoverImageURLResponse.self, from: data),
-      let coverURL = URL(string: coverImageResponse.url)
-    else {
+    let coverImageResponse: CoverImageURLResponse
+    do {
+      coverImageResponse = try JSONDecoder().decode(CoverImageURLResponse.self, from: data)
+    } catch {
+      LoggerService.log(
+        "Failed to decode Bookcover response for ISBN \(isbn)",
+        error: error,
+        surface: .network
+      )
+      return nil
+    }
+    guard let coverURL = URL(string: coverImageResponse.url) else {
       return nil
     }
     return try await CoverImageCandidate.from(url: coverURL)

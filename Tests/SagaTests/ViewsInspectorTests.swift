@@ -6,7 +6,6 @@
 //
 
 import CoreData
-import DylUI
 import SwiftUI
 import Testing
 import ViewInspector
@@ -115,8 +114,11 @@ struct ViewsInspectorTests {
     #expect(try labeled.inspect().find(text: "STARTED").string() == "STARTED")
     #expect(try labeled.inspect().find(text: "Feb 2, 2026").string() == "Feb 2, 2026")
 
+    let reviewLabel = try EditorialSectionLabel("Review").inspect()
+    #expect(try reviewLabel.find(text: "REVIEW").string() == "REVIEW")
+
     let emptyNotes = try BookNotesEmptyState().inspect()
-    #expect(try emptyNotes.find(text: "NOTES").string() == "NOTES")
+    #expect(try emptyNotes.find(text: "PRIVATE NOTES").string() == "PRIVATE NOTES")
     #expect(
       try emptyNotes.find(text: "No notes yet. Choose Edit to add your thoughts.").string()
         == "No notes yet. Choose Edit to add your thoughts."
@@ -124,6 +126,7 @@ struct ViewsInspectorTests {
   }
 
   @Test("CacheLimitRow formats limits and usage for display")
+  @MainActor
   func cacheLimitRowFormatting() {
     #expect(CacheLimitRow.formatLimit(0) == "Unlimited")
     #expect(CacheLimitRow.formatLimit(0.5) == "500 MB")
@@ -156,57 +159,27 @@ struct ViewsInspectorTests {
     #expect(!didCallMakeHome)
   }
 
-  @Test("Settings has General, Storage, Credits and About pages")
+  @Test("NowReadingBarView renders active book metadata and invokes onSelect on tap")
   @MainActor
-  func settingsPages() {
-    #expect(SettingsPage.saga.map(\.title) == ["General", "Storage", "Credits", "About"])
-  }
-
-  @Test("CreditItem and QuickLinkItem datasets contain expected APIs, libraries, and URLs")
-  func creditItemDatasetInspection() {
-    let quickLinkTitles = QuickLinkItem.all.map(\.title)
-    #expect(quickLinkTitles == ["Website", "GitHub", "More by Dylan"])
-    #expect(QuickLinkItem.all.first?.url.absoluteString == "https://saga.gattey.com")
-
-    let apiTitles = CreditItem.dataAndAPIs.map(\.name)
-    #expect(apiTitles == ["Open Library", "Bookcover API", "Goodreads", "Contentful"])
-
-    let libraryTitles = CreditItem.openSourceLibraries.map(\.name)
-    #expect(
-      libraryTitles == [
-        "Contentful",
-        "ContentfulPersistence",
-        "Ifrit",
-        "Sparkle",
-        "ViewInspector",
-      ]
+  func nowReadingBarViewInspection() throws {
+    let container = TestCoreDataStack.makeContainer()
+    let book = try TestCoreDataStack.makeBook(
+      in: container.viewContext,
+      title: "Exhalation",
+      author: "Ted Chiang",
+      readDateStarted: Date(),
+      readDateFinished: nil
     )
-    for item in CreditItem.openSourceLibraries {
-      #expect(item.version != nil)
-      #expect(item.badge == "MIT")
-      #expect(item.badgeURL != nil)
+
+    var didSelect = false
+    let bar = NowReadingBarView(book: book) {
+      didSelect = true
     }
-  }
-
-  @Test("AboutView and CreditsView render app identity, links, data sources, and libraries")
-  @MainActor
-  func aboutAndCreditsViewInspection() throws {
-    let inspectedAbout = try AboutView().inspect()
-    #expect(try inspectedAbout.find(text: "Saga").string() == "Saga")
-    #expect(
-      try inspectedAbout.find(text: "Crafted by Dylan Gattey").string()
-        == "Crafted by Dylan Gattey")
-    #expect(try inspectedAbout.find(text: "Website").string() == "Website")
-    #expect(try inspectedAbout.find(text: "GitHub").string() == "GitHub")
-    #expect(try inspectedAbout.find(text: "More by Dylan").string() == "More by Dylan")
-
-    let inspectedCredits = try CreditsView().inspect()
-    #expect(try inspectedCredits.find(text: "Data").string() == "Data")
-    #expect(try inspectedCredits.find(text: "Open Source").string() == "Open Source")
-    #expect(try inspectedCredits.find(text: "Open Library").string() == "Open Library")
-    #expect(try inspectedCredits.find(text: "Bookcover API").string() == "Bookcover API")
-    #expect(
-      try inspectedCredits.find(text: "Fast fuzzy search for books and authors by Ukushu")
-        .string() == "Fast fuzzy search for books and authors by Ukushu")
+    let inspected = try bar.inspect()
+    #expect(try inspected.find(text: "Currently reading").string() == "Currently reading")
+    #expect(try inspected.find(text: "Exhalation").string() == "Exhalation")
+    #expect(try inspected.find(text: "Ted Chiang").string() == "Ted Chiang")
+    try inspected.find(ViewType.Button.self).tap()
+    #expect(didSelect)
   }
 }

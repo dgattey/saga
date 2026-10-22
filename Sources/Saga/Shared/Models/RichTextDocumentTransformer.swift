@@ -15,11 +15,29 @@ final class RichTextDocumentTransformer: ValueTransformer {
 
   override func transformedValue(_ value: Any?) -> Any? {
     guard let doc = value as? RichTextDocument else { return nil }
-    return try? JSONEncoder().encode(doc)
+    do {
+      return try JSONEncoder().encode(doc)
+    } catch {
+      LoggerService.log(
+        "Failed to encode RichTextDocument",
+        error: error,
+        surface: .richText
+      )
+      return nil
+    }
   }
   override func reverseTransformedValue(_ value: Any?) -> Any? {
     guard let data = value as? Data else { return nil }
-    return try? JSONDecoder().decode(RichTextDocument.self, from: data)
+    do {
+      return try JSONDecoder().decode(RichTextDocument.self, from: data)
+    } catch {
+      LoggerService.log(
+        "Failed to decode RichTextDocument",
+        error: error,
+        surface: .richText
+      )
+      return nil
+    }
   }
 
   static func register() {
@@ -42,7 +60,10 @@ extension RichTextDocument {
 
     // Get all non-empty paragraphs out
     let rawParagraphs = normalized.components(separatedBy: .newlines)
-    let paragraphs = rawParagraphs.filter { !$0.isEmpty }
+    let paragraphs =
+      rawParagraphs
+      .map { $0.trimmingCharacters(in: .whitespaces) }
+      .filter { !$0.isEmpty }
 
     let nodes: [Paragraph] = paragraphs.map { line in
       let textNode = Text(value: line, marks: [])

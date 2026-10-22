@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// A grouped-form row with a stepped slider for a disk cache limit, current usage as the
-/// subtitle, and the selected limit as the trailing value.
+/// subtitle, and the selected limit in a botanical-tinted monospaced capsule pill.
 struct CacheLimitRow: View {
   static let limitOptions: [Double] = [0.1, 0.5, 1, 5, 10, 0]
 
@@ -26,11 +26,23 @@ struct CacheLimitRow: View {
           Text(title)
         }
         .labelsHidden()
-        .frame(maxWidth: 180)
+        #if os(macOS)
+          .frame(maxWidth: 170)
+        #else
+          .frame(maxWidth: 130)
+        #endif
+
         Text(Self.formatLimit(limitGB))
-          .monospacedDigit()
+          .font(.caption.monospaced().weight(.medium))
           .foregroundStyle(.secondary)
-          .frame(minWidth: 64, alignment: .trailing)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 3)
+          .background(Color.botanicalLeaf.opacity(0.10), in: Capsule())
+          .overlay(
+            Capsule()
+              .strokeBorder(Color.botanicalLeaf.opacity(0.22), lineWidth: 1)
+          )
+          .frame(minWidth: 74, alignment: .trailing)
       }
     } label: {
       Text(title)
@@ -52,10 +64,7 @@ struct CacheLimitRow: View {
   }
 
   static func formatBytes(_ bytes: Int64) -> String {
-    let formatter = ByteCountFormatter()
-    formatter.allowedUnits = [.useGB, .useMB]
-    formatter.countStyle = .file
-    return formatter.string(fromByteCount: bytes)
+    bytes.formatted(.byteCount(style: .file, allowedUnits: [.mb, .gb]))
   }
 
   static func formatLimit(_ value: Double) -> String {

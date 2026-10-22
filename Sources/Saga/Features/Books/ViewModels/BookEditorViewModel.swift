@@ -187,7 +187,12 @@ final class BookEditorViewModel {
   func importCoverFile(_ result: Result<URL, Error>) {
     switch result {
     case .success(let url):
-      applyCoverInput(CoverInput.readFile(at: url).map(CoverInput.imageData))
+      Task { [weak self] in
+        let data = await Task.detached(priority: .userInitiated) {
+          CoverInput.readFile(at: url)
+        }.value
+        self?.applyCoverInput(data.map(CoverInput.imageData))
+      }
     case .failure(let error):
       coverMessage = error.localizedDescription
     }

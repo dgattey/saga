@@ -5,9 +5,9 @@
 //  Created by Dylan Gattey on 1/25/26.
 //
 
-import CoreGraphics
+@preconcurrency import CoreGraphics
 import CryptoKit
-import Foundation
+@preconcurrency import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -59,6 +59,7 @@ enum ImageCache {
   // MARK: Private State
 
   /// In-memory cache keyed by content hash (e.g., "isbn:123:200")
+  nonisolated(unsafe)  // SAFETY: NSCache is internally thread-safe
   private static let imageCache: NSCache<NSString, CGImage> = {
     let cache = NSCache<NSString, CGImage>()
     cache.countLimit = 512
@@ -66,6 +67,7 @@ enum ImageCache {
   }()
 
   /// In-memory cache keyed by URL for fast lookups when URL is known
+  nonisolated(unsafe)  // SAFETY: NSCache is internally thread-safe
   private static let urlImageCache: NSCache<NSString, CGImage> = {
     let cache = NSCache<NSString, CGImage>()
     cache.countLimit = 512
@@ -73,6 +75,7 @@ enum ImageCache {
   }()
 
   /// Options forcing ImageIO to decode disk-cached PNGs on the background thread
+  nonisolated(unsafe)  // SAFETY: CFDictionary literal is immutable
   private static let diskDecodeOptions: CFDictionary =
     [
       kCGImageSourceShouldCache: true,
@@ -80,6 +83,7 @@ enum ImageCache {
     ] as CFDictionary
 
   /// Memoizes SHA256 disk cache file URLs by cache key to avoid repeated hashing and string formatting
+  nonisolated(unsafe)  // SAFETY: NSCache is internally thread-safe
   private static let fileURLCache = NSCache<NSString, NSURL>()
 
   /// Lowercase ASCII hex lookup table for fast SHA256 digest formatting
@@ -110,17 +114,19 @@ enum ImageCache {
   static func fetchImage(
     url: URL,
     urlSession: URLSession,
-    cacheKey: NSString,
+    cacheKey: String,
     maxPixelSize: CGFloat
   ) async throws -> CGImage? {
+    let keyString = cacheKey
+
     // Check memory and disk caches first
-    if let cached = await cachedImage(for: cacheKey) {
+    if let cached = await cachedImage(for: keyString) {
       urlImageCache.setObject(cached, forKey: url.absoluteString as NSString)
       return cached
     }
 
     // Get or create a download task (deduplicates concurrent requests)
-    let task = await inflightTasks.task(for: cacheKey) {
+    let task = await inflightTasks.task(for: keyString) {
       Task(priority: .utility) {
         // Wait for a download slot
         guard let permit = await downloadGate.acquirePermit() else {
@@ -140,7 +146,7 @@ enum ImageCache {
         guard let image = downsampleImage(from: data, maxPixelSize: maxPixelSize) else {
           return nil
         }
-        storeImage(image, for: cacheKey, urlKey: url.absoluteString as NSString)
+        storeImage(image, for: keyString, urlKey: url.absoluteString)
         return image
       }
     }
@@ -148,21 +154,21 @@ enum ImageCache {
     // Wait for the task and clean up
     do {
       let image = try await task.value
-      await inflightTasks.removeTask(for: cacheKey)
+      await inflightTasks.removeTask(for: keyString)
       return image
     } catch is CancellationError {
-      await inflightTasks.removeTask(for: cacheKey)
+      await inflightTasks.removeTask(for: keyString)
       throw CancellationError()
     } catch {
-      await inflightTasks.removeTask(for: cacheKey)
+      await inflightTasks.removeTask(for: keyString)
       return nil
     }
   }
 
   /// Returns a cached image from memory only (no disk/network).
   /// Use for synchronous placeholder lookups.
-  static func memoryCachedImage(for key: NSString) -> CGImage? {
-    imageCache.object(forKey: key)
+  static func memoryCachedImage(for key: String) -> CGImage? {
+    imageCache.object(forKey: key as NSString)
   }
 
   /// Returns a cached image by URL from memory only.
@@ -179,13 +185,13 @@ enum ImageCache {
   }
 
   /// Registers a view's interest in an image. Call when a view appears.
-  static func registerRequest(for key: NSString, id: UUID) async {
+  static func registerRequest(for key: String, id: UUID) async {
     await activeRequests.register(key: key, id: id)
   }
 
   /// Unregisters a view's interest. When no views remain interested,
   /// any in-flight download for this key is cancelled.
-  static func unregisterRequest(for key: NSString, id: UUID) async {
+  static func unregisterRequest(for key: String, id: UUID) async {
     let isEmpty = await activeRequests.unregister(key: key, id: id)
     if isEmpty {
       await inflightTasks.cancelTask(for: key)
@@ -276,23 +282,24 @@ enum ImageCache {
   // MARK: - Memory Cache (Private)
 
   /// Checks memory cache, then disk cache, promoting disk hits to memory.
-  private static func cachedImage(for key: NSString) async -> CGImage? {
-    if let cached = imageCache.object(forKey: key) {
+  private static func cachedImage(for key: String) async -> CGImage? {
+    let nsKey = key as NSString
+    if let cached = imageCache.object(forKey: nsKey) {
       return cached
     }
     let diskImage = await Task.detached(priority: .utility) {
       loadDiskCachedImage(for: key)
     }.value
     if let diskImage {
-      imageCache.setObject(diskImage, forKey: key)
+      imageCache.setObject(diskImage, forKey: nsKey)
     }
     return diskImage
   }
 
   /// Stores an image in both memory caches and queues disk save.
-  private static func storeImage(_ image: CGImage, for key: NSString, urlKey: NSString) {
-    imageCache.setObject(image, forKey: key)
-    urlImageCache.setObject(image, forKey: urlKey)
+  private static func storeImage(_ image: CGImage, for key: String, urlKey: String) {
+    imageCache.setObject(image, forKey: key as NSString)
+    urlImageCache.setObject(image, forKey: urlKey as NSString)
     Task.detached(priority: .utility) {
       await saveDiskCachedImage(image, for: key)
     }
@@ -306,11 +313,12 @@ enum ImageCache {
   }
 
   /// Generates a disk cache file URL from a cache key using SHA256 hash.
-  private static func cacheFileURL(for key: NSString) -> URL {
-    if let cached = fileURLCache.object(forKey: key) {
+  private static func cacheFileURL(for key: String) -> URL {
+    let nsKey = key as NSString
+    if let cached = fileURLCache.object(forKey: nsKey) {
       return cached as URL
     }
-    let digest = SHA256.hash(data: Data(String(key).utf8))
+    let digest = SHA256.hash(data: Data(key.utf8))
     var bytes = [UInt8]()
     bytes.reserveCapacity(68)
     for byte in digest {
@@ -320,12 +328,12 @@ enum ImageCache {
     bytes.append(contentsOf: [0x2e, 0x70, 0x6e, 0x67])  // ".png"
     let filename = String(decoding: bytes, as: UTF8.self)
     let url = diskCacheDirectory.appendingPathComponent(filename, isDirectory: false)
-    fileURLCache.setObject(url as NSURL, forKey: key)
+    fileURLCache.setObject(url as NSURL, forKey: nsKey)
     return url
   }
 
   /// Loads an image from disk cache, if it exists, decoding immediately on the current background thread.
-  private static func loadDiskCachedImage(for key: NSString) -> CGImage? {
+  private static func loadDiskCachedImage(for key: String) -> CGImage? {
     let url = cacheFileURL(for: key)
     guard FileManager.default.fileExists(atPath: url.path) else {
       return nil
@@ -337,7 +345,7 @@ enum ImageCache {
   }
 
   /// Saves an image to disk cache as PNG, then schedules coalesced size limit enforcement.
-  private static func saveDiskCachedImage(_ image: CGImage, for key: NSString) async {
+  private static func saveDiskCachedImage(_ image: CGImage, for key: String) async {
     let url = cacheFileURL(for: key)
     guard
       let destination = CGImageDestinationCreateWithURL(
@@ -381,10 +389,10 @@ enum ImageCache {
 /// Tracks in-flight download tasks to deduplicate concurrent requests for the same image.
 /// When multiple views request the same image, they share one download task.
 private actor InflightTasks {
-  private var tasks: [NSString: Task<CGImage?, Error>] = [:]
+  private var tasks: [String: Task<CGImage?, Error>] = [:]
 
   /// Returns existing task for key, or creates one using the provided closure.
-  func task(for key: NSString, create: @escaping () -> Task<CGImage?, Error>) -> Task<
+  func task(for key: String, create: @Sendable () -> Task<CGImage?, Error>) -> Task<
     CGImage?, Error
   > {
     if let existing = tasks[key] {
@@ -396,12 +404,12 @@ private actor InflightTasks {
   }
 
   /// Removes a completed task from tracking.
-  func removeTask(for key: NSString) {
+  func removeTask(for key: String) {
     tasks[key] = nil
   }
 
   /// Cancels and removes a task (called when no views need the image anymore).
-  func cancelTask(for key: NSString) {
+  func cancelTask(for key: String) {
     if let task = tasks[key] {
       task.cancel()
     }
@@ -493,17 +501,17 @@ private actor DownloadGate {
 /// Tracks which views are interested in each image, enabling cancellation
 /// when all interested views disappear.
 private actor ActiveRequests {
-  private var active: [NSString: Set<UUID>] = [:]
+  private var active: [String: Set<UUID>] = [:]
 
   /// Registers a view's interest in an image.
-  func register(key: NSString, id: UUID) {
+  func register(key: String, id: UUID) {
     var set = active[key] ?? Set()
     set.insert(id)
     active[key] = set
   }
 
   /// Unregisters a view. Returns true if no views remain interested.
-  func unregister(key: NSString, id: UUID) -> Bool {
+  func unregister(key: String, id: UUID) -> Bool {
     guard var set = active[key] else { return true }
     set.remove(id)
     if set.isEmpty {

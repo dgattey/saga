@@ -5,10 +5,12 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start --port 3000",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:assets": "../scripts/sync-web-icons.sh --check",
+    "test": "../scripts/sync-web-icons.sh --check"
   },
   "dependencies": {
-    "@dylkit/web": "https://github.com/dgattey/dyl-kit/releases/download/v0.1.0/dylkit-web-0.1.0.tgz",
+    "@dylkit/web": "https://frmtw5gxqbom2ooh.public.blob.vercel-storage.com/releases/v0.2.1/dylkit-web-0.2.1.tgz",
     "next": "^15.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

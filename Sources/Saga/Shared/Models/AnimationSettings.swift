@@ -8,6 +8,7 @@
 import SwiftUI
 
 /// Observable animation settings that persist to UserDefaults and update live
+@MainActor
 @Observable
 final class AnimationSettings {
   /// Shared instance for access outside of SwiftUI views

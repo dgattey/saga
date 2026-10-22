@@ -5,12 +5,13 @@
 //  Created by Dylan Gattey on 7/6/25.
 //
 
-import Contentful
-import ContentfulPersistence
-import CoreData
+@preconcurrency import Contentful
+@preconcurrency import ContentfulPersistence
+@preconcurrency import CoreData
+import DylCore
 
 /// Handles syncing with Contentful – register new entry types in `PersistenceModel.swift` and ensure your `Config.xcconfig` is set up properly via directions in readme
-struct PersistenceService {
+struct PersistenceService: Sendable {
   static var isRunningUnitTests: Bool {
     let env = ProcessInfo.processInfo.environment
     return env["XCTestConfigurationFilePath"] != nil
@@ -44,6 +45,9 @@ struct PersistenceService {
     if inMemory {
       let description = NSPersistentStoreDescription()
       description.url = URL(fileURLWithPath: "/dev/null")
+      container.persistentStoreDescriptions = [description]
+    } else if let storePath = LaunchOverrides.current.storePath {
+      let description = NSPersistentStoreDescription(url: URL(fileURLWithPath: storePath))
       container.persistentStoreDescriptions = [description]
     }
     container.loadPersistentStores { (storeDescription, error) in

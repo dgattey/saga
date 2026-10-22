@@ -69,6 +69,7 @@ struct BookDraft: Equatable {
   var rating = 0
   var isbnText = ""
   var reviewText = ""
+  var notesText = ""
   var cover: CoverDraft = .none
 
   static func empty(now: Date = Date()) -> BookDraft {
@@ -121,6 +122,12 @@ struct BookDraft: Equatable {
     } else if trimmedReview != book.reviewDescription?.plainText {
       book.reviewDescription = RichTextDocument(fromPlainText: trimmedReview)
     }
+    let trimmedNotes = notesText.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmedNotes.isEmpty {
+      book.notes = nil
+    } else if trimmedNotes != book.notes?.plainText {
+      book.notes = RichTextDocument(fromPlainText: trimmedNotes)
+    }
   }
 }
 
@@ -136,6 +143,7 @@ extension BookDraft {
       rating: book.rating?.intValue ?? 0,
       isbnText: book.isbn?.stringValue ?? "",
       reviewText: book.reviewDescription?.plainText ?? "",
+      notesText: book.notes?.plainText ?? "",
       cover: book.localCoverImageURL.map(CoverDraft.url) ?? .none
     )
   }

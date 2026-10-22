@@ -22,6 +22,7 @@ public enum AccessibilityID {
     public static let sidebar = "books.sidebar"
     public static let sidebarScrollArea = "books.sidebarScrollArea"
     public static let newBookButton = "books.newBookButton"
+    public static let nowReadingBar = "books.nowReadingBar"
 
     public static func bookRow(_ index: Int) -> String {
       "books.row.\(index)"
@@ -29,8 +30,19 @@ public enum AccessibilityID {
   }
 
   public enum Settings {
+    public static let view = "settings.view"
+    public static let sidebar = "settings.sidebar"
     public static let creditsView = "settings.creditsView"
+    public static let syncNow = "settings.syncNow"
     public static let clearCaches = "settings.clearCaches"
     public static let clearCachesAndData = "settings.clearCachesAndData"
+    public static let resetAnimations = "settings.resetAnimations"
+    public static let checkForUpdates = "settings.checkForUpdates"
+    public static let automaticallyCheckForUpdates = "settings.automaticallyCheckForUpdates"
+    public static let automaticallyDownloadUpdates = "settings.automaticallyDownloadUpdates"
+
+    public static func pane(_ id: String) -> String {
+      "settings.pane.\(id)"
+    }
   }
 }

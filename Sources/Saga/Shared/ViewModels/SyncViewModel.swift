@@ -8,6 +8,7 @@
 import CoreData
 import SwiftUI
 
+@MainActor
 @Observable
 final class SyncViewModel {
   @ObservationIgnored let controller = PersistenceService()
@@ -38,10 +39,9 @@ final class SyncViewModel {
       finish: { [weak self] in
         self?.isSyncing = false
       },
-      { [weak self] in
-        guard let self else { return }
+      { [controller] in
         _ = await GoodreadsSyncService.triggerIfConfigured()
-        try await self.controller.syncWithApi()
+        try await controller.syncWithApi()
       }
     )
   }
@@ -57,10 +57,9 @@ final class SyncViewModel {
         self?.resetToken = UUID()
         self?.isResetting = false
       },
-      { [weak self] in
-        guard let self else { return }
+      { [controller] in
         _ = await GoodreadsSyncService.triggerIfConfigured()
-        try await self.controller.resetAndSyncWithApi()
+        try await controller.resetAndSyncWithApi()
       }
     )
   }
@@ -71,14 +70,10 @@ final class SyncViewModel {
   private func orchestrateSync(
     start: @escaping () -> Void,
     finish: @escaping () -> Void,
-    _ syncFunction: @escaping () async throws -> Void
+    _ syncFunction: @escaping @Sendable () async throws -> Void
   ) async {
-    let shouldStart = await MainActor.run {
-      guard !isSyncing, !isResetting else { return false }
-      start()
-      return true
-    }
-    guard shouldStart else { return }
+    guard !isSyncing, !isResetting else { return }
+    start()
 
     let task = Task(priority: .utility) {
       do {

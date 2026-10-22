@@ -38,17 +38,18 @@ private struct ScrollVelocityThrottle: ViewModifier {
 
   func body(content: Content) -> some View {
     content
-      .onScrollGeometryChange(for: CGFloat.self) { geometry in
+      .onScrollGeometryChange(for: Int.self) { geometry in
         let rawOffset = geometry.contentOffset.y
-        return rawOffset.isFinite ? rawOffset : .zero
+        return rawOffset.isFinite ? Int(rawOffset.rounded()) : 0
       } action: { _, newOffset in
         let now = CACurrentMediaTime()
+        let offset = CGFloat(newOffset)
         guard state.lastTimestamp > 0 else {
           state.lastTimestamp = now
-          state.lastOffset = newOffset
+          state.lastOffset = offset
           return
         }
-        let delta = abs(newOffset - state.lastOffset)
+        let delta = abs(offset - state.lastOffset)
         let dt = now - state.lastTimestamp
         if dt > 0 {
           let velocity = delta / dt
@@ -71,7 +72,7 @@ private struct ScrollVelocityThrottle: ViewModifier {
             }
           }
         }
-        state.lastOffset = newOffset
+        state.lastOffset = offset
         state.lastTimestamp = now
       }
       .onDisappear {

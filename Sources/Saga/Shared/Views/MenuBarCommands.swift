@@ -11,6 +11,7 @@ struct MenuBarCommands: Commands {
   @Environment(SyncViewModel.self) var syncViewModel
   @Environment(CachesViewModel.self) var cachesViewModel
   @Environment(BooksViewModel.self) var booksViewModel
+  @Environment(\.openWindow) private var openWindow
   @FocusedBinding(\.isCreatingBook) private var isCreatingBook
 
   var body: some Commands {
@@ -62,6 +63,16 @@ struct MenuBarCommands: Commands {
       .keyboardShortcut("r", modifiers: [.command, .shift])
       .disabled(syncViewModel.isSyncing)
     }
+
+    #if os(macOS)
+      CommandGroup(replacing: .appSettings) {
+        // `Window` scenes are single-instance, so this focuses an already open Settings window.
+        Button("Settings...") {
+          openWindow(id: "settings")
+        }
+        .keyboardShortcut(",", modifiers: [.command])
+      }
+    #endif
   }
 }
 

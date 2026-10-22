@@ -15,7 +15,7 @@ Bootstrap installs the Brewfile (1Password CLI, mise), installs the SwiftLint th
 ## App architecture
 
 Saga follows an MVVM architecture with SwiftUI views:
-- **Features/**: Domain-specific features (Books, Assets, Content)
+- **Features/**: Domain-specific features (Books, Assets, Content, Settings)
   - Each feature contains Models, Views, ViewModels, and Services
 - **Shared/**: Reusable components, extensions, and utilities
 - **Services/**: Core services like persistence (Core Data) and syncing (Contentful)
@@ -30,6 +30,7 @@ Saga is a plain SwiftPM package with no Xcode project, built with [DylKit](https
 ./run dev relaunch     # build and open it in the background
 ./run dev capture      # screenshot the main window into build/captures/
 ./run dev ios --run    # build/Saga-iOS.app on a headless simulator
+./run dev sync         # sync ./run, pr-check.yml, release.yml and pull_request_template.md from DylKit
 ./run ui               # iPhone and iPad screenshots of the main screens with fixture books
 ./run dev checks       # DylApp.toml, SwiftLint, dyl-lint and release checks
 ./run format           # swift-format with .swift-format (--check to lint only)
@@ -46,8 +47,8 @@ When adding a new Core Data model:
 
 ## Releases
 
-Saga releases through DylKit's shared release workflow, the same one every DylKit app uses (`.github/workflows/release.yml` is a placeholder until it ships). Each merged PR that touches the app gets a version from the latest `v*` tag and its Release info checkbox, and a GitHub release with `Saga-<version>.zip` and a signed Sparkle `appcast.xml` attached. Nothing is committed to `main`.
+Saga releases through DylKit's synced `.github/workflows/release.yml`. Each merged PR that touches the app gets a version from the latest `v*` tag and its Release info checkbox, tags the merge commit, and uploads `Saga-<version>.zip`, a signed Sparkle `appcast.xml`, `release.json`, and rendered site icons to Saga's Vercel Blob store. Nothing is committed to `main`.
 
-The download site in `server/` is `@dylkit/web`, configured by `[site]` in `DylApp.toml`, and Vercel's git integration deploys it from `main`. `https://saga.gattey.com/appcast.xml`, the feed installed apps poll, redirects to the latest GitHub release's appcast.
+The download site in `server/` is `@dylkit/web`, configured by `[site]` in `DylApp.toml`, and Vercel's git integration deploys it from `main`. `/appcast.xml`, `/download/macos`, and the icon routes serve the latest release from the Blob store.
 
 [gh]: https://github.com/dgattey/saga

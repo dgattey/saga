@@ -85,6 +85,54 @@ extension Color {
     )
   }
 
+  /// Crisp frosted surface tint for the floating "Currently reading" bar.
+  static var nowReadingBarFill: Color {
+    adaptiveColor(
+      light: (0.992, 0.996, 0.993, 0.88),
+      dark: (0.125, 0.175, 0.148, 0.86)
+    )
+  }
+
+  /// Subtle hairline border for the floating "Currently reading" bar.
+  static var nowReadingBarBorder: Color {
+    adaptiveColor(
+      light: (0.100, 0.200, 0.150, 0.12),
+      dark: (0.850, 0.940, 0.890, 0.15)
+    )
+  }
+
+  /// High-contrast botanical accent for the "Currently reading" eyebrow label and glyph.
+  static var nowReadingAccent: Color {
+    adaptiveColor(
+      light: (0.149, 0.306, 0.227),
+      dark: (0.490, 0.745, 0.605)
+    )
+  }
+
+  /// Opaque surface fill for book cover placeholders so elevation shadows never bleed through.
+  static var botanicalCoverPlaceholderFill: Color {
+    adaptiveColor(
+      light: (0.905, 0.932, 0.914, 1.0),
+      dark: (0.195, 0.265, 0.228, 1.0)
+    )
+  }
+
+  /// Subtle rim border for book cover placeholders.
+  static var botanicalCoverPlaceholderBorder: Color {
+    adaptiveColor(
+      light: (0.120, 0.240, 0.180, 0.14),
+      dark: (0.850, 0.950, 0.900, 0.14)
+    )
+  }
+
+  /// Crisp icon color for book cover placeholders in both light and dark modes.
+  static var botanicalCoverPlaceholderIcon: Color {
+    adaptiveColor(
+      light: (0.185, 0.345, 0.275),
+      dark: (0.640, 0.800, 0.710)
+    )
+  }
+
   /// Muted olive-forest used for the sidebar Home badge.
   static var botanicalOlive: Color {
     adaptiveColor(

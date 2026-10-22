@@ -1,33 +1,17 @@
 #!/bin/sh
-# ./run dev <devkit args>          build, relaunch, capture, checks, verify (./run dev --help)
-# ./run release <release-kit args> version, bundle, sign, appcast, check, publish
-# ./run lint [dyl-lint args]
-# ./run format [--check]           swift-format with .swift-format
-# ./run ui [ui-screenshots args]   iPhone and iPad simulator screenshots with fixture books
-# ./run bootstrap                  write Config.xcconfig (dev Contentful credentials) from 1Password
+# Written by `devkit sync` from DylKit. Change DylKit's copy, not this one.
+# ./run dev <devkit args> | ./run release <release-kit args> | ./run lint [dyl-lint args]
+# Builds DylKit's tools once (cached in .build/release) and runs them directly. Any other mode goes to the app's own
+# executable scripts/run, mode included, which sync never touches.
 set -eu
 root=$(cd "$(dirname "$0")" && pwd)
-
 case "${1:-}" in
 dev) tool=devkit ;;
 release) tool=release-kit ;;
 lint) tool=dyl-lint ;;
-format)
-    shift
-    if [ "${1:-}" = "--check" ]; then
-        exec swift format lint --strict --recursive --parallel "$root/Sources" "$root/Tests" "$root/Package.swift"
-    fi
-    exec swift format --in-place --recursive --parallel "$root/Sources" "$root/Tests" "$root/Package.swift"
-    ;;
-ui)
-    shift
-    exec "$root/scripts/ui-screenshots.sh" "$@"
-    ;;
-bootstrap)
-    exec "$root/scripts/bootstrap.sh"
-    ;;
 *)
-    sed -n '2,7p' "$0" | sed 's/^# //' >&2
+    if [ -n "${1:-}" ] && [ -x "$root/scripts/run" ]; then exec "$root/scripts/run" "$@"; fi
+    echo "usage: ./run dev|release|lint <args>, or a mode scripts/run handles  (./run dev --help)" >&2
     exit 2
     ;;
 esac

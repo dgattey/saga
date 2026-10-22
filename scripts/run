@@ -1,0 +1,26 @@
+#!/bin/sh
+# App-specific modes delegated by `./run` (which `devkit sync` owns).
+set -eu
+root=$(cd "$(dirname "$0")/.." && pwd)
+
+case "${1:-}" in
+format)
+    shift
+    if [ "${1:-}" = "--check" ]; then
+        exec swift format lint --strict --recursive --parallel "$root/Sources" "$root/Tests" "$root/Package.swift" "$root/scripts"
+    fi
+    exec swift format format --in-place --recursive --parallel "$root/Sources" "$root/Tests" "$root/Package.swift" "$root/scripts"
+    ;;
+ui)
+    shift
+    exec "$root/scripts/ui-screenshots.sh" "$@"
+    ;;
+bootstrap)
+    shift
+    exec "$root/scripts/bootstrap.sh" "$@"
+    ;;
+*)
+    echo "usage: ./run dev|release|lint|format|ui|bootstrap <args>" >&2
+    exit 2
+    ;;
+esac

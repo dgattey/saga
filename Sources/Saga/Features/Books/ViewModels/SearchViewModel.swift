@@ -14,6 +14,7 @@ struct BookSearchResult {
 }
 
 /// Query text, applied tokens, and debounced background search for one search surface.
+@MainActor
 @Observable
 final class SearchViewModel {
   struct Key: Equatable {
@@ -72,24 +73,21 @@ final class SearchViewModel {
 
     let query = query
     let tokens = tokens
-    let deliverResults = { (hits: [BookSearchHit]) in
+    searchTask = Task {
+      if let debounce {
+        try? await Task.sleep(for: debounce)
+      }
+      guard !Task.isCancelled else { return }
+      let documents = makeDocuments()
+      let hits = await Task.detached(priority: .userInitiated) {
+        BookSearchEngine.search(query, tokens: tokens, in: documents)
+      }.value
+      guard !Task.isCancelled else { return }
       completion(
         hits.enumerated().map { outputIndex, hit in
           BookSearchResult(book: books[hit.index], index: outputIndex, match: hit.match)
         }
       )
-    }
-    searchTask = Task(priority: .userInitiated) {
-      if let debounce {
-        try? await Task.sleep(for: debounce)
-      }
-      guard !Task.isCancelled else { return }
-      let documents = await MainActor.run { makeDocuments() }
-      let hits = BookSearchEngine.search(query, tokens: tokens, in: documents)
-      guard !Task.isCancelled else { return }
-      await MainActor.run {
-        deliverResults(hits)
-      }
     }
   }
 

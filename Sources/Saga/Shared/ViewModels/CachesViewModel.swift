@@ -5,16 +5,16 @@
 //  Created by Dylan Gattey on 1/25/26.
 //
 
-import Combine
 import Foundation
 import Observation
 
 /// Manages cache size tracking and clearing for both image and network caches
+@MainActor
 @Observable
 final class CachesViewModel {
   var imageCacheSizeBytes: Int64 = 0
   var networkCacheSizeBytes: Int64 = 0
-  @ObservationIgnored private var refreshTimer: AnyCancellable?
+  @ObservationIgnored private var monitorTask: Task<Void, Never>?
   @ObservationIgnored private var refreshTask: Task<Void, Never>?
   @ObservationIgnored private var isClearing = false
 
@@ -23,18 +23,20 @@ final class CachesViewModel {
   /// Starts refreshing cache sizes immediately and periodically while Settings is visible
   func startMonitoring() {
     refreshSizes()
-    guard refreshTimer == nil else { return }
-    refreshTimer = Timer.publish(every: 5, on: .main, in: .common)
-      .autoconnect()
-      .sink { [weak self] _ in
-        self?.refreshSizes()
+    guard monitorTask == nil else { return }
+    monitorTask = Task { @MainActor [weak self] in
+      while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(5))
+        guard !Task.isCancelled, let self else { break }
+        self.refreshSizes()
       }
+    }
   }
 
   /// Stops periodic cache size refreshes when Settings is closed
   func stopMonitoring() {
-    refreshTimer?.cancel()
-    refreshTimer = nil
+    monitorTask?.cancel()
+    monitorTask = nil
     refreshTask?.cancel()
     refreshTask = nil
   }

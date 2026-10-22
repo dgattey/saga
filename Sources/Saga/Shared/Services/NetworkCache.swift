@@ -18,7 +18,7 @@ enum NetworkCache {
   private static let diskCacheDirectory = CacheConfig.cacheDirectory(named: diskCacheDirectoryName)
 
   /// Shared network cache for HTTP responses
-  private static var cache: URLCache = {
+  private static let cache: URLCache = {
     let diskCapacity = CacheConfig.capacity(fromLimitBytes: cacheLimitBytes())
     let memoryCapacity = CacheConfig.bytes(fromGB: CacheConfig.defaultLimitGB)
     return URLCache(

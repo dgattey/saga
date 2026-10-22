@@ -5,6 +5,7 @@
 //  Created by Dylan Gattey on 7/6/25.
 //
 
+import DylCore
 import SwiftUI
 
 enum BookEditorialMetrics {
@@ -87,7 +88,7 @@ struct BookContentView: View {
   @Environment(\.scrollContextID) private var scrollContextID
   @Environment(\.coverNamespace) private var coverNamespace
   @Environment(BookNavigationViewModel.self) private var bookNavigationViewModel
-  @State private var isEditing = false
+  @State private var isEditing = LaunchOverrides.current.sagaInitialView == .bookEdit
   @State private var isConfirmingDelete = false
   @State private var deleteError: BookMutationError?
 
@@ -133,6 +134,8 @@ struct BookContentView: View {
     .navigationTitle(book.title ?? "Untitled book")
     #if os(macOS)
       .navigationSubtitle(book.author ?? "")
+    #else
+      .navigationBarTitleDisplayMode(.inline)
     #endif
     .toolbar {
       ToolbarItem(placement: .primaryAction) {
@@ -222,6 +225,7 @@ struct BookContentView: View {
 }
 
 struct BookEditorialLayout<Cover: View, Details: View>: View {
+  @Environment(\.horizontalSizeClass) private var horizontalSizeClass
   private let scrollScope: ScrollScope?
   private let scrollContextID: UUID?
   private let cover: Cover
@@ -241,21 +245,24 @@ struct BookEditorialLayout<Cover: View, Details: View>: View {
 
   var body: some View {
     MeasuredContainer { size in
+      let isCompact =
+        horizontalSizeClass == .compact
+        || (size.width > 0 && size.width < BookEditorialMetrics.twoColumnThreshold)
       let content = Group {
-        if size.width == 0 || size.width >= BookEditorialMetrics.twoColumnThreshold {
+        if !isCompact {
           HStack(alignment: .top, spacing: BookEditorialMetrics.columnGap) {
             cover
             details
               .frame(maxWidth: BookEditorialMetrics.maxDetailsWidth, alignment: .topLeading)
           }
         } else {
-          VStack(alignment: .leading, spacing: 28) {
+          VStack(alignment: .leading, spacing: 20) {
             cover.frame(maxWidth: .infinity)
             details
           }
         }
       }
-      .padding(BookEditorialMetrics.outsidePadding)
+      .padding(isCompact ? 20 : BookEditorialMetrics.outsidePadding)
       .frame(maxWidth: .infinity, alignment: .topLeading)
 
       Group {
@@ -314,20 +321,37 @@ struct BookReadDetailsView: View {
       if !entries.isEmpty {
         ViewThatFits(in: .horizontal) {
           EditorialHairlineRow(count: entries.count) { entryView(entries[$0]) }
-          VStack(alignment: .leading, spacing: 14) {
+          LazyVGrid(
+            columns: [
+              GridItem(.flexible(), alignment: .leading),
+              GridItem(.flexible(), alignment: .leading),
+            ],
+            alignment: .leading,
+            spacing: 12
+          ) {
             ForEach(entries) { entryView($0) }
           }
         }
-        .padding(.top, 22)
+        .padding(.top, 18)
       }
       Divider()
-        .padding(.vertical, 22)
+        .padding(.vertical, 18)
       if let review = book.reviewDescription,
         !review.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
       {
         VStack(alignment: .leading, spacing: 10) {
-          EditorialSectionLabel("Notes")
+          EditorialSectionLabel("Review")
           AttributedTextViewer(attributedString: review.editorialAttributedString())
+        }
+        Divider()
+          .padding(.vertical, 18)
+      }
+      if let notes = book.notes,
+        !notes.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      {
+        VStack(alignment: .leading, spacing: 10) {
+          EditorialSectionLabel("Private Notes", systemImage: "lock.fill")
+          AttributedTextViewer(attributedString: notes.editorialAttributedString())
         }
       } else {
         BookNotesEmptyState()
@@ -375,16 +399,24 @@ struct BookReadDetailsView: View {
 
 struct EditorialSectionLabel: View {
   private let text: String
+  private let systemImage: String?
 
-  init(_ text: String) {
+  init(_ text: String, systemImage: String? = nil) {
     self.text = text
+    self.systemImage = systemImage
   }
 
   var body: some View {
-    Text(text.uppercased())
-      .font(.editorialLabel)
-      .tracking(0.8)
-      .foregroundStyle(.secondary)
+    HStack(spacing: 5) {
+      if let systemImage {
+        Image(systemName: systemImage)
+          .font(.caption2.weight(.semibold))
+      }
+      Text(text.uppercased())
+        .font(.editorialLabel)
+        .tracking(0.8)
+    }
+    .foregroundStyle(.secondary)
   }
 }
 
@@ -411,8 +443,8 @@ struct EditorialHairlineRow<Item: View>: View {
           Divider().frame(height: 34)
         }
         item(index)
-          .padding(.leading, index == 0 ? 0 : 16)
-          .padding(.trailing, index == count - 1 ? 0 : 16)
+          .padding(.leading, index == 0 ? 0 : 12)
+          .padding(.trailing, index == count - 1 ? 0 : 12)
       }
     }
     .fixedSize(horizontal: true, vertical: false)
@@ -422,7 +454,7 @@ struct EditorialHairlineRow<Item: View>: View {
 struct BookNotesEmptyState: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
-      EditorialSectionLabel("Notes")
+      EditorialSectionLabel("Private Notes", systemImage: "lock.fill")
       Text("No notes yet. Choose Edit to add your thoughts.")
         .font(.editorialNotes.italic())
         .foregroundStyle(.tertiary)

@@ -6,7 +6,7 @@
 //
 
 import CoreData
-import DylUI
+import DylCore
 import SwiftUI
 
 #if os(macOS)
@@ -18,8 +18,11 @@ struct ContentView: View {
   @Environment(SyncViewModel.self) private var syncViewModel
   @Environment(CachesViewModel.self) private var cachesViewModel
   @Environment(AnimationSettings.self) private var animationSettings
+  #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+  #endif
   @State private var entry: NavigationEntry?
-  @State private var isShowingSettings = false
+  @State private var isShowingSettings = LaunchOverrides.current.sagaInitialView == .settings
   @State private var isCreatingBook = false
   @State private var navigationHistory: NavigationHistory
   @State private var scrollStore = ScrollPositionStore()
@@ -111,11 +114,11 @@ struct ContentView: View {
       .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
     #else
       .sheet(isPresented: $isShowingSettings) {
-        SettingsView(pages: .saga)
-        .presentationDragIndicator(.visible)
-        .environment(syncViewModel)
-        .environment(cachesViewModel)
-        .environment(animationSettings)
+        SettingsView()
+          .presentationDragIndicator(.visible)
+          .environment(syncViewModel)
+          .environment(cachesViewModel)
+          .environment(animationSettings)
       }
     #endif
     .focusedSceneValue(\.isCreatingBook, $isCreatingBook)
@@ -147,9 +150,15 @@ struct ContentView: View {
       )
     }
     .task {
+      guard LaunchOverrides.current.sagaInitialView == nil else { return }
       await syncViewModel.syncWithContentful()
     }
     #if os(macOS)
+      .onAppear {
+        if LaunchOverrides.current.sagaInitialView == .settings {
+          openWindow(id: "settings")
+        }
+      }
       .onReceive(
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
       ) { _ in

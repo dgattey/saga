@@ -18,10 +18,12 @@ struct NavigationEntry: Hashable {
 }
 
 /// Protocol for objects that want to be notified of navigation changes
+@MainActor
 protocol NavigationObserver: AnyObject {
   func onNavigationChange(from oldEntry: NavigationEntry?, to newEntry: NavigationEntry?)
 }
 
+@MainActor
 @Observable
 final class NavigationHistory {
   private(set) var backStack: [NavigationEntry] = []

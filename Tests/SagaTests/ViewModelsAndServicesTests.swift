@@ -227,11 +227,15 @@ struct ViewModelsAndServicesTests {
     searchVM.searchText = "Dispossessed"
     #expect(searchVM.hasActiveSearch)
 
-    let results: [BookSearchResult] = await withCheckedContinuation { continuation in
+    var results: [BookSearchResult] = []
+    await withCheckedContinuation { continuation in
       searchVM.search(
         in: books,
         makeDocuments: { books.map(\.searchDocument) },
-        completion: { continuation.resume(returning: $0) }
+        completion: {
+          results = $0
+          continuation.resume()
+        }
       )
     }
 

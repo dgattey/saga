@@ -20,7 +20,7 @@ api_secret="${SAGA_API_SECRET:-$(op read "op://$VAULT/SAGA_API_SECRET/value" 2>/
 
 umask 077
 cat >"$CONFIG" <<EOF
-// Written by ./run bootstrap. Gitignored; never commit.
+// Written by scripts/bootstrap.sh. Gitignored; never commit.
 CONTENTFUL_SPACE_ID = $space_id
 CONTENTFUL_ACCESS_TOKEN = $access_token
 SAGA_API_SECRET = $api_secret

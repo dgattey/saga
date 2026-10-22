@@ -1,4 +1,5 @@
-# Saga app manifest, read by devkit and release-kit (DylKit). `./run dev checks` validates it.
+# Saga app manifest, read by devkit, release-kit and @dylkit/web.
+# Schema: DylKit's Sources/DylManifest/DylAppManifest.swift. `./run dev checks` validates it.
 
 [app]
 name = "Saga"
@@ -32,21 +33,14 @@ UIStatusBarStyle = "UIStatusBarStyleDefault"
 [release]
 sparkle-public-key = "sparkle-public-key.txt"
 site-url = "https://saga.gattey.com"
+assets = "https://replacewithsagastore.public.blob.vercel-storage.com"
 artifacts-dir = "server/public"
 check-interval = 3600
-# Only what ships in the app.
-inputs = [
-    "Sources/**",
-    "Package.swift",
-    "Package.resolved",
-    "DylApp.toml",
-    "Saga.entitlements",
-    "sparkle-public-key.txt",
-]
 
+# Read by @dylkit/web for saga.gattey.com. Screenshot paths are under release.artifacts-dir.
 [site]
-tagline = "Your personal reading log for macOS and iOS: track books, reading status, star ratings and notes, synced with Contentful and Goodreads."
+tagline = "Your personal reading log for macOS and iOS: track books, reading status, star ratings, public reviews and private notes, synced with Contentful and Goodreads."
 accent = { light = "#264e3a", dark = "#4a7e65" }
 screenshots = [
-    { src = "saga-preview.png", alt = "Saga book library and reading tracker on macOS" },
+    { src = "saga-preview-light.png", dark-src = "saga-preview.png", alt = "Saga book library and reading tracker on macOS showing editorial reviews, private notes, and the Currently reading sidebar card" },
 ]

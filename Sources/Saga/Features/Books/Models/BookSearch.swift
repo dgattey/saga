@@ -13,12 +13,14 @@ enum BookSearchToken: Hashable, Identifiable, Sendable {
   case status(ReadingStatus)
   case rating(Int)
   case hasReview
+  case hasNotes
   case year(Int)
 
   enum Kind: Hashable {
     case status
     case rating
     case hasReview
+    case hasNotes
     case year
   }
 
@@ -29,6 +31,7 @@ enum BookSearchToken: Hashable, Identifiable, Sendable {
     case .status: .status
     case .rating: .rating
     case .hasReview: .hasReview
+    case .hasNotes: .hasNotes
     case .year: .year
     }
   }
@@ -40,6 +43,7 @@ enum BookSearchToken: Hashable, Identifiable, Sendable {
     case .status(.notStarted): "On the shelf"
     case .rating(let stars): "★ \(stars)"
     case .hasReview: "Has review"
+    case .hasNotes: "Has notes"
     case .year(let year): String(year)
     }
   }
@@ -51,6 +55,7 @@ enum BookSearchToken: Hashable, Identifiable, Sendable {
     case .status(.notStarted): "books.vertical"
     case .rating: "star"
     case .hasReview: "text.quote"
+    case .hasNotes: "lock.doc"
     case .year: "calendar"
     }
   }
@@ -60,6 +65,7 @@ enum BookSearchToken: Hashable, Identifiable, Sendable {
     case .status(let status): document.status == status
     case .rating(let stars): document.rating == stars
     case .hasReview: !document.review.isEmpty
+    case .hasNotes: !document.notes.isEmpty
     case .year(let year): document.year == year
     }
   }
@@ -70,7 +76,8 @@ enum BookSearchToken: Hashable, Identifiable, Sendable {
     case .status(.reading): ["reading", "current"]
     case .status(.notStarted): ["shelf", "unread", "want"]
     case .rating(let stars): ["\(stars)", "★\(stars)"]
-    case .hasReview: ["review", "notes"]
+    case .hasReview: ["review"]
+    case .hasNotes: ["notes", "private"]
     case .year(let year): [String(year)]
     }
   }
@@ -87,7 +94,7 @@ enum BookSearchToken: Hashable, Identifiable, Sendable {
     let candidates: [BookSearchToken] =
       [.status(.read), .status(.reading), .status(.notStarted)]
       + (1...5).reversed().map { .rating($0) }
-      + [.hasReview]
+      + [.hasReview, .hasNotes]
       + years.map { .year($0) }
     return candidates.filter { token in
       !activeTokens.contains(token) && token.keywords.contains { $0.hasPrefix(fragment) }
@@ -101,6 +108,7 @@ struct BookSearchDocument: Equatable, Sendable {
   var author = ""
   var isbn = ""
   var review = ""
+  var notes = ""
   var rating: Int?
   var status = ReadingStatus.notStarted
   var year: Int?
@@ -109,14 +117,20 @@ struct BookSearchDocument: Equatable, Sendable {
 /// Why a book matched, as character offsets into the matched strings.
 struct BookSearchMatch: Equatable, Sendable {
   struct Excerpt: Equatable, Sendable {
+    enum Source: Equatable, Sendable {
+      case review
+      case notes
+    }
+
     let text: String
     let highlight: Range<Int>
+    var source: Source = .review
   }
 
   var score: Double = 0
   var titleRanges: [Range<Int>] = []
   var authorRanges: [Range<Int>] = []
-  /// Present only when the query matched the review and nothing else.
+  /// Present only when the query matched the review or private notes and nothing else.
   var excerpt: Excerpt?
 }
 
@@ -193,14 +207,25 @@ enum BookSearchEngine {
       )
     }
 
-    guard let review = textMatch(query, words: words, in: document.review),
+    let reviewMatch = textMatch(query, words: words, in: document.review)
+    let notesMatch = textMatch(query, words: words, in: document.notes)
+    if let notes = notesMatch,
+      let firstRange = notes.ranges.first,
+      notes.quality > (reviewMatch?.quality ?? 0)
+    {
+      return BookSearchMatch(
+        score: notes.quality * 0.65,
+        excerpt: excerpt(of: document.notes, around: firstRange, source: .notes)
+      )
+    }
+    guard let review = reviewMatch,
       let firstRange = review.ranges.first
     else {
       return nil
     }
     return BookSearchMatch(
       score: review.quality * 0.65,
-      excerpt: excerpt(of: document.review, around: firstRange)
+      excerpt: excerpt(of: document.review, around: firstRange, source: .review)
     )
   }
 
@@ -278,11 +303,13 @@ enum BookSearchEngine {
     }
   }
 
-  /// About `excerptContext` characters of review around the match, snapped to word boundaries
-  /// with whitespace collapsed.
-  private static func excerpt(of text: String, around range: Range<String.Index>)
-    -> BookSearchMatch.Excerpt
-  {
+  /// About `excerptContext` characters of review or notes around the match, snapped to word
+  /// boundaries with whitespace collapsed.
+  private static func excerpt(
+    of text: String,
+    around range: Range<String.Index>,
+    source: BookSearchMatch.Excerpt.Source = .review
+  ) -> BookSearchMatch.Excerpt {
     var lower =
       text.index(range.lowerBound, offsetBy: -excerptLeadingContext, limitedBy: text.startIndex)
       ?? text.startIndex
@@ -311,7 +338,8 @@ enum BookSearchEngine {
     let suffix = upper < text.endIndex ? "…" : ""
     return BookSearchMatch.Excerpt(
       text: prefix + matched + trailing + suffix,
-      highlight: prefix.count..<(prefix.count + matched.count)
+      highlight: prefix.count..<(prefix.count + matched.count),
+      source: source
     )
   }
 

@@ -5,7 +5,7 @@
 //  Created by Dylan Gattey on 10/20/26.
 //
 
-import Foundation
+@preconcurrency import Foundation
 import UniformTypeIdentifiers
 
 #if canImport(AppKit)
@@ -14,7 +14,7 @@ import UniformTypeIdentifiers
   import UIKit
 #endif
 
-enum CoverInput: Equatable {
+enum CoverInput: Equatable, Sendable {
   case remoteURL(URL)
   case imageData(Data)
 
@@ -58,6 +58,7 @@ enum CoverInput: Equatable {
       : remoteURL(from: url.absoluteString).map(CoverInput.remoteURL)
   }
 
+  @MainActor
   static func load(from providers: [NSItemProvider]) async -> CoverInput? {
     var candidates: [CoverInput] = []
     for provider in providers {
@@ -65,7 +66,8 @@ enum CoverInput: Equatable {
         let url: URL = await withCheckedContinuation({ cont in
           _ = provider.loadObject(ofClass: URL.self) { url, _ in cont.resume(returning: url) }
         }),
-        let candidate = from(url: url)
+        let candidate = await Task.detached(priority: .userInitiated, operation: { from(url: url) })
+          .value
       {
         candidates.append(candidate)
       }
