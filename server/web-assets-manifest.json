@@ -1,0 +1,106 @@
+{
+  "outputs": {
+    "app-icon.png": {
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "sha256": "5b8a53d757bda997426c2e18a2f8c7e9dd1b066835ef7ec591fe010c506396a1"
+    },
+    "apple-touch-icon.png": {
+      "dimensions": [
+        180,
+        180
+      ],
+      "sha256": "00ca81933df0d277cb068ba0f79b5c463aaad855262487038fbe61900dbf326e"
+    },
+    "favicon-16x16.png": {
+      "dimensions": [
+        16,
+        16
+      ],
+      "sha256": "4df20207006ccdd607b073811e61402d3248f2bf3cdb3d01451eac1f96474c34"
+    },
+    "favicon-32x32.png": {
+      "dimensions": [
+        32,
+        32
+      ],
+      "sha256": "bbd8a55fdbbd71a65d094140988f99a930527b298d0366c12ad0e20f3f0cafbb"
+    },
+    "favicon-64x64.png": {
+      "dimensions": [
+        64,
+        64
+      ],
+      "sha256": "5688731d30936500a88a31da81ecc82bebea49e9359f929d5b29d64d78ab950f"
+    },
+    "favicon.ico": {
+      "sha256": "f56f295e6d1400c919edcab6ed0e0ac40037aff784da31d1253e72ec29170ef8"
+    },
+    "favicon.svg": {
+      "sha256": "75360d04780086c2830e775bde51c21950d8143e74609b240577e52110b461f9"
+    },
+    "icon-192.png": {
+      "dimensions": [
+        192,
+        192
+      ],
+      "sha256": "3fbf351a9f36522b39fe18579c4a41828838456c67a754996153b31d39545e64"
+    },
+    "icon-512.png": {
+      "dimensions": [
+        512,
+        512
+      ],
+      "sha256": "2988993d409bdc9f434037b4a6236594f6e28b3203892ef284b3adef3e32c779"
+    },
+    "opengraph-image.png": {
+      "dimensions": [
+        1200,
+        630
+      ],
+      "sha256": "cf8bb8c34bd7952ddfaeb018851a7cd8b59580a39a3ce4735dd7327f26ebdc91"
+    },
+    "saga-preview.png": {
+      "dimensions": [
+        1600,
+        1067
+      ],
+      "sha256": "418538d634a1a405638efcca926647d3bf403a9412e774ef2413e5f088a2aecb"
+    },
+    "saga-search-preview.png": {
+      "dimensions": [
+        1600,
+        1067
+      ],
+      "sha256": "2c2d2983c0abb0483aca688ecd87f2a654f325f2a1ec7845cb04f60f363846b6"
+    },
+    "saga-settings-about-preview.png": {
+      "dimensions": [
+        1280,
+        1100
+      ],
+      "sha256": "52a3b0235385e7e0db8fd3f67ff356a9758c85fbfe199b4ef15ecf8da482c19a"
+    },
+    "saga-settings-storage-preview.png": {
+      "dimensions": [
+        1280,
+        1100
+      ],
+      "sha256": "ce36443d06d02a8cfb989ac2aa5f6d73be7c9001ab5660e052aeaa15d07cf4d2"
+    },
+    "site.webmanifest": {
+      "sha256": "655fb1d2fdb51f0e40bded29753ddd1f9bc5749efd739e22b552bf95002f0315"
+    }
+  },
+  "source": {
+    "iconBundle": "Saga/Saga/AppIcon.icon",
+    "iconJsonSha256": "8dd32de243fac21e2fd2b606bedffbb8ecd1d0c3d4cc9c4aaef19f653256f110",
+    "layers": {
+      "monstera-bookmark-leaf.png": "88da721f6fd22f3437f28272102117eb4af45029b9edeea93e70ca39290ffe20",
+      "open-hardcover-book.png": "3a47ae51490a405d7bd3be427d01c10bdc12bfe0c21570902d04f80faf942874",
+      "sage-background.png": "07ec731fdb325dadea840a91a40efbb424f528c9c3b5703edb20c802945a3365"
+    }
+  }
+}

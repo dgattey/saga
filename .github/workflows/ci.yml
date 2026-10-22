@@ -23,6 +23,31 @@ jobs:
           fi
           echo "Release bump type: ${release_type} (version and build are computed at release time on merge)"
 
+  web:
+    name: 🌐 Web (saga.gattey.com)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Verify web icons & preview assets match AppIcon.icon
+        run: ./scripts/sync-web-icons.sh --check
+
+      - name: Install, test, typecheck, and build server/
+        working-directory: server
+        run: |
+          npm ci
+          npm test
+          npm run typecheck
+          npm run build
+
   format:
     name: 🎨 Format
     runs-on: macos-latest

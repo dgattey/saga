@@ -7,10 +7,10 @@ const SAMPLE = `<?xml version="1.0" standalone="yes"?>
   <channel>
     <title>Saga</title>
     <item>
-      <title>1.4.1</title>
-      <sparkle:version>22346</sparkle:version>
-      <sparkle:shortVersionString>1.4.1</sparkle:shortVersionString>
-      <enclosure url="https://github.com/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip" length="5674479" type="application/octet-stream"/>
+      <title>1.9.2</title>
+      <sparkle:version>22672</sparkle:version>
+      <sparkle:shortVersionString>1.9.2</sparkle:shortVersionString>
+      <enclosure url="https://github.com/dgattey/saga/releases/download/v1.9.2/Saga-1.9.2.zip" length="5750698" type="application/octet-stream"/>
     </item>
   </channel>
 </rss>`;
@@ -19,12 +19,12 @@ describe("parseAppcastXml", () => {
   it("parses version, build, and absolute GitHub release download URL", () => {
     const release = parseAppcastXml(SAMPLE);
     assert.ok(release);
-    assert.equal(release.version, "1.4.1");
-    assert.equal(release.build, "22346");
-    assert.equal(release.zipPath, "/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip");
+    assert.equal(release.version, "1.9.2");
+    assert.equal(release.build, "22672");
+    assert.equal(release.zipPath, "/dgattey/saga/releases/download/v1.9.2/Saga-1.9.2.zip");
     assert.equal(
       release.downloadUrl,
-      "https://github.com/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip",
+      "https://github.com/dgattey/saga/releases/download/v1.9.2/Saga-1.9.2.zip",
     );
   });
 
@@ -32,8 +32,8 @@ describe("parseAppcastXml", () => {
     assert.equal(parseAppcastXml("<rss></rss>"), null);
   });
 
-  it("provides a valid v1.4.1 fallback release", () => {
-    assert.equal(FALLBACK_MACOS_RELEASE.version, "1.4.1");
+  it("provides a valid v1.9.2 fallback release", () => {
+    assert.equal(FALLBACK_MACOS_RELEASE.version, "1.9.2");
     assert.equal(FALLBACK_MACOS_RELEASE.downloadReady, true);
   });
 });

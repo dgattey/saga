@@ -5,8 +5,13 @@ alwaysApply: false
 # Post-change checks
 
 After a refactor or adding new code:
-- Run lint/format with `./run checks`
+- Run lint/format with `./run checks` (which also runs `./scripts/sync-web-icons.sh --check`)
 - Fix any problems until the run passes
 - Run a build with `./run app -b` and unit tests with `./run app -t`; after visual changes, capture and look at `./run app --ui` screenshots
+- **Web & icon sync (`saga.gattey.com` + `dylangattey.com`)**: Whenever `Saga/Saga/AppIcon.icon`, `Saga/Saga/Assets.xcassets`, or major UI screens change:
+  1. Run `./scripts/sync-web-icons.sh` to regenerate `server/public/` favicons, app icons, OpenGraph card, and `server/web-assets-manifest.json` (plus canonical icon exports in `/cursor/stores/bc-150e5be2-2d2a-4a16-9354-3a146dd3a429/media/saga-latest-app-icon-*.png`).
+  2. Update `server/public/saga-preview.png` (and related preview screenshots in `server/public/`) and `server/app/page.tsx` feature copy if UI screens changed, then re-run `./scripts/sync-web-icons.sh` so the manifest stays in sync.
+  3. Verify `server/` with `cd server && npm test && npm run typecheck && npm run build`.
+  4. Coordinate with `dgattey/dg` (`dylangattey.com`) so the Saga side-project card icon/preview on `dylangattey.com` stays in sync.
 - Fix any errors or warnings until the run passes
 - Do not report success to user, they will see the jobs run!

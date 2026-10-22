@@ -1,7 +1,7 @@
 export type MacOSRelease = {
   version: string;
   build: string;
-  /** Pathname for the zip, e.g. `/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip`. */
+  /** Pathname for the zip, e.g. `/dgattey/saga/releases/download/v1.9.2/Saga-1.9.2.zip`. */
   zipPath: string;
   /** Absolute URL used for download redirects. */
   downloadUrl: string;
@@ -13,10 +13,10 @@ export const DEFAULT_APPCAST_URL =
   "https://github.com/dgattey/saga/releases/latest/download/appcast.xml";
 
 export const FALLBACK_MACOS_RELEASE: MacOSRelease = {
-  version: "1.4.1",
-  build: "22346",
-  zipPath: "/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip",
-  downloadUrl: "https://github.com/dgattey/saga/releases/download/v1.4.1/Saga-1.4.1.zip",
+  version: "1.9.2",
+  build: "22672",
+  zipPath: "/dgattey/saga/releases/download/v1.9.2/Saga-1.9.2.zip",
+  downloadUrl: "https://github.com/dgattey/saga/releases/download/v1.9.2/Saga-1.9.2.zip",
   downloadReady: true,
 };
 
@@ -63,7 +63,7 @@ export function getAppcastUrl(): string {
  * Fetches the latest Sparkle `appcast.xml` from GitHub Releases (revalidated every 60s)
  * so new releases published by `.github/workflows/release.yml` automatically update the
  * version label and `/download/macos` redirect without redeploying the site.
- * Falls back to `FALLBACK_MACOS_RELEASE` (`v1.4.1`).
+ * Falls back to `FALLBACK_MACOS_RELEASE` (`v1.9.2`).
  */
 export async function getMacOSRelease(): Promise<MacOSRelease> {
   try {

@@ -146,6 +146,12 @@ struct ChecksCommand {
           cwd: repoURL,
           description: "Linting \(labels)..."
         )
+
+        let webIconsCheck = repoURL.appendingPathComponent("scripts/sync-web-icons.sh").path
+        if FileManager.default.isExecutableFile(atPath: webIconsCheck) {
+          print("Verifying server/ web icons and preview assets...")
+          try runCommand(webIconsCheck, ["--check"], cwd: repoURL)
+        }
       }
     }
   }
