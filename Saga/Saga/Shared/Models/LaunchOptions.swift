@@ -25,6 +25,7 @@ enum LaunchOptions {
   static let initialView = value("initial-view").flatMap(InitialView.init(rawValue:))
   static let searchQuery = value("search-query", lowercased: false)
   static let storePath = value("store-path", lowercased: false)
+  static let scrollSidebarToBottom = value("scroll-sidebar-bottom") == "true"
 
   static let colorScheme: ColorScheme? =
     switch value("appearance") {

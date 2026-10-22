@@ -56,7 +56,25 @@ struct BooksListView: View {
               }
             }
           }
-          .padding(.bottom, 4)
+          .padding(.bottom, 16)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+          if !isSearchActive, let activeBook = currentlyReadingBook {
+            NowReadingBarView(
+              book: activeBook,
+              onSelect: {
+                selectBook(activeBook.objectID)
+              }
+            )
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            #if os(iOS)
+              .padding(.bottom, 8)
+            #else
+              .padding(.bottom, 12)
+            #endif
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+          }
         }
         .scrollVelocityThrottle()
         .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
@@ -67,6 +85,15 @@ struct BooksListView: View {
         .accessibilityIdentifier(AccessibilityID.Books.sidebarScrollArea)
         .onChange(of: entry?.selection) { _, newSelection in
           scrollToSelection(selection: newSelection, proxy: proxy)
+        }
+        .task(id: viewModel.filteredBooks.count) {
+          guard LaunchOptions.scrollSidebarToBottom,
+            let lastBookID = viewModel.filteredBooks.last?.book.objectID
+          else { return }
+          try? await Task.sleep(for: .milliseconds(300))
+          withAnimation(.none) {
+            proxy.scrollTo(lastBookID, anchor: .center)
+          }
         }
         #if os(macOS)
           .onMoveCommand { direction in
@@ -82,23 +109,6 @@ struct BooksListView: View {
             }
           }
         #endif
-      }
-
-      if !isSearchActive, let activeBook = currentlyReadingBook {
-        NowReadingBarView(
-          book: activeBook,
-          onSelect: {
-            selectBook(activeBook.objectID)
-          }
-        )
-        .padding(.horizontal, 12)
-        .padding(.top, 4)
-        #if os(iOS)
-          .padding(.bottom, 22)
-        #else
-          .padding(.bottom, 12)
-        #endif
-        .transition(.move(edge: .bottom).combined(with: .opacity))
       }
     }
     .animation(animationSettings.selectionSpring, value: isSearchActive)
