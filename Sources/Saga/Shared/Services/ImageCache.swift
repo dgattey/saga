@@ -60,31 +60,31 @@ enum ImageCache {
 
   /// In-memory cache keyed by content hash (e.g., "isbn:123:200")
   nonisolated(unsafe)  // SAFETY: NSCache is internally thread-safe
-  private static let imageCache: NSCache<NSString, CGImage> = {
-    let cache = NSCache<NSString, CGImage>()
-    cache.countLimit = 512
-    return cache
-  }()
+    private static let imageCache: NSCache<NSString, CGImage> = {
+      let cache = NSCache<NSString, CGImage>()
+      cache.countLimit = 512
+      return cache
+    }()
 
   /// In-memory cache keyed by URL for fast lookups when URL is known
   nonisolated(unsafe)  // SAFETY: NSCache is internally thread-safe
-  private static let urlImageCache: NSCache<NSString, CGImage> = {
-    let cache = NSCache<NSString, CGImage>()
-    cache.countLimit = 512
-    return cache
-  }()
+    private static let urlImageCache: NSCache<NSString, CGImage> = {
+      let cache = NSCache<NSString, CGImage>()
+      cache.countLimit = 512
+      return cache
+    }()
 
   /// Options forcing ImageIO to decode disk-cached PNGs on the background thread
   nonisolated(unsafe)  // SAFETY: CFDictionary literal is immutable
-  private static let diskDecodeOptions: CFDictionary =
-    [
-      kCGImageSourceShouldCache: true,
-      kCGImageSourceShouldCacheImmediately: true,
-    ] as CFDictionary
+    private static let diskDecodeOptions: CFDictionary =
+      [
+        kCGImageSourceShouldCache: true,
+        kCGImageSourceShouldCacheImmediately: true,
+      ] as CFDictionary
 
   /// Memoizes SHA256 disk cache file URLs by cache key to avoid repeated hashing and string formatting
   nonisolated(unsafe)  // SAFETY: NSCache is internally thread-safe
-  private static let fileURLCache = NSCache<NSString, NSURL>()
+    private static let fileURLCache = NSCache<NSString, NSURL>()
 
   /// Lowercase ASCII hex lookup table for fast SHA256 digest formatting
   private static let hexDigits: [UInt8] = Array("0123456789abcdef".utf8)

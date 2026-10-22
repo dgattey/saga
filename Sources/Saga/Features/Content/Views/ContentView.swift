@@ -115,10 +115,10 @@ struct ContentView: View {
     #else
       .sheet(isPresented: $isShowingSettings) {
         SettingsView()
-          .presentationDragIndicator(.visible)
-          .environment(syncViewModel)
-          .environment(cachesViewModel)
-          .environment(animationSettings)
+        .presentationDragIndicator(.visible)
+        .environment(syncViewModel)
+        .environment(cachesViewModel)
+        .environment(animationSettings)
       }
     #endif
     .focusedSceneValue(\.isCreatingBook, $isCreatingBook)
