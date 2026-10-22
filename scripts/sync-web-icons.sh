@@ -128,7 +128,7 @@ layout_path = os.path.join(root, "server", "app", "layout.tsx")
 if os.path.isfile(layout_path):
     with open(layout_path, "r", encoding="utf-8") as f:
         layout_src = f.read()
-    for token in ["/favicon.ico", "/favicon.svg", "/apple-touch-icon.png", "/opengraph-image.png"]:
+    for token in ["/favicon.ico", "/favicon.svg", "/icon.png", "/apple-touch-icon.png", "/opengraph-image.png"]:
         if token not in layout_src:
             errors.append(f"server/app/layout.tsx is missing metadata reference to '{token}'.")
 
@@ -215,6 +215,7 @@ os.makedirs(public_dir, exist_ok=True)
 # 1. Save RGBA squircle PNGs
 squircle_sizes = {
     "app-icon.png": 1024,
+    "icon.png": 512,
     "icon-512.png": 512,
     "icon-192.png": 192,
     "favicon-64x64.png": 64,
@@ -385,6 +386,7 @@ if os.path.isdir(store_media):
 # 8. Write deterministic manifest in server/web-assets-manifest.json
 tracked_outputs = [
     "app-icon.png",
+    "icon.png",
     "icon-512.png",
     "icon-192.png",
     "apple-touch-icon.png",
