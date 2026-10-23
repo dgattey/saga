@@ -28,7 +28,7 @@ shared UI/utilities. It's built with DylKit (`DylCore`, `DylUI`, `DylUpdates`, `
 - `./scripts/sync-web-icons.sh` regenerates `server/public/` favicons, app icons, `opengraph-image.png`, and `server/web-assets-manifest.json` from `Sources/Saga/AppIcon.icon`; `./scripts/sync-web-icons.sh --check` verifies they are in sync
 - `./run release <step>` is `release-kit`; CI runs it, not you. Releases go through DylKit's synced `.github/workflows/release.yml`: tags the merge commit and uploads the zip, `appcast.xml`, `release.json`, and site icons to Saga's Vercel Blob store, never a commit to `main`
 - The site (`server/`) is `@dylkit/web` configured by `[site]` in `DylApp.toml`; Vercel's git integration deploys `main`
-- DylKit comes from `github.com/dgattey/dyl-kit` (`from: "0.2.1"`); `@dylkit/web` installs from the matching release tarball
+- DylKit comes from `github.com/dgattey/dyl-kit` (`from: "0.2.2"`); `@dylkit/web` installs from the matching release tarball
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
