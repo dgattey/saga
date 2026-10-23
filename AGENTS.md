@@ -20,15 +20,15 @@ and `SyncViewModel`. App code lives under `Sources/Saga/` with feature modules a
 shared UI/utilities. It's built with DylKit (`DylCore`, `DylUI`, `DylUpdates`, `devkit`, `release-kit`), configured by `DylApp.toml`.
 
 ## Commands
-- `./run dev build` (`build/Saga Dev.app`, bundle ID `com.dylangattey.Saga.dev`, so it never shares state with an installed Saga), `./run dev relaunch` (build + open in the background, never focused), `./run dev capture` (screenshot into `build/captures/`), `./run dev ios [--run]` (`build/Saga-iOS.app` on a headless simulator), `./run dev checks` (DylApp.toml, SwiftLint, dyl-lint, release checks), `./run dev sync` (syncs shared files from DylKit), `./run dev --help`
-- `./run ui` iPhone and iPad screenshots with fixture books (`scripts/ui-screenshots.sh`)
-- `./run format` (`--check` to lint only) runs `swift format` with `.swift-format`
+- `swift run devkit build` (`build/Saga Dev.app`, bundle ID `com.dylangattey.Saga.dev`, so it never shares state with an installed Saga), `swift run devkit relaunch` (build + open in the background, never focused), `swift run devkit capture` (screenshot into `build/captures/`), `swift run devkit ios [--run]` (`build/Saga-iOS.app` on a headless simulator), `swift run devkit checks` (DylApp.toml, SwiftLint, dyl-lint, release checks), `swift run devkit verify` (checks + build + tests), `swift run devkit --help`
+- `scripts/ui-screenshots.sh` iPhone and iPad screenshots with fixture books (`scripts/ui-fixture-store.swift`)
+- `swift format format --in-place --recursive --parallel Sources Tests Package.swift scripts` (`swift format lint --strict --recursive --parallel Sources Tests Package.swift scripts` to lint only) runs `swift format` with `.swift-format`
 - `swift test` runs `SagaTests`
-- `./run bootstrap` writes `Config.xcconfig` from 1Password (`scripts/bootstrap.sh`)
+- `scripts/bootstrap.sh` writes `Config.xcconfig` from 1Password
 - `./scripts/sync-web-icons.sh` regenerates `server/public/` favicons, app icons, `opengraph-image.png`, and `server/web-assets-manifest.json` from `Sources/Saga/AppIcon.icon`; `./scripts/sync-web-icons.sh --check` verifies they are in sync
-- `./run release <step>` is `release-kit`; CI runs it, not you. Releases go through DylKit's synced `.github/workflows/release.yml`: tags the merge commit and uploads the zip, `appcast.xml`, `release.json`, and site icons to Saga's Vercel Blob store, never a commit to `main`
-- The site (`server/`) is `@dylkit/web` configured by `[site]` in `DylApp.toml`; Vercel's git integration deploys `main`
-- DylKit comes from `github.com/dgattey/dyl-kit` (`from: "0.2.2"`); `@dylkit/web` installs from the matching release tarball
+- `swift run release-kit <step>` is `release-kit`; CI runs it, not you. Releases go through `.github/workflows/dylkit.yml` (calling `dgattey/dyl-kit/.github/workflows/app.yml@v0.3.0`): tags the merge commit and uploads the zip, `appcast.xml`, `release.json`, and site icons to Saga's Vercel Blob store, never a commit to `main`
+- The site (`server/`) is `@dylkit/web` configured by `[site]` in `DylApp.toml` via `withDylKit`; Vercel's git integration deploys `main`
+- DylKit comes from `github.com/dgattey/dyl-kit` (`from: "0.3.0"`); `@dylkit/web` installs from the matching release tarball
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
@@ -73,12 +73,12 @@ entities in both when adding models
 ## Testing
 - Unit and UI component tests live in `Tests/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).
 - Run unit tests with `swift test`, which runs without launching the app or hitting Contentful. Tests compile `Saga.xcdatamodeld` with `momc` themselves (`TestCoreDataStack`).
-- UI coverage is headless iOS Simulator screenshots: `./run ui` (`scripts/ui-screenshots.sh`) seeds fixture books (`scripts/ui-fixture-store.swift`) into fresh iPhone and iPad simulators, launches with `DYLKIT_INITIAL_VIEW=home|book` and `DYLKIT_APPEARANCE=light|dark` (DylCore `LaunchOverrides.current`), and checks each launch logged the screen it was asked for. PNGs land in `build/captures/`; CI uploads them as the `ui-screenshots` artifact. Look at them after visual changes.
-- Use `./run format --check`, `./run dev checks`, `./run dev build`, `swift test`, and `./run ui` as the standard verification loop.
+- UI coverage is headless iOS Simulator screenshots: `scripts/ui-screenshots.sh` seeds fixture books (`scripts/ui-fixture-store.swift`) into fresh iPhone and iPad simulators, launches with `DYLKIT_INITIAL_VIEW=home|book` and `DYLKIT_APPEARANCE=light|dark` (DylCore `LaunchOverrides.current`), and checks each launch logged the screen it was asked for. PNGs land in `build/captures/`; CI uploads them as the `ui-screenshots` artifact. Look at them after visual changes.
+- Use `swift format lint --strict --recursive --parallel Sources Tests Package.swift scripts`, `swift run devkit checks`, `swift run devkit build`, `swift test`, and `scripts/ui-screenshots.sh` as the standard verification loop.
 
 ## Environment
 - Pure SwiftPM (`Package.swift`, Swift 6 language mode); no Xcode project. Xcode must be installed for `momc`, `actool`, and the SDKs
-- `./run bootstrap` writes the gitignored `Config.xcconfig` from 1Password. devkit copies its values into the dev app's Info.plist (`[local-values]` in `DylApp.toml`); environment variables with the same names win, and without either the app gets placeholder credentials, which is what CI and releases build with
+- `scripts/bootstrap.sh` writes the gitignored `Config.xcconfig` from 1Password. devkit copies its values into the dev app's Info.plist (`[local-values]` in `DylApp.toml`); environment variables with the same names win, and without either the app gets placeholder credentials, which is what CI and releases build with
 - **1Password CLI (`op`) rules**:
   - Never call `op` repeatedly across separate shell commands or loops (each shell tool call is a new terminal session and triggers a separate Touch ID prompt).
   - If a secret is needed and not already cached locally in `Config.xcconfig` or `.env.local`, batch every needed `op` read into a single shell command, write them into a gitignored `.env.local` (or `Config.xcconfig`), and source that file on subsequent commands.

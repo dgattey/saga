@@ -1,5 +1,5 @@
 # Saga app manifest, read by devkit, release-kit and @dylkit/web.
-# Schema: DylKit's Sources/DylManifest/DylAppManifest.swift. `./run dev checks` validates it.
+# Schema: DylKit's Sources/DylManifest/DylAppManifest.swift. `swift run devkit checks` validates it.
 
 [app]
 name = "Saga"
@@ -14,7 +14,7 @@ resources = ["Sources/Saga/Saga.xcdatamodeld", "Sources/Saga/Assets.xcassets"]
 icon = "Sources/Saga/AppIcon.icon"
 accent-color = "AccentColor"
 
-# Contentful credentials for dev builds. Releases ship the defaults; `./run bootstrap` writes the file from 1Password.
+# Contentful credentials for dev builds. Releases ship the defaults; `scripts/bootstrap.sh` writes the file from 1Password.
 [local-values]
 file = "Config.xcconfig"
 keys = { ContentfulSpaceId = "CONTENTFUL_SPACE_ID", ContentfulAccessToken = "CONTENTFUL_ACCESS_TOKEN", SagaAPISecret = "SAGA_API_SECRET" }

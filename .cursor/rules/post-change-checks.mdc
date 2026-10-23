@@ -5,9 +5,9 @@ alwaysApply: false
 # Post-change checks
 
 After a refactor or adding new code:
-- Run format and lint with `./run format --check` and `./run dev checks` (plus `./scripts/sync-web-icons.sh --check`)
+- Run format and lint with `swift format lint --strict --recursive --parallel Sources Tests Package.swift scripts` and `swift run devkit checks` (plus `./scripts/sync-web-icons.sh --check`)
 - Fix any problems until the run passes
-- Run a build with `./run dev build` and unit tests with `swift test`; after visual changes, capture and look at `./run ui` screenshots
+- Run a build with `swift run devkit build` and unit tests with `swift test`; after visual changes, capture and look at `scripts/ui-screenshots.sh` screenshots
 - **Web & icon sync (`saga.gattey.com` + `dylangattey.com`)**: Whenever `Sources/Saga/AppIcon.icon`, `Sources/Saga/Assets.xcassets`, or major UI screens change:
   1. Run `./scripts/sync-web-icons.sh` to regenerate `server/public/` favicons, app icons, OpenGraph card, and `server/web-assets-manifest.json` (plus canonical icon exports in `/cursor/stores/bc-150e5be2-2d2a-4a16-9354-3a146dd3a429/media/saga-latest-app-icon-*.png`).
   2. Update `server/public/saga-preview.png` and `server/public/saga-preview-light.png` (and `[site]` in `DylApp.toml` if needed) when UI screens change, then re-run `./scripts/sync-web-icons.sh` so the manifest stays in sync.

@@ -71,9 +71,9 @@ sys.exit(1)
 }
 
 if [[ "${1:-}" != "--no-build" ]]; then
-  "$ROOT/run" dev ios >/dev/null
+  swift run devkit ios >/dev/null
 fi
-[[ -d "$APP" ]] || fail "$APP is missing; run ./run dev ios"
+[[ -d "$APP" ]] || fail "$APP is missing; run swift run devkit ios"
 SAGA_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")"
 
 FIXTURE="$WORK_DIR/Saga.sqlite"

@@ -123,12 +123,12 @@ for rel_name, meta in manifest.get("outputs", {}).items():
                 f"server/public/{rel_name} dimensions {actual_size} != expected {expected_size}."
             )
 
-# 3. Verify server/app/layout.tsx references the synced favicons and OpenGraph image (or @dylkit/web siteMetadata)
+# 3. Verify server/app/layout.tsx references the synced favicons and OpenGraph image (or @dylkit/web)
 layout_path = os.path.join(root, "server", "app", "layout.tsx")
 if os.path.isfile(layout_path):
     with open(layout_path, "r", encoding="utf-8") as f:
         layout_src = f.read()
-    if "siteMetadata" not in layout_src:
+    if "siteMetadata" not in layout_src and "@dylkit/web" not in layout_src:
         for token in ["/favicon.ico", "/favicon.svg", "/icon.png", "/apple-touch-icon.png", "/opengraph-image.png"]:
             if token not in layout_src:
                 errors.append(f"server/app/layout.tsx is missing metadata reference to '{token}'.")
