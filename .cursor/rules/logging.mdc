@@ -1,12 +1,12 @@
 ---
-globs: Saga/Saga/**/*.swift
+globs: Sources/Saga/**/*.swift
 alwaysApply: false
 ---
 # Logging Guidelines
 
-**NEVER use `print()` statements in app code** (code under `Saga/Saga/`).
+**NEVER use `print()` statements in app code** (code under `Sources/Saga/`).
 
-- **App code** (`Saga/Saga/`): Must use `LoggerService` instead of `print()`
+- **App code** (`Sources/Saga/`): Must use `LoggerService` instead of `print()`
 - **Scripts** (`scripts/`): `print()` statements are acceptable
 
 ## Using LoggerService

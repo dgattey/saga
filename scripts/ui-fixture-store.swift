@@ -19,24 +19,35 @@ ValueTransformer.setValueTransformer(
   forName: NSValueTransformerName("RichTextDocumentTransformer")
 )
 
-func richTextData(_ text: String) -> Data? {
+struct RichTextMark: Encodable {}
+
+struct RichTextTextNode: Encodable {
+  var nodeType = "text"
+  let value: String
+  var marks: [RichTextMark] = []
+}
+
+struct RichTextParagraphNode: Encodable {
+  var nodeType = "paragraph"
+  let content: [RichTextTextNode]
+}
+
+struct RichTextDocumentPayload: Encodable {
+  var nodeType = "document"
+  let content: [RichTextParagraphNode]
+}
+
+func richTextData(_ text: String) throws -> Data? {
   let paragraphs = text.components(separatedBy: .newlines)
     .map { $0.trimmingCharacters(in: .whitespaces) }
     .filter { !$0.isEmpty }
   guard !paragraphs.isEmpty else { return nil }
-  let content: [[String: Any]] = paragraphs.map { line in
-    [
-      "nodeType": "paragraph",
-      "content": [
-        [
-          "nodeType": "text",
-          "value": line,
-          "marks": [] as [[String: String]],
-        ]
-      ],
-    ]
-  }
-  return try? JSONSerialization.data(withJSONObject: ["nodeType": "document", "content": content])
+  let payload = RichTextDocumentPayload(
+    content: paragraphs.map { line in
+      RichTextParagraphNode(content: [RichTextTextNode(value: line)])
+    }
+  )
+  return try JSONEncoder().encode(payload)
 }
 
 let arguments = CommandLine.arguments
@@ -57,7 +68,7 @@ for suffix in ["", "-wal", "-shm"] {
   try? FileManager.default.removeItem(atPath: storeURL.path + suffix)
 }
 let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
-try coordinator.addPersistentStore(
+_ = try coordinator.addPersistentStore(
   type: .sqlite,
   at: storeURL,
   options: [NSSQLitePragmasOption: ["journal_mode": "DELETE"]]
@@ -155,8 +166,8 @@ for (index, fixture) in books.enumerated() {
   book.setValue(fixture.rating, forKey: "rating")
   book.setValue(day(fixture.started), forKey: "readDateStarted")
   book.setValue(fixture.finished.map(day), forKey: "readDateFinished")
-  book.setValue(fixture.review.flatMap(richTextData), forKey: "reviewDescription")
-  book.setValue(fixture.notes.flatMap(richTextData), forKey: "notes")
+  book.setValue(try fixture.review.flatMap(richTextData), forKey: "reviewDescription")
+  book.setValue(try fixture.notes.flatMap(richTextData), forKey: "notes")
   book.setValue(day(fixture.started), forKey: "createdAt")
   book.setValue(day(fixture.finished ?? fixture.started), forKey: "updatedAt")
 }

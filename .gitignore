@@ -1,10 +1,9 @@
 xcuserdata
 *.xcconfig
 *.swp
-scripts/.build/
 /build/
 /dist/
-/.cert/
 sparkle_private.key
 /.build/
 /.swiftpm/
+.DS_Store

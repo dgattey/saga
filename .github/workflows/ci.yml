@@ -2,102 +2,75 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  bump:
-    name: 📦 Bump version
-    runs-on: ubuntu-latest
-    steps:
-      - name: Verify PR release info
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          set -euo pipefail
-          if printf '%s\n' "$PR_BODY" | grep -qiE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Major\b'; then
-            release_type="major"
-          elif printf '%s\n' "$PR_BODY" | grep -qiE '^[[:space:]]*-[[:space:]]*\[[xX]\][[:space:]]*Minor\b'; then
-            release_type="minor"
-          else
-            release_type="patch"
-          fi
-          echo "Release bump type: ${release_type} (version and build are computed at release time on merge)"
-
-  web:
-    name: 🌐 Web (saga.gattey.com)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
-
-      - name: Verify web icons & preview assets match AppIcon.icon
-        run: ./scripts/sync-web-icons.sh --check
-
-      - name: Install, test, typecheck, and build server/
-        working-directory: server
-        run: |
-          npm ci
-          npm test
-          npm run typecheck
-          npm run build
-
-  format:
-    name: 🎨 Format
-    runs-on: macos-latest
-    steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Check formatting
-        uses: ./.github/actions/format
-
   lint:
     name: 🔍 Lint
     runs-on: macos-latest
+    timeout-minutes: 20
+    outputs:
+      ui_changed: ${{ steps.changes.outputs.ui_changed }}
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Lint
-        uses: ./.github/actions/lint
+      - name: Detect UI changes
+        id: changes
+        run: |
+          if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- Sources scripts/ui-screenshots.sh scripts/ui-fixture-store.swift Package.swift Package.resolved; then
+            echo "ui_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ui_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: swift-format
+        run: swift format lint --strict --recursive --parallel Sources Tests Package.swift scripts
+      - uses: actions/cache@v4
+        with:
+          path: .build
+          key: swiftpm-lint-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: swiftpm-lint-${{ runner.os }}-
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: swiftlint
+      - name: Manifest, SwiftLint, dyl-lint and release checks
+        run: swift run devkit checks
 
   build:
     name: 🔨 Build
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
         with:
-          fetch-depth: 0
-
-      - name: Build
-        uses: ./.github/actions/build
+          path: .build
+          key: swiftpm-build-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: swiftpm-build-${{ runner.os }}-
+      - name: Build build/Saga Dev.app
+        run: swift run devkit build
+      - name: Unit tests
+        run: swift test
 
   ios:
     name: 📱 iOS Simulator
+    needs: [lint, build]
+    if: needs.lint.outputs.ui_changed == 'true'
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
-
-      - name: Build iOS Simulator app
-        run: ./scripts/build-ios-sim.sh
-
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .build
+          key: swiftpm-lint-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: swiftpm-lint-${{ runner.os }}-
       - name: Screenshot main screens on iPhone and iPad
-        run: ./scripts/ui-screenshots.sh --no-build
-
+        run: scripts/ui-screenshots.sh
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -106,29 +79,23 @@ jobs:
           path: build/captures/*.png
           if-no-files-found: ignore
 
-  release-artifact:
-    name: 📦 Release artifact
-    runs-on: macos-latest
+  web:
+    name: 🌐 Web (saga.gattey.com)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
-
-      - name: Fetch tags
-        run: git fetch --tags
-
-      # Same steps as release.yml, minus publishing, so every PR proves it would ship a valid
-      # Sparkle update for installs of the latest published release.
-      - name: Package release and verify against the latest published release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SPARKLE_ED_PRIVATE_KEY_BASE64: ${{ secrets.SPARKLE_ED_PRIVATE_KEY_BASE64 }}
-          SAGA_REPO: ${{ github.repository }}
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Verify web icons & preview assets match AppIcon.icon
+        run: ./scripts/sync-web-icons.sh --check
+      - name: Install, test, typecheck, and build server/
+        working-directory: server
         run: |
-          set -euo pipefail
-          read_output="$(./run version-and-release read --event "$GITHUB_EVENT_PATH")"
-          version="$(echo "$read_output" | awk -F= '/^VERSION=/{print $2}')"
-          build="$(echo "$read_output" | awk -F= '/^BUILD=/{print $2}')"
-          ./run version-and-release package --version "$version" --build "$build" --output-dir dist/release
-          ./scripts/verify-release.sh "dist/release/Saga-${version}.zip" dist/release/appcast.xml
+          npm ci
+          npm test
+          npm run typecheck
+          npm run build

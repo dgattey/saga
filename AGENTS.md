@@ -11,23 +11,25 @@ clarify uncertainty before coding, and align suggestions with the rules linked b
 - `view-model.mdc` — ViewModel patterns and async work
 - `logging.mdc` — LoggerService usage (no `print()` in app code)
 - `post-change-checks.mdc` — lint/format/build steps after big changes
+- `changelog-release-notes.mdc` — plain-English `# Release notes` rules for PR bodies
 - `rules.mdc` — how to author or update rule files
 
 ## Repository Overview
 Saga is a SwiftUI MVVM app (macOS/iOS) for tracking books and other media.
 Data is stored in Core Data and synced via Contentful using `PersistenceService`
-and `SyncViewModel`. App code lives under `Saga/Saga/` with feature modules and
-shared UI/utilities.
+and `SyncViewModel`. App code lives under `Sources/Saga/` with feature modules and
+shared UI/utilities. It's built with DylKit (`DylCore`, `DylUI`, `DylUpdates`, `devkit`, `release-kit`), configured by `DylApp.toml`.
 
 ## Commands
-- `./run --help` or `run --help` to list scripts
-- `run app` (`scripts/build-macos.sh` + launch in background via `open -g -j`, macOS only), `run app -b` (build only), `run app -t` / `run app --test` (`swift test`), `run app -u` / `run app --ui` (iOS Simulator screenshots), `run app -r` (release), `run app -g` (background + exit), `run app -f` (foreground)
-- `scripts/build-ios-sim.sh` builds `build/Saga-iOS.app` for the iOS Simulator
-- `run checks` (format + lint + `scripts/sync-web-icons.sh --check`), `run checks --format`, `run checks --lint`
-- `scripts/sync-web-icons.sh` regenerates `server/public/` favicons, app icons (`app-icon.png`, `icon.png`, `icon-512.png`, `icon-192.png`, `apple-touch-icon.png`, `favicon-*.png`, `favicon.ico`, `favicon.svg`), `opengraph-image.png`, and `server/web-assets-manifest.json` from `Saga/Saga/AppIcon.icon`; `scripts/sync-web-icons.sh --check` verifies they are in sync
-- `run bootstrap` to set up shell completions for `run`
-- `run config` to write `Config.xcconfig` from the environment
-- `run version-and-release` for manual release tooling (`package` builds, signs, zips `Saga-<version>.zip`, and generates Sparkle `appcast.xml` via `scripts/generate-appcast.sh` and `scripts/release-notes.sh` with cumulative release notes capped at the last 10 versions); `scripts/verify-release.sh` checks the result against the latest published release; the app's Sparkle feed is `https://saga.gattey.com/appcast.xml`, which the site redirects to the latest GitHub release's appcast (`server/next.config.ts`); releases never commit to `main`
+- `swift run devkit build` (`build/Saga Dev.app`, bundle ID `com.dylangattey.Saga.dev`, so it never shares state with an installed Saga), `swift run devkit relaunch` (build + open in the background, never focused), `swift run devkit capture` (screenshot into `build/captures/`), `swift run devkit ios [--run]` (`build/Saga-iOS.app` on a headless simulator), `swift run devkit checks` (DylApp.toml, SwiftLint, dyl-lint, release checks), `swift run devkit verify` (checks + build + tests), `swift run devkit --help`
+- `scripts/ui-screenshots.sh` iPhone and iPad screenshots with fixture books (`scripts/ui-fixture-store.swift`)
+- `swift format format --in-place --recursive --parallel Sources Tests Package.swift scripts` (`swift format lint --strict --recursive --parallel Sources Tests Package.swift scripts` to lint only) runs `swift format` with `.swift-format`
+- `swift test` runs `SagaTests`
+- `scripts/bootstrap.sh` writes `Config.xcconfig` from 1Password
+- `./scripts/sync-web-icons.sh` regenerates `server/public/` favicons, app icons, `opengraph-image.png`, and `server/web-assets-manifest.json` from `Sources/Saga/AppIcon.icon`; `./scripts/sync-web-icons.sh --check` verifies they are in sync
+- `swift run release-kit <step>` is `release-kit`; CI runs it, not you. Releases go through `.github/workflows/dylkit.yml` (calling `dgattey/dyl-kit/.github/workflows/app.yml@v0.4.0`): tags the merge commit and uploads the zip, `appcast.xml`, `release.json`, and site icons to Saga's Vercel Blob store, never a commit to `main`
+- The site (`server/`) is `@dylkit/web` configured by `[site]` in `DylApp.toml` via `withDylKit`; Vercel's git integration deploys `main`
+- DylKit comes from `github.com/dgattey/dyl-kit` (`from: "0.4.0"`); `@dylkit/web` installs from the matching release tarball
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
@@ -47,19 +49,18 @@ shared UI/utilities.
   and `PersistentScrollView`
 - Caching is handled by `ImageCache` and `NetworkCache`
 - Shared animations come from `AnimationSettings.shared`
-- Book pages share `BookEditorialLayout` in `BookContentView` and `BookEditorView` so read, in-place edit, and new-book modes morph in place
 - Shared UI lives in `Shared/Views`; shared models and utilities in `Shared/*` modules
 - App specific UI and models live in `Features/*`, each with their own set of folders for Models, Views, etc.
 
 ## Key Integration Points
 **Services**: `PersistenceService` (Core Data + Contentful CDA), `GoodreadsSyncService` (HMAC-SHA256 signed client for `https://dylangattey.com/api/books/goodreads-sync` and `https://dylangattey.com/api/books/sync`), `LoggerService`,
-`ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`, `UpdaterViewModel` (Sparkle automatic updates on macOS),
+`ImageCache`, `NetworkCache`, `CacheConfig`, `RichTextRenderer`, `AppUpdater.shared` (DylUpdates: Sparkle on macOS, inert on iOS),
 book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`, unified by `CoverImageResolver.bestCoverURL`),
 `CoverImageStore` (dropped/pasted covers in Application Support, stored on `Book.localCoverImageURL`, compressed to ≤1600px JPEG for `coverImageBase64` + `coverImageContentType` uploads),
 `BookMutationService` (create/edit/delete books locally, then push to `/api/books/sync`)
 **Editing**: `BookContentView` swaps read mode for `BookEditorView` (⌘E); `File > New Book…` (⌘N) and the
 sidebar `+` present the same editor in create mode. Edits live in a `BookDraft` until Done, covering both the public `reviewDescription` ("Review") and private freeform `notes` ("Private Notes", indexed by `BookSearchEngine` and the `.hasNotes` token).
-**UI**: `ContentView` entry, `HomeView`/`BooksListView`, `ResponsiveLayout`,
+**UI**: DylUI's `AppWindow` (main window, palette `SagaPalette`, launch overrides, Check for Updates menu), `SettingsView` (`SettingsPane`, `SettingsHeaderView`, `AppInformationView`, `CreditsView`, `CacheLimitRow`), `ContentView` entry, `HomeView`/`BooksListView` (`NowReadingBarView`), `ResponsiveLayout`,
 `PersistentScrollView`, `MenuBarCommands`
 **Data**: `Saga.xcdatamodeld` + `PersistenceModel` for Core Data entities; register new
 entities in both when adding models
@@ -68,24 +69,22 @@ entities in both when adding models
 ## Workflow
 - Ask for clarification when requirements are ambiguous; surface 2–3 options when trade-offs matter
 - Update documentation and related rules when introducing new patterns or services
-- **Keep `saga.gattey.com` (`server/`) and `dylangattey.com` (`dgattey/dg`) in sync**: Whenever `Saga/Saga/AppIcon.icon`, `Saga/Saga/Assets.xcassets`, or major UI screens change, run `./scripts/sync-web-icons.sh` (and update `server/public/saga-*.png` + `server/app/page.tsx` when UI designs change), verify with `./scripts/sync-web-icons.sh --check` and `cd server && npm test && npm run typecheck && npm run build`, and coordinate with `dgattey/dg` (`dylangattey.com`) so favicons and web previews stay in sync.
+- **Keep `saga.gattey.com` (`server/`) and `dylangattey.com` (`dgattey/dg`) in sync**: Whenever `Sources/Saga/AppIcon.icon`, `Sources/Saga/Assets.xcassets`, or major UI screens change, run `./scripts/sync-web-icons.sh` (and update `server/public/saga-*.png` + `[site]` in `DylApp.toml` when UI designs change), verify with `./scripts/sync-web-icons.sh --check` and `cd server && npm test && npm run typecheck && npm run build`, and coordinate with `dgattey/dg` (`dylangattey.com`) so favicons and web previews stay in sync.
 
 ## Testing
-- Unit and UI component tests live in `Saga/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).
-- Run unit tests with `run app --test` (or `run app -t`), which runs `swift test` without launching the app or hitting Contentful. Tests compile `Saga.xcdatamodeld` with `momc` themselves (`TestCoreDataStack`).
-- UI coverage is headless iOS Simulator screenshots: `run app --ui` (`scripts/ui-screenshots.sh`) seeds fixture books (`scripts/ui-fixture-store.swift`) into fresh iPhone and iPad simulators, launches with `--initial-view home|book` and `--appearance light|dark` (`LaunchOptions`, also `SAGA_INITIAL_VIEW` / `SAGA_APPEARANCE`), and checks each launch logged the screen it was asked for. PNGs land in `build/captures/`; CI uploads them as the `ui-screenshots` artifact. Look at them after visual changes. Never launch `build/Saga.app` on a Mac where Saga is installed: it shares the release bundle ID.
-- Use `run checks`, `run app -b`, `run app -t`, and `run app --ui` as the standard verification loop.
+- Unit and UI component tests live in `Tests/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).
+- Run unit tests with `swift test`, which runs without launching the app or hitting Contentful. Tests compile `Saga.xcdatamodeld` with `momc` themselves (`TestCoreDataStack`).
+- UI coverage is headless iOS Simulator screenshots: `scripts/ui-screenshots.sh` seeds fixture books (`scripts/ui-fixture-store.swift`) into fresh iPhone and iPad simulators, launches with `DYLKIT_INITIAL_VIEW=home|book` and `DYLKIT_APPEARANCE=light|dark` (DylCore `LaunchOverrides.current`), and checks each launch logged the screen it was asked for. PNGs land in `build/captures/`; CI uploads them as the `ui-screenshots` artifact. Look at them after visual changes.
+- Use `swift format lint --strict --recursive --parallel Sources Tests Package.swift scripts`, `swift run devkit checks`, `swift run devkit build`, `swift test`, and `scripts/ui-screenshots.sh` as the standard verification loop.
 
 ## Environment
-- Pure SwiftPM (`Package.swift`); no Xcode project. Xcode must be installed for `momc`, `actool`, and the SDKs
-- `run bootstrap` writes `Config.xcconfig` from 1Password; `run config`
- writes the same file from `CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` (plus optional `SAGA_API_SECRET`)
-- The file is gitignored and optional: `scripts/lib/app-config.sh` falls back to placeholder credentials, which is what CI and releases build with
+- Pure SwiftPM (`Package.swift`, Swift 6 language mode); no Xcode project. Xcode must be installed for `momc`, `actool`, and the SDKs
+- `scripts/bootstrap.sh` writes the gitignored `Config.xcconfig` from 1Password. devkit copies its values into the dev app's Info.plist (`[local-values]` in `DylApp.toml`); environment variables with the same names win, and without either the app gets placeholder credentials, which is what CI and releases build with
 - **1Password CLI (`op`) rules**:
   - Never call `op` repeatedly across separate shell commands or loops (each shell tool call is a new terminal session and triggers a separate Touch ID prompt).
   - If a secret is needed and not already cached locally in `Config.xcconfig` or `.env.local`, batch every needed `op` read into a single shell command, write them into a gitignored `.env.local` (or `Config.xcconfig`), and source that file on subsequent commands.
   - Never print secret values.
-- `swift-format` is listed in the repo `Brewfile` (install with `brew bundle`)
+- `swift format` ships with the toolchain; `mise.toml` pins SwiftLint (`mise install`)
 - Validate formatting and linting before final review, and build the app too.
 
 ## Special Notes

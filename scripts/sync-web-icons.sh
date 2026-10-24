@@ -35,7 +35,7 @@ with open(manifest_path, "r", encoding="utf-8") as f:
     manifest = json.load(f)
 
 icon_dir = None
-for candidate in ["Saga/Saga/AppIcon.icon", "Sources/Saga/AppIcon.icon"]:
+for candidate in ["Sources/Saga/AppIcon.icon", "Saga/Saga/AppIcon.icon"]:
     full = os.path.join(root, candidate)
     if os.path.isdir(full):
         icon_dir = full
@@ -123,14 +123,15 @@ for rel_name, meta in manifest.get("outputs", {}).items():
                 f"server/public/{rel_name} dimensions {actual_size} != expected {expected_size}."
             )
 
-# 3. Verify server/app/layout.tsx references the synced favicons and OpenGraph image
+# 3. Verify server/app/layout.tsx references the synced favicons and OpenGraph image (or @dylkit/web)
 layout_path = os.path.join(root, "server", "app", "layout.tsx")
 if os.path.isfile(layout_path):
     with open(layout_path, "r", encoding="utf-8") as f:
         layout_src = f.read()
-    for token in ["/favicon.ico", "/favicon.svg", "/icon.png", "/apple-touch-icon.png", "/opengraph-image.png"]:
-        if token not in layout_src:
-            errors.append(f"server/app/layout.tsx is missing metadata reference to '{token}'.")
+    if "siteMetadata" not in layout_src and "@dylkit/web" not in layout_src:
+        for token in ["/favicon.ico", "/favicon.svg", "/icon.png", "/apple-touch-icon.png", "/opengraph-image.png"]:
+            if token not in layout_src:
+                errors.append(f"server/app/layout.tsx is missing metadata reference to '{token}'.")
 
 if errors:
     for err in errors:
@@ -157,7 +158,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 root = sys.argv[1]
 icon_dir = None
 icon_rel = None
-for candidate in ["Saga/Saga/AppIcon.icon", "Sources/Saga/AppIcon.icon"]:
+for candidate in ["Sources/Saga/AppIcon.icon", "Saga/Saga/AppIcon.icon"]:
     full = os.path.join(root, candidate)
     if os.path.isdir(full):
         icon_dir = full

@@ -88,7 +88,7 @@
     }
   },
   "source": {
-    "iconBundle": "Saga/Saga/AppIcon.icon",
+    "iconBundle": "Sources/Saga/AppIcon.icon",
     "iconJsonSha256": "8dd32de243fac21e2fd2b606bedffbb8ecd1d0c3d4cc9c4aaef19f653256f110",
     "layers": {
       "monstera-bookmark-leaf.png": "88da721f6fd22f3437f28272102117eb4af45029b9edeea93e70ca39290ffe20",

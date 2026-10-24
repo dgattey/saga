@@ -1,6 +1,6 @@
 ---
 description: SwiftUI view conventions for Saga
-globs: Saga/Saga/**/Views/**/*.swift
+globs: Sources/Saga/**/Views/**/*.swift
 alwaysApply: false
 ---
 # SwiftUI Views

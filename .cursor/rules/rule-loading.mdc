@@ -22,7 +22,7 @@ This file helps determine which rules to load based on the context and task at h
 ### 🧭 logging.mdc - App Logging
 **Load when:**
 - Adding or changing logging in app code
-- Replacing `print()` statements in `Saga/Saga/`
+- Replacing `print()` statements in `Sources/Saga/`
 - Working on error reporting or diagnostics
 
 **Keywords:** logging, LoggerService, LogSurface, oslog, print, error, debug
@@ -34,6 +34,14 @@ This file helps determine which rules to load based on the context and task at h
 - Running lint/format/build/test steps
 
 **Keywords:** lint, format, swift-format, checks, build, swift build, swift test, CI
+
+### 📣 changelog-release-notes.mdc - PR Release Notes
+**Load when:**
+- Always
+- Opening or updating a pull request description
+- Writing `# Release notes` for Sparkle updates and the download site
+
+**Keywords:** release notes, changelog, PR body, pull request template, Sparkle
 
 ### 🎨 view.mdc - SwiftUI Views
 **Load when:**

@@ -1,20 +1,18 @@
-Closes 
+Closes
 
-<!-- User-facing bullets shown inside Sparkle's macOS update alert and at the top of GitHub Releases. Write for end users (no file paths, XML tags, or internal symbol names). -->
 # Release notes
 
-- 
+<!-- 1–3 short, plain-English bullets about what people using the app can see or do, or one sentence for internal plumbing. No file paths, code names, flags or backticks; those go in What changed? -->
+
+-
 
 # What changed?
 
-- 
+-
 
-# Design sync
+# Before merging
 
-If this PR changes the app UI, brand colors, or `Saga/Saga/AppIcon.icon`:
-
-- [ ] saga.gattey.com (`server/`) matches the new design and icons (`./scripts/sync-web-icons.sh`)
-- [ ] dylangattey.com (`dgattey/dg`) has been asked to update
+- [ ] If the icon or UI design changed, I updated the landing page and the app's dylangattey.com Contentful entry
 
 # Release info
 
