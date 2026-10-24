@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/dgattey/dyl-kit",
       "state" : {
-        "revision" : "0ae6062f097343ac807c15711e1b5299d71e9864",
-        "version" : "0.3.0"
+        "revision" : "80a6f28663462308a6034fe12612c46ef6b6fb05",
+        "version" : "0.3.1"
       }
     },
     {
