@@ -35,6 +35,14 @@ This file helps determine which rules to load based on the context and task at h
 
 **Keywords:** lint, format, swift-format, checks, build, swift build, swift test, CI
 
+### 📣 changelog-release-notes.mdc - PR Release Notes
+**Load when:**
+- Always
+- Opening or updating a pull request description
+- Writing `# Release notes` for Sparkle updates and the download site
+
+**Keywords:** release notes, changelog, PR body, pull request template, Sparkle
+
 ### 🎨 view.mdc - SwiftUI Views
 **Load when:**
 - Creating new SwiftUI views

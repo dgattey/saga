@@ -11,6 +11,7 @@ clarify uncertainty before coding, and align suggestions with the rules linked b
 - `view-model.mdc` — ViewModel patterns and async work
 - `logging.mdc` — LoggerService usage (no `print()` in app code)
 - `post-change-checks.mdc` — lint/format/build steps after big changes
+- `changelog-release-notes.mdc` — plain-English `# Release notes` rules for PR bodies
 - `rules.mdc` — how to author or update rule files
 
 ## Repository Overview
@@ -26,9 +27,9 @@ shared UI/utilities. It's built with DylKit (`DylCore`, `DylUI`, `DylUpdates`, `
 - `swift test` runs `SagaTests`
 - `scripts/bootstrap.sh` writes `Config.xcconfig` from 1Password
 - `./scripts/sync-web-icons.sh` regenerates `server/public/` favicons, app icons, `opengraph-image.png`, and `server/web-assets-manifest.json` from `Sources/Saga/AppIcon.icon`; `./scripts/sync-web-icons.sh --check` verifies they are in sync
-- `swift run release-kit <step>` is `release-kit`; CI runs it, not you. Releases go through `.github/workflows/dylkit.yml` (calling `dgattey/dyl-kit/.github/workflows/app.yml@v0.3.5`): tags the merge commit and uploads the zip, `appcast.xml`, `release.json`, and site icons to Saga's Vercel Blob store, never a commit to `main`
+- `swift run release-kit <step>` is `release-kit`; CI runs it, not you. Releases go through `.github/workflows/dylkit.yml` (calling `dgattey/dyl-kit/.github/workflows/app.yml@v0.4.0`): tags the merge commit and uploads the zip, `appcast.xml`, `release.json`, and site icons to Saga's Vercel Blob store, never a commit to `main`
 - The site (`server/`) is `@dylkit/web` configured by `[site]` in `DylApp.toml` via `withDylKit`; Vercel's git integration deploys `main`
-- DylKit comes from `github.com/dgattey/dyl-kit` (`from: "0.3.5"`); `@dylkit/web` installs from the matching release tarball
+- DylKit comes from `github.com/dgattey/dyl-kit` (`from: "0.4.0"`); `@dylkit/web` installs from the matching release tarball
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
