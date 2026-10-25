@@ -33,7 +33,7 @@ UIStatusBarStyle = "UIStatusBarStyleDefault"
 [release]
 sparkle-public-key = "sparkle-public-key.txt"
 site-url = "https://saga.gattey.com"
-assets = "https://replacewithsagastore.public.blob.vercel-storage.com"
+assets = "https://zhlfxdwgaxzi881b.public.blob.vercel-storage.com"
 artifacts-dir = "server/public"
 check-interval = 3600
 
