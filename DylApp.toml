@@ -41,6 +41,13 @@ check-interval = 3600
 [site]
 tagline = "Your personal reading log for macOS and iOS: track books, reading status, star ratings, public reviews and private notes, synced with Contentful and Goodreads."
 accent = { light = "#264e3a", dark = "#4a7e65" }
+heading-font = "serif"
 screenshots = [
     { src = "saga-preview-light.png", dark-src = "saga-preview.png", alt = "Saga book library and reading tracker on macOS showing editorial reviews, private notes, and the Currently reading sidebar card" },
+]
+features = [
+    { title = "Books & Active Reading", body = "Track what you're reading, finished dates, and star ratings with a pinned Currently reading card always one click away." },
+    { title = "Private Notes & Reviews", body = "Editorial book pages pair public reviews with a locked Private Notes section for personal quotes and marginalia." },
+    { title = "Instant ⌘K Search", body = "Jump to any book or search across full reviews and private notes with Has notes, status, rating, and year tokens." },
+    { title = "Cloud & Goodreads Sync", body = "Two-way Contentful sync and automatic Goodreads shelf imports keep your library up to date across macOS and iOS." },
 ]
