@@ -127,12 +127,6 @@ struct CreditRowView: View {
     Text(item.badge)
       .font(.caption2.monospaced().weight(.medium))
       .foregroundStyle(Color.botanicalLeaf)
-      .padding(.horizontal, 8)
-      .padding(.vertical, 3)
-      .background(Color.botanicalLeaf.opacity(0.10), in: Capsule())
-      .overlay(
-        Capsule()
-          .strokeBorder(Color.botanicalLeaf.opacity(0.22), lineWidth: 1)
-      )
+      .botanicalCapsulePill()
   }
 }

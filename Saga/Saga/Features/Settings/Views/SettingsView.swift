@@ -95,18 +95,6 @@ struct SettingsView: View {
     .tint(Color.botanicalDeepMoss)
     .navigationTitle(SettingsPane.credits.title)
   }
-
-  // MARK: - Formatting
-
-  static let cacheLimitOptions: [Double] = CacheLimitRow.limitOptions
-
-  static func formatBytes(_ bytes: Int64) -> String {
-    CacheLimitRow.formatBytes(bytes)
-  }
-
-  static func formatLimit(_ value: Double) -> String {
-    CacheLimitRow.formatLimit(value)
-  }
 }
 
 // MARK: - macOS Sidebar
@@ -213,62 +201,62 @@ private struct SettingsGeneralSections: View {
     @Environment(UpdaterViewModel.self) private var injectedUpdaterViewModel: UpdaterViewModel?
   #endif
 
-  var body: some View {
-    Section("Software Updates") {
-      #if os(macOS)
-        if let updaterViewModel = injectedUpdaterViewModel {
-          Toggle(
-            "Automatically check for updates",
-            isOn: Bindable(updaterViewModel).automaticallyChecksForUpdates
-          )
-          .disabled(!updaterViewModel.isConfigured)
-          .accessibilityIdentifier(AccessibilityID.Settings.automaticallyCheckForUpdates)
-
-          Toggle(
-            "Automatically download updates",
-            isOn: Bindable(updaterViewModel).automaticallyDownloadsUpdates
-          )
-          .disabled(
-            !updaterViewModel.isConfigured || !updaterViewModel.automaticallyChecksForUpdates
-          )
-          .accessibilityIdentifier(AccessibilityID.Settings.automaticallyDownloadUpdates)
-
-          LabeledContent {
-            Button("Check for Updates…") {
-              updaterViewModel.checkForUpdates()
-            }
-            .disabled(!updaterViewModel.canCheckForUpdates)
-            .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
-          } label: {
-            Text("Software updates")
-            Text("Current version v\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
-          }
-        } else {
-          fallbackUpdateRows
-        }
-      #else
-        fallbackUpdateRows
-      #endif
-    }
+  private var automaticallyChecksBinding: Binding<Bool> {
+    #if os(macOS)
+      if let updaterViewModel = injectedUpdaterViewModel {
+        return Bindable(updaterViewModel).automaticallyChecksForUpdates
+      }
+    #endif
+    return .constant(true)
   }
 
-  @ViewBuilder
-  private var fallbackUpdateRows: some View {
-    Toggle("Automatically check for updates", isOn: .constant(true))
-      .disabled(true)
-      .accessibilityIdentifier(AccessibilityID.Settings.automaticallyCheckForUpdates)
+  private var automaticallyDownloadsBinding: Binding<Bool> {
+    #if os(macOS)
+      if let updaterViewModel = injectedUpdaterViewModel {
+        return Bindable(updaterViewModel).automaticallyDownloadsUpdates
+      }
+    #endif
+    return .constant(false)
+  }
 
-    Toggle("Automatically download updates", isOn: .constant(false))
-      .disabled(true)
-      .accessibilityIdentifier(AccessibilityID.Settings.automaticallyDownloadUpdates)
+  private var isConfigured: Bool {
+    #if os(macOS)
+      return injectedUpdaterViewModel?.isConfigured ?? false
+    #else
+      return false
+    #endif
+  }
 
-    LabeledContent {
-      Button("Check for Updates…") {}
-        .disabled(true)
+  private var canCheckForUpdates: Bool {
+    #if os(macOS)
+      return injectedUpdaterViewModel?.canCheckForUpdates ?? false
+    #else
+      return false
+    #endif
+  }
+
+  var body: some View {
+    Section("Software Updates") {
+      Toggle("Automatically check for updates", isOn: automaticallyChecksBinding)
+        .disabled(!isConfigured)
+        .accessibilityIdentifier(AccessibilityID.Settings.automaticallyCheckForUpdates)
+
+      Toggle("Automatically download updates", isOn: automaticallyDownloadsBinding)
+        .disabled(!isConfigured || !automaticallyChecksBinding.wrappedValue)
+        .accessibilityIdentifier(AccessibilityID.Settings.automaticallyDownloadUpdates)
+
+      LabeledContent {
+        Button("Check for Updates…") {
+          #if os(macOS)
+            injectedUpdaterViewModel?.checkForUpdates()
+          #endif
+        }
+        .disabled(!canCheckForUpdates)
         .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
-    } label: {
-      Text("Software updates")
-      Text("Current version v\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
+      } label: {
+        Text("Software updates")
+        Text("Current version \(Bundle.main.formattedVersion)")
+      }
     }
   }
 }
@@ -451,13 +439,7 @@ private struct SettingsAnimationsSections: View {
         Text(String(format: "%.2f", value.wrappedValue))
           .font(.caption.monospaced().weight(.medium))
           .foregroundStyle(.secondary)
-          .padding(.horizontal, 8)
-          .padding(.vertical, 3)
-          .background(Color.botanicalLeaf.opacity(0.10), in: Capsule())
-          .overlay(
-            Capsule()
-              .strokeBorder(Color.botanicalLeaf.opacity(0.22), lineWidth: 1)
-          )
+          .botanicalCapsulePill()
           .frame(minWidth: 46, alignment: .trailing)
       }
     } label: {

@@ -24,8 +24,6 @@ public enum AccessibilityID {
   }
 
   public enum Books {
-    public static let list = "books.list"
-    public static let sidebar = "books.sidebar"
     public static let sidebarScrollArea = "books.sidebarScrollArea"
     public static let newBookButton = "books.newBookButton"
     public static let nowReadingBar = "books.nowReadingBar"

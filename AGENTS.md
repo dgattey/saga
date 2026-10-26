@@ -38,6 +38,7 @@ shared UI/utilities.
 - Log failures with `LoggerService.log` in app code (scripts can use `print`)
 - Reserve `fatalError` for unrecoverable setup failures
 - Make impossible states unrepresentable
+- **Single source of truth (`/poteto-mode`)**: Apply `subtract-before-you-add`, `migrate-callers-then-delete-legacy-apis`, `model-the-domain`, and `minimize-reader-load` — when introducing a new way, migrate all callers and delete the old API/view/helper in the same change; never leave compatibility shims, pass-through wrappers, or parallel implementations
 
 ## Architecture & Patterns
 - MVVM with SwiftUI views and `@Observable` view models (Core Data `NSManagedObject`s stay `@ObservedObject`)
@@ -59,7 +60,7 @@ book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`, unified by 
 `BookMutationService` (create/edit/delete books locally, then push to `/api/books/sync`)
 **Editing**: `BookContentView` swaps read mode for `BookEditorView` (⌘E); `File > New Book…` (⌘N) and the
 sidebar `+` present the same editor in create mode. Edits live in a `BookDraft` until Done, covering both the public `reviewDescription` ("Review") and private freeform `notes` ("Private Notes", indexed by `BookSearchEngine` and the `.hasNotes` token).
-**UI**: `ContentView` entry, `HomeView`/`BooksListView` (`HomeBookSort` for Home book count and flat/grouped sort modes), `ResponsiveLayout`,
+**UI**: `ContentView` entry, `HomeView`/`BooksListView` (`HomeBookSort` for Home book count and flat/grouped sort modes), `BookEditorialLayout`,
 `PersistentScrollView`, `MenuBarCommands`
 **Data**: `Saga.xcdatamodeld` + `PersistenceModel` for Core Data entities; register new
 entities in both when adding models

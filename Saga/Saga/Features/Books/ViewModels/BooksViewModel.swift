@@ -51,13 +51,6 @@ final class BooksViewModel {
     return hasActiveSearch ? "\(filteredBooks.count) of \(total)" : total
   }
 
-  func refreshSearch(for books: FetchedResults<Book>) {
-    performSearch(
-      with: books,
-      debounce: searchModel.hasActiveSearch ? .milliseconds(200) : nil
-    )
-  }
-
   func handleBooksChange(_ books: FetchedResults<Book>) {
     performSearch(with: books, debounce: .milliseconds(150))
   }
@@ -79,23 +72,6 @@ final class BooksViewModel {
     performSearch(with: books, debounce: .milliseconds(150))
     DispatchQueue.main.async {
       self.isHandlingBookChanges = false
-    }
-  }
-
-  func delete(_ book: Book, in context: NSManagedObjectContext) {
-    let deletedBookID = book.id
-    documentCache.removeValue(forKey: book.objectID)
-    withAnimation {
-      context.delete(book)
-      do {
-        try context.save()
-      } catch {
-        let nsError = error as NSError
-        fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-      }
-    }
-    Task(priority: .utility) {
-      await GoodreadsSyncService.pushBookDeletionIfConfigured(id: deletedBookID)
     }
   }
 
@@ -248,7 +224,7 @@ final class BooksViewModel {
     case .byRating:
       let buckets: [Int?] = [5, 4, 3, 2, 1, nil]
       return buckets.compactMap { stars in
-        let group = defaultOrdered.filter { BookReadDetailsView.rating(for: $0) == stars }
+        let group = defaultOrdered.filter { $0.validRating == stars }
         guard !group.isEmpty else { return nil }
         let title = stars.map { String(repeating: "★", count: $0) } ?? "Unrated"
         return HomeSection(id: "rating.\(stars ?? 0)", title: title, books: group)

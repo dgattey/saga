@@ -16,8 +16,8 @@ import class Contentful.RichTextDocument
 
 @Suite("Book & Asset Models")
 struct ModelsAndPersistenceTests {
-  @Test("ReadingStatus derives from start and finish dates and advances monotonically")
-  func readingStatusDerivationAndAdvance() {
+  @Test("ReadingStatus derives from start and finish dates")
+  func readingStatusDerivation() {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
     let finish = Date(timeIntervalSince1970: 1_700_500_000)
 
@@ -25,14 +25,6 @@ struct ModelsAndPersistenceTests {
     #expect(ReadingStatus(readDateStarted: start, readDateFinished: nil) == .reading)
     #expect(ReadingStatus(readDateStarted: start, readDateFinished: finish) == .read)
     #expect(ReadingStatus(readDateStarted: nil, readDateFinished: finish) == .read)
-
-    var status = ReadingStatus.notStarted
-    status.advance()
-    #expect(status == .reading)
-    status.advance()
-    #expect(status == .read)
-    status.advance()
-    #expect(status == .read)
   }
 
   @Test("Book.sidebarFetchRequest configures sort descriptors, prefetching, and batch size")
@@ -82,21 +74,23 @@ struct ModelsAndPersistenceTests {
         ))
   }
 
-  @Test("Asset.add deduplicates existing assets case-insensitively by URL")
-  func assetAddDeduplication() async throws {
+  @Test("Asset.linkedContentfulAsset reuses existing assets by ID")
+  @MainActor
+  func assetLinkedContentfulAssetDeduplication() throws {
     let container = TestCoreDataStack.makeContainer()
     let context = container.viewContext
 
-    let nilAsset = try await Asset.add(to: context, withURL: nil)
-    #expect(nilAsset == nil)
-
-    let first = try #require(
-      await Asset.add(to: context, withURL: "https://example.com/Cover.JPG")
+    let first = try Asset.linkedContentfulAsset(
+      id: "ASSET-1",
+      urlString: "https://example.com/Cover.JPG",
+      in: context
     )
     try context.save()
 
-    let duplicate = try #require(
-      await Asset.add(to: context, withURL: "https://example.com/cover.jpg")
+    let duplicate = try Asset.linkedContentfulAsset(
+      id: "ASSET-1",
+      urlString: "https://example.com/cover.jpg",
+      in: context
     )
     #expect(first.objectID == duplicate.objectID)
 

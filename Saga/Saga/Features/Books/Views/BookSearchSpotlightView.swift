@@ -203,7 +203,7 @@ private struct SpotlightPanel: View {
           .frame(width: Self.coverSize.width, height: Self.coverSize.height)
         BookSearchResultLabels(book: result.book, match: result.match)
         Spacer(minLength: 8)
-        if let rating = result.book.rating?.intValue, rating > 0 {
+        if let rating = BookReadDetailsView.rating(for: result.book) {
           StarRatingView(
             rating: rating,
             size: 9,
