@@ -85,17 +85,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6.1.0
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
+          package_json_file: server/package.json
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: server/.node-version
+          cache: pnpm
+          cache-dependency-path: server/pnpm-lock.yaml
       - name: Verify web icons & preview assets match AppIcon.icon
         run: ./scripts/sync-web-icons.sh --check
       - name: Install, test, typecheck, and build server/
         working-directory: server
         run: |
-          npm ci
-          npm test
-          npm run typecheck
-          npm run build
+          pnpm install
+          pnpm test
+          pnpm typecheck
+          pnpm build

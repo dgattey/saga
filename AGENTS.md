@@ -27,9 +27,9 @@ shared UI/utilities. It's built with DylKit (`DylCore`, `DylUI`, `DylUpdates`, `
 - `swift test` runs `SagaTests`
 - `scripts/bootstrap.sh` writes `Config.xcconfig` from 1Password
 - `./scripts/sync-web-icons.sh` regenerates `server/public/` favicons, app icons, `opengraph-image.png`, and `server/web-assets-manifest.json` from `Sources/Saga/AppIcon.icon`; `./scripts/sync-web-icons.sh --check` verifies they are in sync
-- `swift run release-kit <step>` is `release-kit`; CI runs it, not you. Releases go through `.github/workflows/dylkit.yml` (calling `dgattey/dyl-kit/.github/workflows/app.yml@v0.5.2`): tags the merge commit and uploads the zip, `appcast.xml`, `release.json`, `history.json`, and site icons to Saga's Vercel Blob store, never a commit to `main`
+- `swift run release-kit <step>` is `release-kit`; CI runs it, not you. Releases go through `.github/workflows/dylkit.yml` (calling `dgattey/dyl-kit/.github/workflows/app.yml@v0.6.0`): tags the merge commit and uploads the zip, `appcast.xml`, `release.json`, `history.json`, and site icons to Saga's Vercel Blob store, never a commit to `main`
 - The site (`server/`) is `@dylkit/web` configured by `[site]` in `DylApp.toml` via `withDylKit`; Vercel's git integration deploys `main`
-- DylKit comes from `github.com/dgattey/dyl-kit` (`from: "0.5.2"`); `@dylkit/web` installs from the matching release tarball
+- DylKit comes from `github.com/dgattey/dyl-kit` (`from: "0.6.0"`); `@dylkit/web` installs with `pnpm` from the matching release tarball
 
 ## Code Style
 - Swift uses `swift-format` with `.swift-format` (2-space indentation)
@@ -69,7 +69,7 @@ entities in both when adding models
 ## Workflow
 - Ask for clarification when requirements are ambiguous; surface 2–3 options when trade-offs matter
 - Update documentation and related rules when introducing new patterns or services
-- **Keep `saga.gattey.com` (`server/`) and `dylangattey.com` (`dgattey/dg`) in sync**: Whenever `Sources/Saga/AppIcon.icon`, `Sources/Saga/Assets.xcassets`, or major UI screens change, run `./scripts/sync-web-icons.sh` (and update `server/public/saga-*.png` + `[site]` in `DylApp.toml` when UI designs change), verify with `./scripts/sync-web-icons.sh --check` and `cd server && npm test && npm run typecheck && npm run build`, and coordinate with `dgattey/dg` (`dylangattey.com`) so favicons and web previews stay in sync.
+- **Keep `saga.gattey.com` (`server/`) and `dylangattey.com` (`dgattey/dg`) in sync**: Whenever `Sources/Saga/AppIcon.icon`, `Sources/Saga/Assets.xcassets`, or major UI screens change, run `./scripts/sync-web-icons.sh` (and update `server/public/saga-*.png` + `[site]` in `DylApp.toml` when UI designs change), verify with `./scripts/sync-web-icons.sh --check` and `cd server && pnpm test && pnpm typecheck && pnpm build`, and coordinate with `dgattey/dg` (`dylangattey.com`) so favicons and web previews stay in sync.
 
 ## Testing
 - Unit and UI component tests live in `Tests/SagaTests/` and use native `SwiftTesting` (`import Testing`, `@Test`, `#expect`) and `ViewInspector` (`import ViewInspector`).
