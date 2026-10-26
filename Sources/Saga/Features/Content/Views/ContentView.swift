@@ -151,7 +151,7 @@ struct ContentView: View {
     }
     .task {
       guard LaunchOverrides.current.sagaInitialView == nil else { return }
-      await syncViewModel.syncWithContentful()
+      await syncViewModel.sync()
     }
     #if os(macOS)
       .onAppear {
@@ -164,7 +164,7 @@ struct ContentView: View {
       ) { _ in
         // Scene phase doesn't consistently fire on macOS focus changes, so we sync on app activation.
         Task {
-          await syncViewModel.syncWithContentful()
+          await syncViewModel.sync()
         }
       }
       .frame(minWidth: 600, minHeight: 300)

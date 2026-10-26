@@ -23,6 +23,7 @@ struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
   let author: String
   let isbn: Int64?
   let rating: Int?
+  let readingStatus: String
   let readDateStarted: String?
   let readDateFinished: String?
   let reviewPlainText: String?
@@ -33,7 +34,7 @@ struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
   var coverImageContentType: String? = nil
 
   private enum CodingKeys: String, CodingKey {
-    case id, title, author, isbn, rating, readDateStarted, readDateFinished
+    case id, title, author, isbn, rating, readingStatus, readDateStarted, readDateFinished
     case reviewPlainText, notesPlainText
     case coverAssetId, coverImageUrl, coverImageBase64, coverImageContentType
   }
@@ -63,6 +64,7 @@ struct BookServerUpsertPayload: Encodable, Equatable, Sendable {
     try container.encode(author, forKey: .author)
     try container.encodeIfPresent(isbn, forKey: .isbn)
     try container.encode(rating, forKey: .rating)
+    try container.encode(readingStatus, forKey: .readingStatus)
     try container.encode(readDateStarted, forKey: .readDateStarted)
     try container.encode(readDateFinished, forKey: .readDateFinished)
     try container.encode(reviewPlainText, forKey: .reviewPlainText)

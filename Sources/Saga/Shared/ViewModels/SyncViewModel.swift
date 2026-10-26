@@ -11,11 +11,15 @@ import SwiftUI
 @MainActor
 @Observable
 final class SyncViewModel {
-  @ObservationIgnored let controller = PersistenceService()
+  @ObservationIgnored let controller: PersistenceService
   var isSyncing = false
   var isResetting = false
   var resetToken = UUID()
   @ObservationIgnored private var syncTask: Task<Void, Never>?
+
+  init(controller: PersistenceService = PersistenceService()) {
+    self.controller = controller
+  }
 
   var viewContext: NSManagedObjectContext {
     controller.container.viewContext
@@ -23,14 +27,9 @@ final class SyncViewModel {
 
   // MARK: - Sync Operations
 
-  /// Syncs with Goodreads (if configured) and Contentful if there's no sync running already.
-  func sync() async {
-    await syncWithContentful()
-  }
-
   /// Triggers the remote Goodreads → Contentful sync endpoint (when configured) and then
   /// pulls the latest published Contentful entries into Core Data.
-  func syncWithContentful() async {
+  func sync() async {
     LoggerService.log("Sync starting refresh", level: .notice, surface: .sync)
     await orchestrateSync(
       start: { [weak self] in
@@ -50,7 +49,9 @@ final class SyncViewModel {
   func resetAndSync() async {
     LoggerService.log("Sync starting reset", level: .notice, surface: .sync)
     await orchestrateSync(
+      cancelExisting: true,
       start: { [weak self] in
+        self?.isSyncing = false
         self?.isResetting = true
       },
       finish: { [weak self] in
@@ -59,7 +60,7 @@ final class SyncViewModel {
       },
       { [controller] in
         _ = await GoodreadsSyncService.triggerIfConfigured()
-        try await controller.resetAndSyncWithApi()
+        try await controller.syncWithApi(reset: true)
       }
     )
   }
@@ -68,23 +69,24 @@ final class SyncViewModel {
 
   /// Helper to start/finish some sync action with a given function
   private func orchestrateSync(
+    cancelExisting: Bool = false,
     start: @escaping () -> Void,
     finish: @escaping () -> Void,
     _ syncFunction: @escaping @Sendable () async throws -> Void
   ) async {
+    if cancelExisting, isSyncing, let existing = syncTask {
+      existing.cancel()
+      await existing.value
+    }
     guard !isSyncing, !isResetting else { return }
     start()
 
     let task = Task(priority: .utility) {
       do {
         try await syncFunction()
-        await MainActor.run {
-          finish()
-        }
+        finish()
       } catch {
-        await MainActor.run {
-          finish()
-        }
+        finish()
         LoggerService.log("Sync failed", error: error, surface: .sync)
       }
     }

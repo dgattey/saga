@@ -177,41 +177,21 @@ struct BookEditorView: View {
   private func metadataField(_ field: MetadataField) -> some View {
     switch field {
     case .started:
-      EditorialLabeledValue(label: "Started") {
-        if viewModel.draft.readDateStarted == nil {
-          Button {
-            viewModel.draft.tracksStartDate = true
-          } label: {
-            Label("Add Date", systemImage: "plus.circle")
-          }
-          .buttonStyle(.borderless)
-        } else {
-          HStack(spacing: 4) {
-            DatePicker(
-              "Started", selection: $viewModel.draft.startedDate, displayedComponents: .date
-            )
-            .datePickerStyle(.compact)
-            .labelsHidden()
-            if viewModel.draft.status == .read {
-              Button {
-                viewModel.draft.tracksStartDate = false
-              } label: {
-                Image(systemName: "xmark.circle.fill")
-                  .foregroundStyle(.tertiary)
-              }
-              .buttonStyle(.borderless)
-              .help("Don't track a start date")
-              .accessibilityLabel("Remove Start Date")
-            }
-          }
-        }
-      }
+      dateMetadataField(
+        label: "Started",
+        date: $viewModel.draft.startedDate,
+        isTracked: viewModel.draft.status == .read ? $viewModel.draft.tracksStartDate : nil,
+        removeHelp: "Don't track a start date",
+        removeAccessibilityLabel: "Remove Start Date"
+      )
     case .finished:
-      EditorialLabeledValue(label: "Finished") {
-        DatePicker("Finished", selection: $viewModel.draft.finishedDate, displayedComponents: .date)
-          .datePickerStyle(.compact)
-          .labelsHidden()
-      }
+      dateMetadataField(
+        label: "Finished",
+        date: $viewModel.draft.finishedDate,
+        isTracked: $viewModel.draft.tracksFinishDate,
+        removeHelp: "Don't track a finish date",
+        removeAccessibilityLabel: "Remove Finish Date"
+      )
     case .isbn:
       EditorialLabeledValue(label: "ISBN") {
         TextField("ISBN-10 or 13", text: $viewModel.draft.isbnText)
@@ -223,6 +203,42 @@ struct BookEditorView: View {
           #if os(iOS)
             .keyboardType(.numbersAndPunctuation)
           #endif
+      }
+    }
+  }
+
+  private func dateMetadataField(
+    label: String,
+    date: Binding<Date>,
+    isTracked: Binding<Bool>?,
+    removeHelp: String,
+    removeAccessibilityLabel: String
+  ) -> some View {
+    EditorialLabeledValue(label: label) {
+      if isTracked?.wrappedValue == false {
+        Button {
+          isTracked?.wrappedValue = true
+        } label: {
+          Label("Add Date", systemImage: "plus.circle")
+        }
+        .buttonStyle(.borderless)
+      } else {
+        HStack(spacing: 4) {
+          DatePicker(label, selection: date, displayedComponents: .date)
+            .datePickerStyle(.compact)
+            .labelsHidden()
+          if let isTracked {
+            Button {
+              isTracked.wrappedValue = false
+            } label: {
+              Image(systemName: "xmark.circle.fill")
+                .foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.borderless)
+            .help(removeHelp)
+            .accessibilityLabel(removeAccessibilityLabel)
+          }
+        }
       }
     }
   }

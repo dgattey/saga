@@ -164,6 +164,34 @@ struct BookEditingTests {
     clearingDraft.notesText = "   \n "
     clearingDraft.apply(to: book)
     #expect(book.notes == nil)
+    #expect(book.readingStatus == .notStarted)
+
+    let undatedReadBook = try TestCoreDataStack.makeBook(
+      in: context,
+      id: "undated-read-1",
+      title: "The Outsiders",
+      author: "S.E. Hinton",
+      rating: 4,
+      readingStatus: .read,
+      readDateStarted: nil,
+      readDateFinished: nil
+    )
+    var undatedDraft = BookDraft(book: undatedReadBook, now: Self.reference)
+    #expect(undatedDraft.status == .read)
+    #expect(!undatedDraft.tracksStartDate)
+    #expect(!undatedDraft.tracksFinishDate)
+    #expect(undatedDraft.readDateStarted == nil)
+    #expect(undatedDraft.readDateFinished == nil)
+
+    undatedDraft.rating = 5
+    undatedDraft.apply(to: undatedReadBook)
+    #expect(undatedReadBook.readingStatus == .read)
+    #expect(undatedReadBook.readDateStarted == nil)
+    #expect(undatedReadBook.readDateFinished == nil)
+    let undatedPayload = try #require(undatedReadBook.toServerUpsertPayload())
+    #expect(undatedPayload.readingStatus == "read")
+    #expect(undatedPayload.readDateStarted == nil)
+    #expect(undatedPayload.readDateFinished == nil)
   }
 
   @Test("ReadingDuration describes finished and in-progress reads")
@@ -205,6 +233,18 @@ struct BookEditingTests {
     )
     #expect(BookReadDetailsView.metadataEntries(for: shelvedBook).isEmpty)
     #expect(BookReadDetailsView.rating(for: shelvedBook) == nil)
+
+    let undatedReadBook = try TestCoreDataStack.makeBook(
+      in: context,
+      isbn: nil,
+      rating: 4,
+      readingStatus: .read,
+      readDateStarted: Self.reference,
+      readDateFinished: nil
+    )
+    #expect(undatedReadBook.readingStatus == .read)
+    #expect(undatedReadBook.readingStatus.title == "Read")
+    #expect(BookReadDetailsView.metadataEntries(for: undatedReadBook).map(\.label) == ["Started"])
   }
 
   // MARK: - Covers
@@ -301,6 +341,7 @@ struct BookEditingTests {
     #expect(payload.id == book.id)
     #expect(payload.isbn == 9_780_593_135_204)
     #expect(payload.rating == 4)
+    #expect(payload.readingStatus == "reading")
     #expect(payload.readDateFinished == nil)
   }
 

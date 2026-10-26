@@ -40,9 +40,8 @@ swift test                    # unit tests
 
 When adding a new Core Data model:
 1. Create the entity in `Saga.xcdatamodeld`
-2. Create the corresponding Swift model file
-3. Add the model to `PersistenceModel` enum
-4. Mark the class `@objc(EntityName)` so the unqualified `representedClassName` resolves
+2. Create the corresponding Swift model file with `apply(_:)` mapping
+3. Mark the class `@objc(EntityName)` so the unqualified `representedClassName` resolves
 
 ## Releases
 

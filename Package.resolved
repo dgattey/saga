@@ -2,15 +2,6 @@
   "originHash" : "946df5f8cd0460007419c830e4c456c138652a5eb2cb0ec50e8a7cc2c2b97d52",
   "pins" : [
     {
-      "identity" : "contentful-persistence.swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/contentful/contentful-persistence.swift",
-      "state" : {
-        "revision" : "53fafd5b119b2644f792637b118e1ad13eb8db9b",
-        "version" : "0.18.2"
-      }
-    },
-    {
       "identity" : "contentful.swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/contentful/contentful.swift",
@@ -24,7 +15,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/dgattey/dyl-kit",
       "state" : {
-        "revision" : "facb7feb389dee1fd20695d6b2a16099fcdbe8e7"
+        "revision" : "f0c1e619ed78c7a0aec245e9b94450fb5584dc2c"
       }
     },
     {
@@ -70,6 +61,15 @@
       "state" : {
         "revision" : "2dacb6e514be19379c605a5a11564d0f3fea89d9",
         "version" : "0.10.5"
+      }
+    },
+    {
+      "identity" : "yams",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/Yams",
+      "state" : {
+        "revision" : "a27b21e0c81c5bf42049b897a62aaf387e80f279",
+        "version" : "6.2.2"
       }
     }
   ],

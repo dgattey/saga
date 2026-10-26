@@ -219,10 +219,23 @@ struct ViewsInspectorTests {
       readDateStarted: date2025,
       readDateFinished: date2025
     )
+    let undatedRead = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "The Outsiders",
+      author: "S.E. Hinton",
+      rating: 4,
+      readingStatus: .read,
+      readDateStarted: nil,
+      readDateFinished: nil
+    )
+
+    let inspectedUndatedDetails = try BookReadDetailsView(book: undatedRead).inspect()
+    #expect(try inspectedUndatedDetails.find(text: "Read").string() == "Read")
 
     let viewModel = BooksViewModel()
     viewModel.totalBookCount = 142
-    viewModel.filteredBooks = [readingBook, finished2026, finished2025].enumerated().map {
+    let books = [readingBook, finished2026, finished2025, undatedRead]
+    viewModel.filteredBooks = books.enumerated().map {
       BookSearchResult(book: $1, index: $0)
     }
     var currentEntry: NavigationEntry? = NavigationEntry(selection: .home(lastSelectedBookID: nil))
@@ -242,7 +255,7 @@ struct ViewsInspectorTests {
       .environment(viewModel)
     let inspectedDefault = try defaultSection.inspect()
     #expect(inspectedDefault.findAll(ViewType.Section.self).isEmpty)
-    #expect(inspectedDefault.findAll(HomeBookThumbnailView.self).count == 3)
+    #expect(inspectedDefault.findAll(HomeBookThumbnailView.self).count == 4)
 
     let titleSection = HomeBooksSectionView(entry: entryBinding, sort: .titleAZ)
       .environment(viewModel)
@@ -254,32 +267,34 @@ struct ViewsInspectorTests {
         "Ancillary Justice",
         "Exhalation",
         "Foundation",
+        "The Outsiders",
       ]
     )
 
     let yearSection = HomeBooksSectionView(entry: entryBinding, sort: .byYear)
       .environment(viewModel)
     let inspectedYear = try yearSection.inspect()
-    #expect(inspectedYear.findAll(ViewType.Section.self).count == 3)
+    #expect(inspectedYear.findAll(ViewType.Section.self).count == 4)
     #expect(
       try inspectedYear.find(text: "Currently Reading · 1 book").string()
         == "Currently Reading · 1 book"
     )
     #expect(try inspectedYear.find(text: "2026 · 1 book").string() == "2026 · 1 book")
     #expect(try inspectedYear.find(text: "2025 · 1 book").string() == "2025 · 1 book")
+    #expect(try inspectedYear.find(text: "Earlier · 1 book").string() == "Earlier · 1 book")
 
     let statusSection = HomeBooksSectionView(entry: entryBinding, sort: .byStatus)
       .environment(viewModel)
     let inspectedStatus = try statusSection.inspect()
     #expect(inspectedStatus.findAll(ViewType.Section.self).count == 2)
-    #expect(try inspectedStatus.find(text: "Read · 2 books").string() == "Read · 2 books")
+    #expect(try inspectedStatus.find(text: "Read · 3 books").string() == "Read · 3 books")
 
     let ratingSection = HomeBooksSectionView(entry: entryBinding, sort: .byRating)
       .environment(viewModel)
     let inspectedRating = try ratingSection.inspect()
     #expect(inspectedRating.findAll(ViewType.Section.self).count == 3)
     #expect(try inspectedRating.find(text: "★★★★★ · 1 book").string() == "★★★★★ · 1 book")
-    #expect(try inspectedRating.find(text: "★★★★ · 1 book").string() == "★★★★ · 1 book")
+    #expect(try inspectedRating.find(text: "★★★★ · 2 books").string() == "★★★★ · 2 books")
     #expect(try inspectedRating.find(text: "Unrated · 1 book").string() == "Unrated · 1 book")
   }
 }

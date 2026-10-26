@@ -10,9 +10,9 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/dgattey/dyl-kit",
-      revision: "facb7feb389dee1fd20695d6b2a16099fcdbe8e7"
+      revision: "f0c1e619ed78c7a0aec245e9b94450fb5584dc2c"
     ),
-    .package(url: "https://github.com/contentful/contentful-persistence.swift", from: "0.18.2"),
+    .package(url: "https://github.com/contentful/contentful.swift", from: "5.5.15"),
     .package(url: "https://github.com/ukushu/Ifrit", from: "4.0.0"),
     .package(url: "https://github.com/nalexn/ViewInspector", from: "0.10.5"),
   ],
@@ -23,7 +23,7 @@ let package = Package(
         .product(name: "DylCore", package: "dyl-kit"),
         .product(name: "DylUI", package: "dyl-kit"),
         .product(name: "DylUpdates", package: "dyl-kit"),
-        .product(name: "ContentfulPersistence", package: "contentful-persistence.swift"),
+        .product(name: "Contentful", package: "contentful.swift"),
         .product(name: "IfritStatic", package: "Ifrit"),
       ],
       // Bundler compiles these into the app ([build] resources and icon in DylApp.toml).

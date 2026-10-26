@@ -109,19 +109,6 @@ struct CreditItem: Identifiable, Equatable {
       tintColor: .botanicalLeaf
     ),
     CreditItem(
-      id: "contentful-persistence-swift",
-      name: "ContentfulPersistence",
-      version: "0.18.2",
-      subtitle: "Core Data synchronization for Contentful",
-      badge: "MIT",
-      badgeURL: URL(
-        staticString: "https://github.com/contentful/contentful-persistence.swift/blob/main/LICENSE"
-      ),
-      url: URL(staticString: "https://github.com/contentful/contentful-persistence.swift"),
-      systemImage: "arrow.triangle.2.circlepath.circle.fill",
-      tintColor: .botanicalSage
-    ),
-    CreditItem(
       id: "ifrit",
       name: "Ifrit",
       version: "4.0.0",

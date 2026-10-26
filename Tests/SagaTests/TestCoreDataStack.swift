@@ -65,6 +65,7 @@ enum TestCoreDataStack {
     author: String? = "Ursula K. Le Guin",
     isbn: Int64? = 9_780_441_478_125,
     rating: Int? = 5,
+    readingStatus: ReadingStatus? = nil,
     readDateStarted: Date? = Date(timeIntervalSince1970: 1_700_000_000),
     readDateFinished: Date? = Date(timeIntervalSince1970: 1_700_600_000),
     reviewPlainText: String? = "A masterpiece of speculative fiction.",
@@ -79,6 +80,7 @@ enum TestCoreDataStack {
     book.author = author
     book.isbn = isbn.map { NSNumber(value: $0) }
     book.rating = rating.map { NSNumber(value: $0) }
+    book.readingStatusRaw = readingStatus?.rawValue
     book.readDateStarted = readDateStarted
     book.readDateFinished = readDateFinished
     if let reviewPlainText {
@@ -90,10 +92,6 @@ enum TestCoreDataStack {
     if let coverURLString {
       let asset = Asset(context: context)
       asset.id = UUID().uuidString
-      asset.createdAt = book.createdAt
-      asset.updatedAt = book.updatedAt
-      asset.title = title.map { "\($0) Cover" }
-      asset.fileName = "cover.jpg"
       asset.urlString = coverURLString
       book.coverImage = asset
     }

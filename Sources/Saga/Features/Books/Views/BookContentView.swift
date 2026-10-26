@@ -23,22 +23,6 @@ enum BookEditorialMetrics {
 }
 
 extension ReadingStatus {
-  var title: String {
-    switch self {
-    case .notStarted: "Want to Read"
-    case .reading: "Currently Reading"
-    case .read: "Read"
-    }
-  }
-
-  var shortTitle: String {
-    switch self {
-    case .notStarted: "Want to Read"
-    case .reading: "Reading"
-    case .read: "Read"
-    }
-  }
-
   var systemImage: String {
     switch self {
     case .notStarted: "books.vertical"
@@ -374,9 +358,11 @@ struct BookReadDetailsView: View {
         BookMetadataEntry(
           label: "Finished", value: finished.formatted(date: .abbreviated, time: .omitted)))
     }
-    if let duration = ReadingDuration.text(
-      started: book.readDateStarted, finished: book.readDateFinished, now: now
-    ) {
+    if book.readDateFinished != nil || book.readingStatus == .reading,
+      let duration = ReadingDuration.text(
+        started: book.readDateStarted, finished: book.readDateFinished, now: now
+      )
+    {
       entries.append(BookMetadataEntry(label: "Duration", value: duration))
     }
     if let isbn = book.isbn?.stringValue {
