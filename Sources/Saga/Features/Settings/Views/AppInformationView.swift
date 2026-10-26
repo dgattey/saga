@@ -22,16 +22,10 @@ struct AppInformationView: View {
           HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("Saga")
               .font(.title2.weight(.bold))
-            Text("v\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
+            Text(Bundle.main.formattedVersion)
               .font(.caption.monospaced())
               .foregroundStyle(.secondary)
-              .padding(.horizontal, 8)
-              .padding(.vertical, 3)
-              .background(Color.botanicalLeaf.opacity(0.10), in: Capsule())
-              .overlay(
-                Capsule()
-                  .strokeBorder(Color.botanicalLeaf.opacity(0.22), lineWidth: 1)
-              )
+              .botanicalCapsulePill()
           }
 
           Text("Personal library & reading tracker for macOS and iOS")

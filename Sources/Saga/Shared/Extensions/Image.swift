@@ -25,4 +25,9 @@ extension Image {
       self.init(nsImage: platformImage)
     #endif
   }
+
+  init?(coverImageData data: Data) {
+    guard let image = PlatformImage(data: data) else { return nil }
+    self.init(platformImage: image)
+  }
 }

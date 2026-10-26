@@ -61,16 +61,14 @@ extension View {
       .shadow(color: .black.opacity(0.20), radius: 14, y: 14)
   }
 
-  /// Randomly rotates a view based on some hash
-  func randomRotation(
-    from hash: Int,
-    minDegrees: Double = -15,
-    maxDegrees: Double = 15
-  ) -> some View {
-    let normalizedHash = abs(hash)  // Handle negative hashes
-    let range = maxDegrees - minDegrees
-    let rotation = minDegrees + (Double(normalizedHash % 10000) / 10000.0) * range
-
-    return self.rotationEffect(.degrees(rotation))
+  func botanicalCapsulePill() -> some View {
+    self
+      .padding(.horizontal, 8)
+      .padding(.vertical, 3)
+      .background(Color.botanicalLeaf.opacity(0.10), in: Capsule())
+      .overlay(
+        Capsule()
+          .strokeBorder(Color.botanicalLeaf.opacity(0.22), lineWidth: 1)
+      )
   }
 }

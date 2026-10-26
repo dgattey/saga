@@ -10,12 +10,6 @@ import DylCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-#if canImport(AppKit)
-  import AppKit
-#elseif canImport(UIKit)
-  import UIKit
-#endif
-
 struct BookEditorView: View {
   enum Outcome: Equatable {
     case cancelled
@@ -85,17 +79,7 @@ struct BookEditorView: View {
           ToolbarItem(placement: .confirmationAction) { saveButton }
         }
       }
-      .alert(
-        isPresented: Binding(
-          get: { viewModel.error != nil },
-          set: { if !$0 { viewModel.error = nil } }
-        ),
-        error: viewModel.error
-      ) { _ in
-        Button("OK", role: .cancel) {}
-      } message: { error in
-        Text(error.recoverySuggestion ?? "")
-      }
+      .mutationErrorAlert($viewModel.error)
       .onChange(of: viewModel.coverLookupKey) { _, _ in
         viewModel.scheduleAutomaticCoverSearch()
       }
@@ -265,28 +249,13 @@ struct BookEditorView: View {
   private var reviewEditor: some View {
     VStack(alignment: .leading, spacing: 10) {
       EditorialSectionLabel("Review")
-      TextEditor(text: $viewModel.draft.reviewText)
-        .font(.editorialNotes)
-        .lineSpacing(5)
-        .scrollContentBackground(.hidden)
-        .focused($focusedField, equals: .review)
-        #if os(macOS)
-          .frame(minHeight: 130)
-        #else
-          .frame(minHeight: 96)
-        #endif
-        .overlay(alignment: .topLeading) {
-          if viewModel.draft.reviewText.isEmpty {
-            Text("What did you think?")
-              .font(.editorialNotes.italic())
-              .foregroundStyle(.tertiary)
-              .padding(.leading, 5)
-              .allowsHitTesting(false)
-          }
-        }
-        .padding(.vertical, 6)
-        .editorialField(isFocused: focusedField == .review)
-        .accessibilityLabel("Review")
+      editorialTextEditor(
+        text: $viewModel.draft.reviewText,
+        placeholder: "What did you think?",
+        field: .review,
+        label: "Review",
+        macMinHeight: 130
+      )
     }
   }
 
@@ -299,29 +268,45 @@ struct BookEditorView: View {
           .font(.caption2)
           .foregroundStyle(.tertiary)
       }
-      TextEditor(text: $viewModel.draft.notesText)
-        .font(.editorialNotes)
-        .lineSpacing(5)
-        .scrollContentBackground(.hidden)
-        .focused($focusedField, equals: .notes)
-        #if os(macOS)
-          .frame(minHeight: 140)
-        #else
-          .frame(minHeight: 96)
-        #endif
-        .overlay(alignment: .topLeading) {
-          if viewModel.draft.notesText.isEmpty {
-            Text("Private notes, quotes, or reminders…")
-              .font(.editorialNotes.italic())
-              .foregroundStyle(.tertiary)
-              .padding(.leading, 5)
-              .allowsHitTesting(false)
-          }
-        }
-        .padding(.vertical, 6)
-        .editorialField(isFocused: focusedField == .notes)
-        .accessibilityLabel("Private Notes")
+      editorialTextEditor(
+        text: $viewModel.draft.notesText,
+        placeholder: "Private notes, quotes, or reminders…",
+        field: .notes,
+        label: "Private Notes",
+        macMinHeight: 140
+      )
     }
+  }
+
+  private func editorialTextEditor(
+    text: Binding<String>,
+    placeholder: String,
+    field: Field,
+    label: String,
+    macMinHeight: CGFloat
+  ) -> some View {
+    TextEditor(text: text)
+      .font(.editorialNotes)
+      .lineSpacing(5)
+      .scrollContentBackground(.hidden)
+      .focused($focusedField, equals: field)
+      #if os(macOS)
+        .frame(minHeight: macMinHeight)
+      #else
+        .frame(minHeight: 96)
+      #endif
+      .overlay(alignment: .topLeading) {
+        if text.wrappedValue.isEmpty {
+          Text(placeholder)
+            .font(.editorialNotes.italic())
+            .foregroundStyle(.tertiary)
+            .padding(.leading, 5)
+            .allowsHitTesting(false)
+        }
+      }
+      .padding(.vertical, 6)
+      .editorialField(isFocused: focusedField == field)
+      .accessibilityLabel(label)
   }
 
   private var cancelButton: some View {
@@ -584,17 +569,5 @@ struct BookCoverActionBar: View {
     }
     .buttonStyle(.plain)
     .help(help)
-  }
-}
-
-extension Image {
-  init?(coverImageData data: Data) {
-    #if canImport(AppKit)
-      guard let image = NSImage(data: data) else { return nil }
-      self.init(nsImage: image)
-    #elseif canImport(UIKit)
-      guard let image = UIImage(data: data) else { return nil }
-      self.init(uiImage: image)
-    #endif
   }
 }

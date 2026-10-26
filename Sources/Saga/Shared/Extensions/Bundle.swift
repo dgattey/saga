@@ -16,6 +16,10 @@ extension Bundle {
     infoDictionary?["CFBundleVersion"] as? String ?? "1"
   }
 
+  var formattedVersion: String {
+    "v\(appVersion) (\(buildNumber))"
+  }
+
   var iconFileName: String? {
     #if os(iOS)
       guard let icons = object(forInfoDictionaryKey: "CFBundleIcons") as? NSDictionary,

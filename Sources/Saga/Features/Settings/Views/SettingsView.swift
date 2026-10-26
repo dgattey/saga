@@ -97,18 +97,6 @@ struct SettingsView: View {
     .tint(Color.botanicalDeepMoss)
     .navigationTitle(SettingsPane.credits.title)
   }
-
-  // MARK: - Formatting
-
-  static let cacheLimitOptions: [Double] = CacheLimitRow.limitOptions
-
-  static func formatBytes(_ bytes: Int64) -> String {
-    CacheLimitRow.formatBytes(bytes)
-  }
-
-  static func formatLimit(_ value: Double) -> String {
-    CacheLimitRow.formatLimit(value)
-  }
 }
 
 // MARK: - macOS Sidebar
@@ -215,63 +203,62 @@ private struct SettingsGeneralSections: View {
     @Bindable private var updater = AppUpdater.shared
   #endif
 
+  private var automaticallyChecksBinding: Binding<Bool> {
+    #if os(macOS)
+      return $updater.automaticallyChecksForUpdates
+    #else
+      return .constant(true)
+    #endif
+  }
+
+  private var automaticallyDownloadsBinding: Binding<Bool> {
+    #if os(macOS)
+      return $updater.automaticallyDownloadsUpdates
+    #else
+      return .constant(false)
+    #endif
+  }
+
+  private var isConfigured: Bool {
+    #if os(macOS)
+      return AppInfo.main.isReleaseConfigured
+    #else
+      return false
+    #endif
+  }
+
+  private var canCheckForUpdates: Bool {
+    #if os(macOS)
+      return updater.canCheckForUpdates
+    #else
+      return false
+    #endif
+  }
+
   var body: some View {
     Section("Software Updates") {
-      #if os(macOS)
-        let isConfigured = AppInfo.main.isReleaseConfigured
-        Toggle(
-          "Automatically check for updates",
-          isOn: $updater.automaticallyChecksForUpdates
-        )
+      Toggle("Automatically check for updates", isOn: automaticallyChecksBinding)
         .disabled(!isConfigured)
         .accessibilityIdentifier(AccessibilityID.Settings.automaticallyCheckForUpdates)
 
-        Toggle(
-          "Automatically download updates",
-          isOn: $updater.automaticallyDownloadsUpdates
-        )
-        .disabled(
-          !isConfigured || !updater.automaticallyChecksForUpdates
-        )
-        .accessibilityIdentifier(AccessibilityID.Settings.automaticallyDownloadUpdates)
-
-        LabeledContent {
-          Button("Check for Updates…") {
-            updater.checkForUpdates()
-          }
-          .disabled(!updater.canCheckForUpdates)
-          .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
-        } label: {
-          Text("Software updates")
-          Text("Current version v\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
-        }
-      #else
-        fallbackUpdateRows
-      #endif
-    }
-  }
-
-  #if !os(macOS)
-    @ViewBuilder
-    private var fallbackUpdateRows: some View {
-      Toggle("Automatically check for updates", isOn: .constant(true))
-        .disabled(true)
-        .accessibilityIdentifier(AccessibilityID.Settings.automaticallyCheckForUpdates)
-
-      Toggle("Automatically download updates", isOn: .constant(false))
-        .disabled(true)
+      Toggle("Automatically download updates", isOn: automaticallyDownloadsBinding)
+        .disabled(!isConfigured || !automaticallyChecksBinding.wrappedValue)
         .accessibilityIdentifier(AccessibilityID.Settings.automaticallyDownloadUpdates)
 
       LabeledContent {
-        Button("Check for Updates…") {}
-          .disabled(true)
-          .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
+        Button("Check for Updates…") {
+          #if os(macOS)
+            updater.checkForUpdates()
+          #endif
+        }
+        .disabled(!canCheckForUpdates)
+        .accessibilityIdentifier(AccessibilityID.Settings.checkForUpdates)
       } label: {
         Text("Software updates")
-        Text("Current version v\(Bundle.main.appVersion) (\(Bundle.main.buildNumber))")
+        Text("Current version \(Bundle.main.formattedVersion)")
       }
     }
-  #endif
+  }
 }
 
 // MARK: - Sync Sections
@@ -452,13 +439,7 @@ private struct SettingsAnimationsSections: View {
         Text(String(format: "%.2f", value.wrappedValue))
           .font(.caption.monospaced().weight(.medium))
           .foregroundStyle(.secondary)
-          .padding(.horizontal, 8)
-          .padding(.vertical, 3)
-          .background(Color.botanicalLeaf.opacity(0.10), in: Capsule())
-          .overlay(
-            Capsule()
-              .strokeBorder(Color.botanicalLeaf.opacity(0.22), lineWidth: 1)
-          )
+          .botanicalCapsulePill()
           .frame(minWidth: 46, alignment: .trailing)
       }
     } label: {

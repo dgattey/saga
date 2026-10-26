@@ -42,13 +42,6 @@ final class BooksViewModel {
     searchModel.hasActiveSearch
   }
 
-  func refreshSearch(for books: FetchedResults<Book>) {
-    performSearch(
-      with: books,
-      debounce: searchModel.hasActiveSearch ? .milliseconds(200) : nil
-    )
-  }
-
   func handleBooksChange(_ books: FetchedResults<Book>) {
     performSearch(with: books, debounce: .milliseconds(150))
   }
@@ -70,23 +63,6 @@ final class BooksViewModel {
     performSearch(with: books, debounce: .milliseconds(150))
     Task { @MainActor [weak self] in
       self?.isHandlingBookChanges = false
-    }
-  }
-
-  func delete(_ book: Book, in context: NSManagedObjectContext) {
-    let deletedBookID = book.id
-    documentCache.removeValue(forKey: book.objectID)
-    withAnimation {
-      context.delete(book)
-      do {
-        try context.save()
-      } catch {
-        let nsError = error as NSError
-        fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-      }
-    }
-    Task(priority: .utility) {
-      await GoodreadsSyncService.pushBookDeletionIfConfigured(id: deletedBookID)
     }
   }
 

@@ -111,10 +111,6 @@ private struct PersistentScrollViewBody<Content: View>: View {
     .onChange(of: scrollStore.resetToken) {
       restorePosition()
     }
-    .onChange(of: scrollStore.scrollToTopToken) {
-      guard scrollStore.scrollToTopScope == scrollKey.scope else { return }
-      restorePosition()
-    }
     .onAppear {
       lifecycle.pendingRestoreNotify = true
     }

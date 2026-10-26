@@ -46,9 +46,7 @@ struct SettingsViewTests {
 
     for pane in SettingsPane.allCases {
       #expect(!pane.systemImage.isEmpty)
-      #expect(!pane.subtitle.isEmpty)
       #expect(pane.id == pane.rawValue)
-      #expect(pane.section.panes.contains(pane))
 
       let badge = try SettingsPaneBadge(pane: pane).inspect()
       #expect(try badge.find(ViewType.Image.self).actualImage().name() == pane.systemImage)
@@ -59,13 +57,13 @@ struct SettingsViewTests {
     }
   }
 
-  @Test("SettingsView and CacheLimitRow format cache limits and byte counts")
+  @Test("CacheLimitRow formats cache limits and byte counts")
   @MainActor
   func cacheLimitFormatting() throws {
-    #expect(SettingsView.formatLimit(0) == "Unlimited")
-    #expect(SettingsView.formatLimit(0.5) == "500 MB")
-    #expect(SettingsView.formatLimit(5) == "5 GB")
-    #expect(SettingsView.cacheLimitOptions == [0.1, 0.5, 1, 5, 10, 0])
+    #expect(CacheLimitRow.formatLimit(0) == "Unlimited")
+    #expect(CacheLimitRow.formatLimit(0.5) == "500 MB")
+    #expect(CacheLimitRow.formatLimit(5) == "5 GB")
+    #expect(CacheLimitRow.limitOptions == [0.1, 0.5, 1, 5, 10, 0])
 
     var limit: Double = 5
     let row = CacheLimitRow(

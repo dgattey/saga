@@ -166,17 +166,7 @@ struct BookContentView: View {
     } message: {
       Text("This removes the book from Saga and from Contentful.")
     }
-    .alert(
-      isPresented: Binding(
-        get: { deleteError != nil },
-        set: { if !$0 { deleteError = nil } }
-      ),
-      error: deleteError
-    ) { _ in
-      Button("OK", role: .cancel) {}
-    } message: { error in
-      Text(error.recoverySuggestion ?? "")
-    }
+    .mutationErrorAlert($deleteError)
   }
 
   private var cover: some View {
@@ -226,6 +216,7 @@ struct BookContentView: View {
 
 struct BookEditorialLayout<Cover: View, Details: View>: View {
   @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+  @State private var containerWidth: CGFloat = 0
   private let scrollScope: ScrollScope?
   private let scrollContextID: UUID?
   private let cover: Cover
@@ -244,39 +235,42 @@ struct BookEditorialLayout<Cover: View, Details: View>: View {
   }
 
   var body: some View {
-    MeasuredContainer { size in
-      let isCompact =
-        horizontalSizeClass == .compact
-        || (size.width > 0 && size.width < BookEditorialMetrics.twoColumnThreshold)
-      let content = Group {
-        if !isCompact {
-          HStack(alignment: .top, spacing: BookEditorialMetrics.columnGap) {
-            cover
-            details
-              .frame(maxWidth: BookEditorialMetrics.maxDetailsWidth, alignment: .topLeading)
-          }
-        } else {
-          VStack(alignment: .leading, spacing: 20) {
-            cover.frame(maxWidth: .infinity)
-            details
-          }
+    let isCompact =
+      horizontalSizeClass == .compact
+      || (containerWidth > 0 && containerWidth < BookEditorialMetrics.twoColumnThreshold)
+    let content = Group {
+      if !isCompact {
+        HStack(alignment: .top, spacing: BookEditorialMetrics.columnGap) {
+          cover
+          details
+            .frame(maxWidth: BookEditorialMetrics.maxDetailsWidth, alignment: .topLeading)
+        }
+      } else {
+        VStack(alignment: .leading, spacing: 20) {
+          cover.frame(maxWidth: .infinity)
+          details
         }
       }
-      .padding(isCompact ? 20 : BookEditorialMetrics.outsidePadding)
-      .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+    .padding(isCompact ? 20 : BookEditorialMetrics.outsidePadding)
+    .frame(maxWidth: .infinity, alignment: .topLeading)
 
-      Group {
-        if let scrollScope {
-          PersistentScrollView(
-            scrollKey: ScrollKey(scope: scrollScope, region: "page", contextID: scrollContextID)
-          ) {
-            content
-          }
-        } else {
-          ScrollView(.vertical) { content }
+    Group {
+      if let scrollScope {
+        PersistentScrollView(
+          scrollKey: ScrollKey(scope: scrollScope, region: "page", contextID: scrollContextID)
+        ) {
+          content
         }
+      } else {
+        ScrollView(.vertical) { content }
       }
-      .scrollEdgeEffectStyle(.soft, for: .top)
+    }
+    .scrollEdgeEffectStyle(.soft, for: .top)
+    .readSize { size in
+      if size.width != containerWidth {
+        containerWidth = size.width
+      }
     }
   }
 }
@@ -336,9 +330,7 @@ struct BookReadDetailsView: View {
       }
       Divider()
         .padding(.vertical, 18)
-      if let review = book.reviewDescription,
-        !review.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-      {
+      if let review = book.reviewDescription, review.nonEmptyPlainText != nil {
         VStack(alignment: .leading, spacing: 10) {
           EditorialSectionLabel("Review")
           AttributedTextViewer(attributedString: review.editorialAttributedString())
@@ -346,9 +338,7 @@ struct BookReadDetailsView: View {
         Divider()
           .padding(.vertical, 18)
       }
-      if let notes = book.notes,
-        !notes.plainText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-      {
+      if let notes = book.notes, notes.nonEmptyPlainText != nil {
         VStack(alignment: .leading, spacing: 10) {
           EditorialSectionLabel("Private Notes", systemImage: "lock.fill")
           AttributedTextViewer(attributedString: notes.editorialAttributedString())
@@ -369,8 +359,7 @@ struct BookReadDetailsView: View {
   }
 
   static func rating(for book: Book) -> Int? {
-    guard let value = book.rating?.intValue, (1...5).contains(value) else { return nil }
-    return value
+    book.validRating
   }
 
   static func metadataEntries(for book: Book, now: Date = Date()) -> [BookMetadataEntry] {
@@ -477,5 +466,19 @@ extension View {
       )
       .padding(.horizontal, -BookEditorialMetrics.fieldInset)
       .animation(.easeOut(duration: 0.15), value: isFocused)
+  }
+
+  func mutationErrorAlert(_ error: Binding<BookMutationError?>) -> some View {
+    alert(
+      isPresented: Binding(
+        get: { error.wrappedValue != nil },
+        set: { if !$0 { error.wrappedValue = nil } }
+      ),
+      error: error.wrappedValue
+    ) { _ in
+      Button("OK", role: .cancel) {}
+    } message: { error in
+      Text(error.recoverySuggestion ?? "")
+    }
   }
 }

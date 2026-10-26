@@ -185,7 +185,6 @@ struct ViewModelsAndServicesTests {
 
     history.goBack(entry: binding)
     #expect(currentEntry == book1Entry)
-    #expect(history.lastSelectionChangeWasHistory)
     #expect(history.canGoForward)
 
     history.goForward(entry: binding)

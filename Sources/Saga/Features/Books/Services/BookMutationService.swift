@@ -200,7 +200,10 @@ struct BookMutationService {
     if nextCover != previousCover {
       CoverImageStore.remove(previousCover, in: coverDirectory)
     }
-    let coverFileURL = nextCover.flatMap(URL.init(string:)).flatMap { $0.isFileURL ? $0 : nil }
-    return PendingBookSync(bookID: book.objectID, payload: payload, coverFileURL: coverFileURL)
+    return PendingBookSync(
+      bookID: book.objectID,
+      payload: payload,
+      coverFileURL: CoverImageStore.localFileURL(nextCover)
+    )
   }
 }
