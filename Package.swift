@@ -10,7 +10,7 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/dgattey/dyl-kit",
-      revision: "34d28dfccb824dd71ba936779fc787c26a47bcf1"
+      revision: "20a07a7512a7a6d65f5ea5bdb223e78cb4dc3874"
     ),
     .package(url: "https://github.com/contentful/contentful-persistence.swift", from: "0.18.2"),
     .package(url: "https://github.com/ukushu/Ifrit", from: "4.0.0"),

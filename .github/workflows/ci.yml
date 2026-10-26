@@ -51,6 +51,8 @@ jobs:
           swift run release-kit version --pr "$PR_NUMBER"
           swift run release-kit bundle
           swift run release-kit sign
+          swift run release-kit appcast --throwaway-key
+          swift run release-kit publish --dry-run
           swift run release-kit appcast
           swift run release-kit publish --dry-run
           rm -rf build/release
