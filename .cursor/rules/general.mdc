@@ -23,27 +23,35 @@ SIGNAL: When triggered → Apply ALL rules below systematically
 </rule_1>
 
 <rule_2 priority="HIGH">
+**SINGLE SOURCE OF TRUTH (`/poteto-mode`)**: One canonical implementation; never keep parallel code paths
+- **Subtract before you add**: Remove dead views, unused helpers, and redundant state before building
+- **Migrate callers then delete legacy APIs**: Migrate every caller and delete the old API in the same wave — no compatibility shims or pass-through wrappers
+- **Model the domain**: Encode invariants once on the domain model rather than repeating checks across views and services
+- **Minimize reader load**: Collapse one-caller wrappers and pass-through layers
+</rule_2>
+
+<rule_3 priority="HIGH">
 **PROGRESSIVE ARCHITECTURE**: Start simple → Add complexity only when proven necessary
 ```swift
 // Step 1: Direct implementation
 // Step 2: Protocol when second implementation exists
 // Step 3: Generic when pattern emerges
 ```
-</rule_2>
+</rule_3>
 
-<rule_3 priority="HIGH">
+<rule_4 priority="HIGH">
 **COMPREHENSIVE ERROR HANDLING**: Make impossible states unrepresentable
 - Use exhaustive enums with associated values
 - Provide actionable recovery paths
 - NEVER force unwrap in production
-</rule_3>
+</rule_4>
 
-<rule_4 priority="MEDIUM">
+<rule_5 priority="MEDIUM">
 **PERFORMANCE CONSCIOUSNESS**: Profile → Measure → Optimize
 - Use value semantics appropriately
 - Choose correct data structures
 - Avoid premature optimization
-</rule_4>
+</rule_5>
 
 ## CLARIFICATION TEMPLATES
 
@@ -108,6 +116,7 @@ protocol Repository<T> { }
 ## QUALITY GATES
 
 <checklist>
+☐ SINGLE source of truth (old APIs/views/shims deleted in the same change)
 ☐ NO force unwrapping (!, try!)
 ☐ ALL errors have recovery paths
 ☐ PUBLIC APIs documented
@@ -117,6 +126,8 @@ protocol Repository<T> { }
 ## ANTI-PATTERNS TO AVOID
 
 <avoid>
+❌ Parallel old-and-new implementations or compatibility shims
+❌ One-caller pass-through wrappers and dead code
 ❌ God objects (500+ line ViewModels)
 ❌ Stringly-typed APIs
 ❌ Synchronous network calls
