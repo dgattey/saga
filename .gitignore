@@ -6,4 +6,5 @@ xcuserdata
 sparkle_private.key
 /.build/
 /.swiftpm/
+/pnpm-lock.yaml
 .DS_Store
