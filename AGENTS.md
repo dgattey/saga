@@ -62,8 +62,7 @@ book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`, unified by 
 sidebar `+` present the same editor in create mode. Edits live in a `BookDraft` until Done, covering both the public `reviewDescription` ("Review") and private freeform `notes` ("Private Notes", indexed by `BookSearchEngine` and the `.hasNotes` token).
 **UI**: `ContentView` entry, `HomeView`/`BooksListView` (`HomeBookSort` for Home book count and flat/grouped sort modes), `BookEditorialLayout`,
 `PersistentScrollView`, `MenuBarCommands`
-**Data**: `Saga.xcdatamodeld` + `PersistenceModel` for Core Data entities; register new
-entities in both when adding models
+**Data**: `Saga.xcdatamodeld` for Core Data entities (`Book`, `Asset`); each model maps remote Contentful payloads via `apply(_:)`
 **Server**: Hosted on `https://dylangattey.com` (`dgattey/dg`) under `/api/books/goodreads-sync` (Goodreads RSS → Contentful CMA + daily Vercel Cron) and `/api/books/sync` (local `Saga.app` book edits and deletions → Contentful CMA), authenticated via `CryptoKit.HMAC<SHA256>` (`X-Saga-Timestamp` + `X-Saga-Signature`) and Bearer token fallback.
 
 ## Workflow
