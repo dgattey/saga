@@ -74,10 +74,39 @@ struct ViewModelsAndServicesTests {
       readDateStarted: Date(timeIntervalSince1970: 1_650_000_000),
       readDateFinished: nil
     )
+    let undatedReadWithStart = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "The Golden Compass",
+      readingStatus: .read,
+      readDateStarted: Date(timeIntervalSince1970: 1_500_000_000),
+      readDateFinished: nil
+    )
+    let undatedReadB = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "The Outsiders",
+      readingStatus: .read,
+      readDateStarted: nil,
+      readDateFinished: nil
+    )
+    let undatedReadA = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Ender's Game",
+      readingStatus: .read,
+      readDateStarted: nil,
+      readDateFinished: nil
+    )
 
     let viewModel = BooksViewModel()
     let sorted = viewModel.sorted(
-      from: [olderFinished, newerFinishedB, newerFinishedA, currentlyReading]
+      from: [
+        undatedReadB,
+        olderFinished,
+        undatedReadA,
+        newerFinishedB,
+        undatedReadWithStart,
+        newerFinishedA,
+        currentlyReading,
+      ]
     )
     #expect(
       sorted.map(\.objectID) == [
@@ -85,6 +114,9 @@ struct ViewModelsAndServicesTests {
         newerFinishedA.objectID,
         newerFinishedB.objectID,
         olderFinished.objectID,
+        undatedReadWithStart.objectID,
+        undatedReadA.objectID,
+        undatedReadB.objectID,
       ])
 
     viewModel.filteredBooks = sorted.enumerated().map { index, book in
@@ -304,8 +336,19 @@ struct ViewModelsAndServicesTests {
       readDateStarted: makeDate(year: 2025, month: 6, day: 1),
       readDateFinished: makeDate(year: 2025, month: 6, day: 10)
     )
+    let undatedReadBook = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "The Outsiders",
+      author: "S.E. Hinton",
+      rating: 4,
+      readingStatus: .read,
+      readDateStarted: nil,
+      readDateFinished: nil
+    )
 
-    let allBooks = [read2025, wantToReadBook, read2026Earlier, readingBook, read2026Later]
+    let allBooks = [
+      undatedReadBook, read2025, wantToReadBook, read2026Earlier, readingBook, read2026Later,
+    ]
     let viewModel = BooksViewModel()
     viewModel.totalBookCount = 142
     viewModel.filteredBooks = allBooks.enumerated().map {
@@ -313,7 +356,7 @@ struct ViewModelsAndServicesTests {
     }
     #expect(viewModel.bookCountText == "142 books")
     viewModel.searchModel.searchText = "sci"
-    #expect(viewModel.bookCountText == "5 of 142 books")
+    #expect(viewModel.bookCountText == "6 of 142 books")
     viewModel.searchModel.searchText = ""
 
     let defaultSections = viewModel.homeSections(
@@ -330,6 +373,7 @@ struct ViewModelsAndServicesTests {
         read2026Later.objectID,
         read2026Earlier.objectID,
         read2025.objectID,
+        undatedReadBook.objectID,
       ]
     )
 
@@ -343,6 +387,7 @@ struct ViewModelsAndServicesTests {
         "Dune",
         "Exhalation",
         "Foundation",
+        "The Outsiders",
       ]
     )
 
@@ -355,6 +400,7 @@ struct ViewModelsAndServicesTests {
         "Ann Leckie",
         "Frank Herbert",
         "Isaac Asimov",
+        "S.E. Hinton",
         "Ted Chiang",
       ]
     )
@@ -365,6 +411,7 @@ struct ViewModelsAndServicesTests {
         "Currently Reading · 1 book",
         "2026 · 2 books",
         "2025 · 1 book",
+        "Earlier · 1 book",
         "Want to Read · 1 book",
       ]
     )
@@ -374,13 +421,14 @@ struct ViewModelsAndServicesTests {
         read2026Earlier.objectID,
       ]
     )
+    #expect(yearSections[3].books.map(\.objectID) == [undatedReadBook.objectID])
 
     let statusSections = viewModel.homeSections(from: allBooks, sort: .byStatus, calendar: calendar)
     #expect(
       statusSections.map(\.headerText) == [
         "Currently Reading · 1 book",
         "Want to Read · 1 book",
-        "Read · 3 books",
+        "Read · 4 books",
       ]
     )
 
@@ -388,7 +436,7 @@ struct ViewModelsAndServicesTests {
     #expect(
       ratingSections.map(\.headerText) == [
         "★★★★★ · 2 books",
-        "★★★★ · 1 book",
+        "★★★★ · 2 books",
         "Unrated · 2 books",
       ]
     )

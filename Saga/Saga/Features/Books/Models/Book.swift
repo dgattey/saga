@@ -10,16 +10,38 @@ import CoreData
 import Foundation
 
 /// A simple enum to wrap dates in an enum for status
-enum ReadingStatus: String, CaseIterable, Identifiable {
+enum ReadingStatus: String, CaseIterable, Codable, Identifiable {
   case notStarted
   case reading
   case read
 
   var id: Self { self }
 
-  init(readDateStarted: Date?, readDateFinished: Date?) {
+  var title: String {
+    switch self {
+    case .notStarted: "Want to Read"
+    case .reading: "Currently Reading"
+    case .read: "Read"
+    }
+  }
+
+  var shortTitle: String {
+    switch self {
+    case .notStarted: "Want to Read"
+    case .reading: "Reading"
+    case .read: "Read"
+    }
+  }
+
+  init(
+    readingStatusRaw: String? = nil,
+    readDateStarted: Date?,
+    readDateFinished: Date?
+  ) {
     if readDateFinished != nil {
       self = .read
+    } else if let readingStatusRaw, let status = Self(rawValue: readingStatusRaw) {
+      self = status
     } else if readDateStarted != nil {
       self = .reading
     } else {
@@ -41,6 +63,7 @@ final class Book: NSManagedObject {
   @NSManaged var isbn: NSNumber?  // 13-digit ISBN13
   @NSManaged var author: String?
   @NSManaged var coverImage: Asset?  // Asset ID for cover image
+  @NSManaged var readingStatusRaw: String?
   @NSManaged var readDateStarted: Date?
   @NSManaged var readDateFinished: Date?
   @NSManaged var rating: NSNumber?
@@ -49,7 +72,16 @@ final class Book: NSManagedObject {
   @NSManaged var localCoverImageURL: String?
 
   var readingStatus: ReadingStatus {
-    .init(readDateStarted: readDateStarted, readDateFinished: readDateFinished)
+    get {
+      ReadingStatus(
+        readingStatusRaw: readingStatusRaw,
+        readDateStarted: readDateStarted,
+        readDateFinished: readDateFinished
+      )
+    }
+    set {
+      readingStatusRaw = newValue.rawValue
+    }
   }
 
   var displayCoverURL: URL? {
@@ -80,6 +112,11 @@ final class Book: NSManagedObject {
     rating = fields.int(at: "rating").map(NSNumber.init(value:))
     readDateStarted = Self.parseDate(fields.string(at: "readDateStarted"))
     readDateFinished = Self.parseDate(fields.string(at: "readDateFinished"))
+    readingStatus = ReadingStatus(
+      readingStatusRaw: fields.string(at: "readingStatus"),
+      readDateStarted: readDateStarted,
+      readDateFinished: readDateFinished
+    )
     reviewDescription = fields["reviewDescription"] as? RichTextDocument
     notes = fields["notes"] as? RichTextDocument
     coverImage = (fields["coverImage"] as? Link).flatMap { assetsByID[$0.id] }
@@ -107,6 +144,7 @@ final class Book: NSManagedObject {
       author: (author ?? "").cleanedWhitespace,
       isbn: isbn?.int64Value,
       rating: validRating,
+      readingStatus: readingStatus.rawValue,
       readDateStarted: readDateStarted?.ISO8601Format(),
       readDateFinished: readDateFinished?.ISO8601Format(),
       reviewPlainText: reviewDescription?.nonEmptyPlainText,

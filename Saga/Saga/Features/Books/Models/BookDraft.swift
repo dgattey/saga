@@ -62,10 +62,17 @@ struct BookDraft: Equatable {
 
   var title = ""
   var author = ""
-  var status: ReadingStatus = .reading
+  var status: ReadingStatus = .reading {
+    didSet {
+      if oldValue != .read, status == .read {
+        tracksFinishDate = true
+      }
+    }
+  }
   var startedDate = Date()
   var finishedDate = Date()
   var tracksStartDate = true
+  var tracksFinishDate = true
   var rating = 0
   var isbnText = ""
   var reviewText = ""
@@ -88,7 +95,7 @@ struct BookDraft: Equatable {
   }
 
   var readDateFinished: Date? {
-    status == .read ? finishedDate : nil
+    status == .read && tracksFinishDate ? finishedDate : nil
   }
 
   var isbn: Int64? { ISBN.isbn13(from: isbnText) }
@@ -112,6 +119,7 @@ struct BookDraft: Equatable {
   func apply(to book: Book) {
     book.title = normalizedTitle
     book.author = normalizedAuthor
+    book.readingStatus = status
     book.readDateStarted = readDateStarted
     book.readDateFinished = readDateFinished
     book.rating = (1...5).contains(rating) ? NSNumber(value: rating) : nil
@@ -132,13 +140,15 @@ struct BookDraft: Equatable {
 
 extension BookDraft {
   init(book: Book, now: Date = Date()) {
+    let status = book.readingStatus
     self.init(
       title: book.title ?? "",
       author: book.author ?? "",
-      status: book.readingStatus,
+      status: status,
       startedDate: book.readDateStarted ?? book.readDateFinished ?? now,
       finishedDate: book.readDateFinished ?? now,
-      tracksStartDate: book.readDateStarted != nil || book.readDateFinished == nil,
+      tracksStartDate: status == .read ? book.readDateStarted != nil : true,
+      tracksFinishDate: status == .read ? book.readDateFinished != nil : true,
       rating: book.validRating ?? 0,
       isbnText: book.isbn?.stringValue ?? "",
       reviewText: book.reviewDescription?.plainText ?? "",
