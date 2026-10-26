@@ -15,6 +15,12 @@ public enum AccessibilityID {
   public enum Home {
     public static let view = "home.view"
     public static let scroll = "home.scroll"
+    public static let bookCount = "home.bookCount"
+    public static let sortMenu = "home.sortMenu"
+
+    public static func sectionHeader(_ id: String) -> String {
+      "home.section.\(id)"
+    }
   }
 
   public enum Books {

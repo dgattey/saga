@@ -246,4 +246,151 @@ struct ViewModelsAndServicesTests {
     #expect(searchVM.searchText == "parable ")
     #expect(searchVM.key == SearchViewModel.Key(text: "parable ", tokens: [.status(.read)]))
   }
+
+  @Test("BooksViewModel formats book counts and sorts/groups Home sections across all modes")
+  @MainActor
+  func booksViewModelHomeSectionsAndCounts() throws {
+    #expect(BooksViewModel.bookCountLabel(0) == "0 books")
+    #expect(BooksViewModel.bookCountLabel(1) == "1 book")
+    #expect(BooksViewModel.bookCountLabel(142) == "142 books")
+
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+
+    func makeDate(year: Int, month: Int, day: Int) -> Date {
+      calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12)) ?? Date()
+    }
+
+    let container = TestCoreDataStack.makeContainer()
+    let context = container.viewContext
+
+    let readingBook = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Exhalation",
+      author: "Ted Chiang",
+      rating: nil,
+      readDateStarted: makeDate(year: 2026, month: 3, day: 10),
+      readDateFinished: nil
+    )
+    let wantToReadBook = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Dune",
+      author: "Frank Herbert",
+      rating: nil,
+      readDateStarted: nil,
+      readDateFinished: nil
+    )
+    let read2026Later = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Children of Time",
+      author: "Adrian Tchaikovsky",
+      rating: 5,
+      readDateStarted: makeDate(year: 2026, month: 2, day: 1),
+      readDateFinished: makeDate(year: 2026, month: 2, day: 14)
+    )
+    let read2026Earlier = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Ancillary Justice",
+      author: "Ann Leckie",
+      rating: 4,
+      readDateStarted: makeDate(year: 2026, month: 1, day: 2),
+      readDateFinished: makeDate(year: 2026, month: 1, day: 12)
+    )
+    let read2025 = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Foundation",
+      author: "Isaac Asimov",
+      rating: 5,
+      readDateStarted: makeDate(year: 2025, month: 6, day: 1),
+      readDateFinished: makeDate(year: 2025, month: 6, day: 10)
+    )
+
+    let allBooks = [read2025, wantToReadBook, read2026Earlier, readingBook, read2026Later]
+    let viewModel = BooksViewModel()
+    viewModel.totalBookCount = 142
+    viewModel.filteredBooks = allBooks.enumerated().map {
+      BookSearchResult(book: $1, index: $0)
+    }
+    #expect(viewModel.bookCountText == "142 books")
+    viewModel.searchModel.searchText = "sci"
+    #expect(viewModel.bookCountText == "5 of 142 books")
+    viewModel.searchModel.searchText = ""
+
+    let defaultSections = viewModel.homeSections(
+      from: allBooks,
+      sort: .defaultOrder,
+      calendar: calendar
+    )
+    #expect(defaultSections.count == 1)
+    #expect(defaultSections[0].headerText == nil)
+    #expect(
+      defaultSections[0].books.map(\.objectID) == [
+        readingBook.objectID,
+        wantToReadBook.objectID,
+        read2026Later.objectID,
+        read2026Earlier.objectID,
+        read2025.objectID,
+      ]
+    )
+
+    let titleSections = viewModel.homeSections(from: allBooks, sort: .titleAZ, calendar: calendar)
+    #expect(titleSections.count == 1)
+    #expect(titleSections[0].headerText == nil)
+    #expect(
+      titleSections[0].books.map { $0.title ?? "" } == [
+        "Ancillary Justice",
+        "Children of Time",
+        "Dune",
+        "Exhalation",
+        "Foundation",
+      ]
+    )
+
+    let authorSections = viewModel.homeSections(from: allBooks, sort: .authorAZ, calendar: calendar)
+    #expect(authorSections.count == 1)
+    #expect(authorSections[0].headerText == nil)
+    #expect(
+      authorSections[0].books.map { $0.author ?? "" } == [
+        "Adrian Tchaikovsky",
+        "Ann Leckie",
+        "Frank Herbert",
+        "Isaac Asimov",
+        "Ted Chiang",
+      ]
+    )
+
+    let yearSections = viewModel.homeSections(from: allBooks, sort: .byYear, calendar: calendar)
+    #expect(
+      yearSections.map(\.headerText) == [
+        "Currently Reading · 1 book",
+        "2026 · 2 books",
+        "2025 · 1 book",
+        "Want to Read · 1 book",
+      ]
+    )
+    #expect(
+      yearSections[1].books.map(\.objectID) == [
+        read2026Later.objectID,
+        read2026Earlier.objectID,
+      ]
+    )
+
+    let statusSections = viewModel.homeSections(from: allBooks, sort: .byStatus, calendar: calendar)
+    #expect(
+      statusSections.map(\.headerText) == [
+        "Currently Reading · 1 book",
+        "Want to Read · 1 book",
+        "Read · 3 books",
+      ]
+    )
+
+    let ratingSections = viewModel.homeSections(from: allBooks, sort: .byRating, calendar: calendar)
+    #expect(
+      ratingSections.map(\.headerText) == [
+        "★★★★★ · 2 books",
+        "★★★★ · 1 book",
+        "Unrated · 2 books",
+      ]
+    )
+  }
 }
