@@ -248,39 +248,12 @@ struct ViewModelsAndServicesTests {
     #expect(searchVM.key == SearchViewModel.Key(text: "parable ", tokens: [.status(.read)]))
   }
 
-  @Test("HomeBookSort formats book counts and sorts/groups books across all modes")
+  @Test("BooksViewModel formats book counts and sorts/groups Home sections across all modes")
   @MainActor
-  func homeBookSortAndGrouping() throws {
-    #expect(HomeBookSort.bookCountLabel(for: 0) == "0 books")
-    #expect(HomeBookSort.bookCountLabel(for: 1) == "1 book")
-    #expect(HomeBookSort.bookCountLabel(for: 142) == "142 books")
-
-    #expect(
-      HomeBookSort.headerCountLabel(filteredCount: 142, totalCount: 142, isFiltered: false)
-        == "142 books"
-    )
-    #expect(
-      HomeBookSort.headerCountLabel(filteredCount: 1, totalCount: 1, isFiltered: false) == "1 book"
-    )
-    #expect(
-      HomeBookSort.headerCountLabel(filteredCount: 12, totalCount: 142, isFiltered: true)
-        == "12 of 142 books"
-    )
-    #expect(
-      HomeBookSort.headerCountLabel(filteredCount: 1, totalCount: 1, isFiltered: true)
-        == "1 of 1 book"
-    )
-    #expect(
-      HomeBookSort.headerCountLabel(filteredCount: 0, totalCount: 142, isFiltered: true)
-        == "0 of 142 books"
-    )
-
-    #expect(!HomeBookSort.defaultOrder.isGrouped)
-    #expect(!HomeBookSort.titleAZ.isGrouped)
-    #expect(!HomeBookSort.authorAZ.isGrouped)
-    #expect(HomeBookSort.byYear.isGrouped)
-    #expect(HomeBookSort.byStatus.isGrouped)
-    #expect(HomeBookSort.byRating.isGrouped)
+  func booksViewModelHomeSectionsAndCounts() throws {
+    #expect(BooksViewModel.bookCountLabel(0) == "0 books")
+    #expect(BooksViewModel.bookCountLabel(1) == "1 book")
+    #expect(BooksViewModel.bookCountLabel(142) == "142 books")
 
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
@@ -334,22 +307,25 @@ struct ViewModelsAndServicesTests {
     )
 
     let allBooks = [read2025, wantToReadBook, read2026Earlier, readingBook, read2026Later]
-    let results = allBooks.enumerated().map { index, book in
-      BookSearchResult(book: book, index: index)
-    }
-
     let viewModel = BooksViewModel()
     viewModel.totalBookCount = 142
-    viewModel.filteredBooks = results
+    viewModel.filteredBooks = allBooks.enumerated().map {
+      BookSearchResult(book: $1, index: $0)
+    }
     #expect(viewModel.bookCountText == "142 books")
     viewModel.searchModel.searchText = "sci"
     #expect(viewModel.bookCountText == "5 of 142 books")
+    viewModel.searchModel.searchText = ""
 
-    // Default flat order: unfinished first, then finished date descending
-    #expect(HomeBookSort.defaultOrder.groups(from: results, calendar: calendar).isEmpty)
-    let defaultSorted = HomeBookSort.defaultOrder.sortedResults(from: results, calendar: calendar)
+    let defaultSections = viewModel.homeSections(
+      from: allBooks,
+      sort: .defaultOrder,
+      calendar: calendar
+    )
+    #expect(defaultSections.count == 1)
+    #expect(defaultSections[0].headerText == nil)
     #expect(
-      defaultSorted.map(\.book.objectID) == [
+      defaultSections[0].books.map(\.objectID) == [
         readingBook.objectID,
         wantToReadBook.objectID,
         read2026Later.objectID,
@@ -358,11 +334,11 @@ struct ViewModelsAndServicesTests {
       ]
     )
 
-    // Title A–Z flat order
-    #expect(HomeBookSort.titleAZ.groups(from: results, calendar: calendar).isEmpty)
-    let titleSorted = HomeBookSort.titleAZ.sortedResults(from: results, calendar: calendar)
+    let titleSections = viewModel.homeSections(from: allBooks, sort: .titleAZ, calendar: calendar)
+    #expect(titleSections.count == 1)
+    #expect(titleSections[0].headerText == nil)
     #expect(
-      titleSorted.map { $0.book.title ?? "" } == [
+      titleSections[0].books.map { $0.title ?? "" } == [
         "Ancillary Justice",
         "Children of Time",
         "Dune",
@@ -371,11 +347,11 @@ struct ViewModelsAndServicesTests {
       ]
     )
 
-    // Author A–Z flat order
-    #expect(HomeBookSort.authorAZ.groups(from: results, calendar: calendar).isEmpty)
-    let authorSorted = HomeBookSort.authorAZ.sortedResults(from: results, calendar: calendar)
+    let authorSections = viewModel.homeSections(from: allBooks, sort: .authorAZ, calendar: calendar)
+    #expect(authorSections.count == 1)
+    #expect(authorSections[0].headerText == nil)
     #expect(
-      authorSorted.map { $0.book.author ?? "" } == [
+      authorSections[0].books.map { $0.author ?? "" } == [
         "Adrian Tchaikovsky",
         "Ann Leckie",
         "Frank Herbert",
@@ -384,11 +360,9 @@ struct ViewModelsAndServicesTests {
       ]
     )
 
-    // By Year grouped sections
-    let yearGroups = HomeBookSort.byYear.groups(from: results, calendar: calendar)
-    #expect(yearGroups.map(\.title) == ["Currently Reading", "2026", "2025", "Want to Read"])
+    let yearSections = viewModel.homeSections(from: allBooks, sort: .byYear, calendar: calendar)
     #expect(
-      yearGroups.map(\.headerText) == [
+      yearSections.map(\.headerText) == [
         "Currently Reading · 1 book",
         "2026 · 2 books",
         "2025 · 1 book",
@@ -396,28 +370,24 @@ struct ViewModelsAndServicesTests {
       ]
     )
     #expect(
-      yearGroups[1].books.map(\.book.objectID) == [
+      yearSections[1].books.map(\.objectID) == [
         read2026Later.objectID,
         read2026Earlier.objectID,
       ]
     )
 
-    // By Status grouped sections
-    let statusGroups = HomeBookSort.byStatus.groups(from: results, calendar: calendar)
-    #expect(statusGroups.map(\.title) == ["Currently Reading", "Want to Read", "Read"])
+    let statusSections = viewModel.homeSections(from: allBooks, sort: .byStatus, calendar: calendar)
     #expect(
-      statusGroups.map(\.headerText) == [
+      statusSections.map(\.headerText) == [
         "Currently Reading · 1 book",
         "Want to Read · 1 book",
         "Read · 3 books",
       ]
     )
 
-    // By Rating grouped sections
-    let ratingGroups = HomeBookSort.byRating.groups(from: results, calendar: calendar)
-    #expect(ratingGroups.map(\.title) == ["★★★★★", "★★★★", "Unrated"])
+    let ratingSections = viewModel.homeSections(from: allBooks, sort: .byRating, calendar: calendar)
     #expect(
-      ratingGroups.map(\.headerText) == [
+      ratingSections.map(\.headerText) == [
         "★★★★★ · 2 books",
         "★★★★ · 1 book",
         "Unrated · 2 books",

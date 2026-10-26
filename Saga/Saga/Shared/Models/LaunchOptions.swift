@@ -24,6 +24,7 @@ enum LaunchOptions {
 
   static let initialView = value("initial-view").flatMap(InitialView.init(rawValue:))
   static let settingsPane = value("settings-pane").flatMap(SettingsPane.init(rawValue:))
+  static let homeSort = value("home-sort").flatMap(HomeBookSort.init(rawValue:))
   static let searchQuery = value("search-query", lowercased: false)
   static let storePath = value("store-path", lowercased: false)
   static let scrollSidebarToBottom = value("scroll-sidebar-bottom") == "true"

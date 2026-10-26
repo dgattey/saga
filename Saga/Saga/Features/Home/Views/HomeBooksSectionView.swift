@@ -47,27 +47,24 @@ struct HomeBooksSectionView: View {
           .foregroundStyle(.secondary)
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.vertical, 8)
-      } else if sort.isGrouped {
-        ForEach(groupedSections) { group in
-          Section {
-            ForEach(group.books, id: \.book.objectID) { result in
-              HomeBookThumbnailView(
-                book: result.book,
-                gridItemSize: gridItemSize,
-                onSelect: selectBook
-              )
-            }
-          } header: {
-            HomeBookGroupHeaderView(group: group)
-          }
-        }
       } else {
-        ForEach(sortedBooks, id: \.book.objectID) { result in
-          HomeBookThumbnailView(
-            book: result.book,
-            gridItemSize: gridItemSize,
-            onSelect: selectBook
-          )
+        ForEach(viewModel.homeSections(for: sort)) { section in
+          if let headerText = section.headerText {
+            Section {
+              bookGridItems(section.books)
+            } header: {
+              Text(headerText)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+                .accessibilityIdentifier(AccessibilityID.Home.sectionHeader(section.id))
+            }
+          } else {
+            bookGridItems(section.books)
+          }
         }
       }
     }
@@ -80,15 +77,14 @@ struct HomeBooksSectionView: View {
     }
   }
 
-  private var sortedBooks: [BookSearchResult] {
-    if sort == .defaultOrder && viewModel.hasActiveSearch && !viewModel.searchModel.query.isEmpty {
-      return viewModel.filteredBooks
+  private func bookGridItems(_ books: [Book]) -> some View {
+    ForEach(books, id: \.objectID) { book in
+      HomeBookThumbnailView(
+        book: book,
+        gridItemSize: gridItemSize,
+        onSelect: selectBook
+      )
     }
-    return sort.sortedResults(from: viewModel.filteredBooks)
-  }
-
-  private var groupedSections: [HomeBookGroup] {
-    sort.groups(from: viewModel.filteredBooks)
   }
 
   private func selectBook(_ bookID: NSManagedObjectID) {
@@ -117,33 +113,6 @@ struct HomeBooksSectionView: View {
     let totalSpacing = CGFloat(columnCount - 1) * Constants.gridSpacing
     let width = (availableWidth - totalSpacing) / CGFloat(columnCount)
     return min(Constants.maxItemWidth, max(Constants.minItemWidth, width))
-  }
-}
-
-/// Section header rendered above each group when the Home grid uses a grouped sort mode.
-struct HomeBookGroupHeaderView: View {
-  let group: HomeBookGroup
-
-  var body: some View {
-    HStack(alignment: .firstTextBaseline, spacing: 6) {
-      Text(group.title)
-        .font(.title3.weight(.semibold))
-        .foregroundStyle(.primary)
-      Text("·")
-        .font(.subheadline.weight(.medium))
-        .foregroundStyle(.tertiary)
-        .accessibilityHidden(true)
-      Text(group.countText)
-        .font(.subheadline.weight(.medium))
-        .foregroundStyle(.secondary)
-        .monospacedDigit()
-      Spacer(minLength: 0)
-    }
-    .padding(.top, 8)
-    .padding(.bottom, 4)
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(group.headerText)
-    .accessibilityIdentifier(AccessibilityID.Home.sectionHeader(group.id))
   }
 }
 

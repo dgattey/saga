@@ -133,6 +133,23 @@ capture_device() {
     done
   done
 
+  if [[ "$label" == "ipad" ]]; then
+    local sort
+    for sort in year status rating; do
+      step "$label: launching home light (sort=$sort)"
+      with_timeout 240 env SIMCTL_CHILD_SAGA_INITIAL_VIEW=home SIMCTL_CHILD_SAGA_APPEARANCE=light \
+        SIMCTL_CHILD_SAGA_HOME_SORT="$sort" \
+        xcrun simctl launch --terminate-running-process "$udid" "$SAGA_BUNDLE_ID" >/dev/null
+      sleep "$SETTLE"
+      output="$CAPTURES/saga-$label-home-$sort-light.png"
+      with_timeout 120 xcrun simctl io "$udid" screenshot --type=png "$output" >/dev/null
+      [[ -s "$output" ]] || fail "$label home $sort light: empty screenshot"
+      [[ "$(shasum <"$output")" != "$(shasum <"$CAPTURES/saga-$label-home-light.png")" ]] \
+        || fail "$label: home-$sort-light and home-light rendered identically"
+      echo "  ok    home ($sort) light -> ${output#"$ROOT/"}"
+    done
+  fi
+
   xcrun simctl terminate "$udid" "$SAGA_BUNDLE_ID" >/dev/null 2>&1 || true
   local stored
   stored="$(sqlite3 "$container/Library/Application Support/Saga.sqlite" 'SELECT COUNT(*) FROM ZBOOK')"

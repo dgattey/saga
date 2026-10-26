@@ -42,12 +42,13 @@ final class BooksViewModel {
     searchModel.hasActiveSearch
   }
 
+  static func bookCountLabel(_ count: Int) -> String {
+    count == 1 ? "1 book" : "\(count) books"
+  }
+
   var bookCountText: String {
-    HomeBookSort.headerCountLabel(
-      filteredCount: filteredBooks.count,
-      totalCount: max(totalBookCount, filteredBooks.count),
-      isFiltered: hasActiveSearch
-    )
+    let total = Self.bookCountLabel(max(totalBookCount, filteredBooks.count))
+    return hasActiveSearch ? "\(filteredBooks.count) of \(total)" : total
   }
 
   func refreshSearch(for books: FetchedResults<Book>) {
@@ -170,7 +171,89 @@ final class BooksViewModel {
 
   /// Unfinished books at the top, then date descending with either finished or start, then title comparison. Most recent first.
   func sorted<S: Sequence>(from books: S) -> [Book] where S.Element == Book {
-    return books.sorted(by: HomeBookSort.compareDefault)
+    return books.sorted { a, b in
+      let aUnfinished = a.readDateFinished == nil
+      let bUnfinished = b.readDateFinished == nil
+      if aUnfinished != bUnfinished {
+        return aUnfinished && !bUnfinished
+      }
+
+      let aDate = a.readDateFinished ?? a.readDateStarted ?? .distantPast
+      let bDate = b.readDateFinished ?? b.readDateStarted ?? .distantPast
+      if aDate != bDate {
+        return aDate > bDate
+      }
+
+      return (a.title ?? "").localizedCompare(b.title ?? "") == .orderedAscending
+    }
+  }
+
+  func homeSections(
+    for sort: HomeBookSort,
+    calendar: Calendar = .current
+  ) -> [HomeSection] {
+    homeSections(from: filteredBooks.map(\.book), sort: sort, calendar: calendar)
+  }
+
+  func homeSections(
+    from books: [Book],
+    sort: HomeBookSort = .defaultOrder,
+    calendar: Calendar = .current
+  ) -> [HomeSection] {
+    let keepSearchOrder = sort == .defaultOrder && hasActiveSearch && !searchModel.query.isEmpty
+    let defaultOrdered = keepSearchOrder ? books : sorted(from: books)
+    guard !defaultOrdered.isEmpty else { return [] }
+
+    switch sort {
+    case .defaultOrder:
+      return [HomeSection(id: "default", title: nil, books: defaultOrdered)]
+    case .titleAZ:
+      let ordered = defaultOrdered.sorted {
+        ($0.title ?? "").localizedStandardCompare($1.title ?? "") == .orderedAscending
+      }
+      return [HomeSection(id: "title", title: nil, books: ordered)]
+    case .authorAZ:
+      let ordered = defaultOrdered.sorted {
+        ($0.author ?? "").localizedStandardCompare($1.author ?? "") == .orderedAscending
+      }
+      return [HomeSection(id: "author", title: nil, books: ordered)]
+    case .byYear:
+      let reading = defaultOrdered.filter { $0.readingStatus == .reading }
+      let notStarted = defaultOrdered.filter { $0.readingStatus == .notStarted }
+      let byYear = Dictionary(grouping: defaultOrdered.filter { $0.readingStatus == .read }) {
+        ($0.readDateFinished ?? $0.readDateStarted).map { calendar.component(.year, from: $0) } ?? 0
+      }
+      var sections: [HomeSection] = []
+      if !reading.isEmpty {
+        sections.append(
+          HomeSection(id: "year.reading", title: ReadingStatus.reading.title, books: reading))
+      }
+      for year in byYear.keys.sorted(by: >) {
+        if year > 0, let group = byYear[year] {
+          sections.append(HomeSection(id: "year.\(year)", title: String(year), books: group))
+        }
+      }
+      if !notStarted.isEmpty {
+        sections.append(
+          HomeSection(
+            id: "year.notStarted", title: ReadingStatus.notStarted.title, books: notStarted))
+      }
+      return sections
+    case .byStatus:
+      return [ReadingStatus.reading, .notStarted, .read].compactMap { status in
+        let group = defaultOrdered.filter { $0.readingStatus == status }
+        return group.isEmpty
+          ? nil : HomeSection(id: "status.\(status.rawValue)", title: status.title, books: group)
+      }
+    case .byRating:
+      let buckets: [Int?] = [5, 4, 3, 2, 1, nil]
+      return buckets.compactMap { stars in
+        let group = defaultOrdered.filter { BookReadDetailsView.rating(for: $0) == stars }
+        guard !group.isEmpty else { return nil }
+        let title = stars.map { String(repeating: "★", count: $0) } ?? "Unrated"
+        return HomeSection(id: "rating.\(stars ?? 0)", title: title, books: group)
+      }
+    }
   }
 
   // MARK: - Keyboard Navigation
