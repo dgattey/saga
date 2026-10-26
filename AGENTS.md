@@ -11,7 +11,6 @@ clarify uncertainty before coding, and align suggestions with the rules linked b
 - `view-model.mdc` — ViewModel patterns and async work
 - `logging.mdc` — LoggerService usage (no `print()` in app code)
 - `post-change-checks.mdc` — lint/format/build steps after big changes
-- `changelog-release-notes.mdc` — plain-English `# Release notes` rules for PR bodies
 - `rules.mdc` — how to author or update rule files
 
 ## Repository Overview

@@ -39,6 +39,21 @@ jobs:
           install_args: swiftlint
       - name: Manifest, SwiftLint, dyl-lint and release checks
         run: swift run devkit checks
+      - name: Release checks, notes check, and release-kit dry run
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SPARKLE_ED_PRIVATE_KEY_BASE64: ${{ secrets.SPARKLE_ED_PRIVATE_KEY_BASE64 }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          swift run release-kit check
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.body // ""' > "$RUNNER_TEMP/pr-body.md"
+          swift run release-kit notes --check --body-file "$RUNNER_TEMP/pr-body.md"
+          swift run release-kit version --pr "$PR_NUMBER"
+          swift run release-kit bundle
+          swift run release-kit sign
+          swift run release-kit appcast
+          swift run release-kit publish --dry-run
+          rm -rf build/release
 
   build:
     name: 🔨 Build
@@ -51,6 +66,8 @@ jobs:
           path: .build
           key: swiftpm-build-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
           restore-keys: swiftpm-build-${{ runner.os }}-
+      - name: Swift build
+        run: swift build
       - name: Build build/Saga Dev.app
         run: swift run devkit build
       - name: Unit tests
