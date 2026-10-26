@@ -26,6 +26,10 @@ extension LaunchOverrides {
     (value("settings-pane") ?? rawOption("settings-pane")?.lowercased())
       .flatMap(SettingsPane.init(rawValue:))
   }
+  var homeSort: HomeBookSort? {
+    (value("home-sort") ?? rawOption("home-sort")?.lowercased())
+      .flatMap(HomeBookSort.init(rawValue:))
+  }
   var searchQuery: String? { rawOption("search-query") ?? value("search-query") }
   var storePath: String? { rawOption("store-path") ?? value("store-path") }
   var scrollSidebarToBottom: Bool {

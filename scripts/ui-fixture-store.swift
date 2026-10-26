@@ -140,8 +140,8 @@ let books: [FixtureBook] = [
     author: "Andy Weir",
     isbn: 9_780_593_135_204,
     rating: 4,
-    started: "2026-03-03",
-    finished: "2026-03-20",
+    started: "2025-11-03",
+    finished: "2025-11-20",
     review: nil,
     notes: "Rocky's musical chord language and astrophage propulsion calculations."
   ),
@@ -150,8 +150,8 @@ let books: [FixtureBook] = [
     author: "Becky Chambers",
     isbn: 9_781_250_236_210,
     rating: 4,
-    started: "2026-02-01",
-    finished: "2026-02-05",
+    started: "2025-09-01",
+    finished: "2025-09-05",
     review: nil,
     notes: nil
   ),

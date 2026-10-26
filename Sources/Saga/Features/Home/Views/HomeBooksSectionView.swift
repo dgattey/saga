@@ -19,6 +19,7 @@ private struct Constants {
 struct HomeBooksSectionView: View {
   @Environment(BooksViewModel.self) private var viewModel
   @Binding var entry: NavigationEntry?
+  var sort: HomeBookSort = .defaultOrder
   @State private var gridWidth: CGFloat = 0
 
   private var columns: [GridItem] {
@@ -47,12 +48,23 @@ struct HomeBooksSectionView: View {
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding(.vertical, 8)
       } else {
-        ForEach(viewModel.filteredBooks, id: \.book.objectID) { result in
-          HomeBookThumbnailView(
-            book: result.book,
-            gridItemSize: gridItemSize,
-            onSelect: selectBook
-          )
+        ForEach(viewModel.homeSections(for: sort)) { section in
+          if let headerText = section.headerText {
+            Section {
+              bookGridItems(section.books)
+            } header: {
+              Text(headerText)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+                .accessibilityIdentifier(AccessibilityID.Home.sectionHeader(section.id))
+            }
+          } else {
+            bookGridItems(section.books)
+          }
         }
       }
     }
@@ -62,6 +74,16 @@ struct HomeBooksSectionView: View {
       if size.width != gridWidth {
         gridWidth = size.width
       }
+    }
+  }
+
+  private func bookGridItems(_ books: [Book]) -> some View {
+    ForEach(books, id: \.objectID) { book in
+      HomeBookThumbnailView(
+        book: book,
+        gridItemSize: gridItemSize,
+        onSelect: selectBook
+      )
     }
   }
 

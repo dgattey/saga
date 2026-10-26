@@ -182,4 +182,104 @@ struct ViewsInspectorTests {
     try inspected.find(ViewType.Button.self).tap()
     #expect(didSelect)
   }
+
+  @Test("HomeView and HomeBooksSectionView render counts, sort menu, and sections")
+  @MainActor
+  func homeViewAndSectionGroupingInspection() throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+    let date2026 =
+      calendar.date(from: DateComponents(year: 2026, month: 2, day: 14, hour: 12)) ?? Date()
+    let date2025 =
+      calendar.date(from: DateComponents(year: 2025, month: 6, day: 10, hour: 12)) ?? Date()
+
+    let container = TestCoreDataStack.makeContainer()
+    let context = container.viewContext
+    let readingBook = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Exhalation",
+      author: "Ted Chiang",
+      rating: nil,
+      readDateStarted: date2026,
+      readDateFinished: nil
+    )
+    let finished2026 = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Ancillary Justice",
+      author: "Ann Leckie",
+      rating: 5,
+      readDateStarted: date2026,
+      readDateFinished: date2026
+    )
+    let finished2025 = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Foundation",
+      author: "Isaac Asimov",
+      rating: 4,
+      readDateStarted: date2025,
+      readDateFinished: date2025
+    )
+
+    let viewModel = BooksViewModel()
+    viewModel.totalBookCount = 142
+    viewModel.filteredBooks = [readingBook, finished2026, finished2025].enumerated().map {
+      BookSearchResult(book: $1, index: $0)
+    }
+    var currentEntry: NavigationEntry? = NavigationEntry(selection: .home(lastSelectedBookID: nil))
+    let entryBinding = Binding(get: { currentEntry }, set: { currentEntry = $0 })
+
+    let homeView = HomeView(entry: entryBinding)
+      .environment(viewModel)
+      .environment(ScrollPositionStore())
+    let inspectedHome = try homeView.inspect()
+    #expect(try inspectedHome.find(text: "Books").string() == "Books")
+    #expect(try inspectedHome.find(text: "142 books").string() == "142 books")
+    for option in HomeBookSort.allCases {
+      #expect(try inspectedHome.find(text: option.title).string() == option.title)
+    }
+
+    let defaultSection = HomeBooksSectionView(entry: entryBinding, sort: .defaultOrder)
+      .environment(viewModel)
+    let inspectedDefault = try defaultSection.inspect()
+    #expect(inspectedDefault.findAll(ViewType.Section.self).isEmpty)
+    #expect(inspectedDefault.findAll(HomeBookThumbnailView.self).count == 3)
+
+    let titleSection = HomeBooksSectionView(entry: entryBinding, sort: .titleAZ)
+      .environment(viewModel)
+    let inspectedTitle = try titleSection.inspect()
+    #expect(inspectedTitle.findAll(ViewType.Section.self).isEmpty)
+    let titleThumbnails = inspectedTitle.findAll(HomeBookThumbnailView.self)
+    #expect(
+      try titleThumbnails.map { try $0.actualView().book.title ?? "" } == [
+        "Ancillary Justice",
+        "Exhalation",
+        "Foundation",
+      ]
+    )
+
+    let yearSection = HomeBooksSectionView(entry: entryBinding, sort: .byYear)
+      .environment(viewModel)
+    let inspectedYear = try yearSection.inspect()
+    #expect(inspectedYear.findAll(ViewType.Section.self).count == 3)
+    #expect(
+      try inspectedYear.find(text: "Currently Reading · 1 book").string()
+        == "Currently Reading · 1 book"
+    )
+    #expect(try inspectedYear.find(text: "2026 · 1 book").string() == "2026 · 1 book")
+    #expect(try inspectedYear.find(text: "2025 · 1 book").string() == "2025 · 1 book")
+
+    let statusSection = HomeBooksSectionView(entry: entryBinding, sort: .byStatus)
+      .environment(viewModel)
+    let inspectedStatus = try statusSection.inspect()
+    #expect(inspectedStatus.findAll(ViewType.Section.self).count == 2)
+    #expect(try inspectedStatus.find(text: "Read · 2 books").string() == "Read · 2 books")
+
+    let ratingSection = HomeBooksSectionView(entry: entryBinding, sort: .byRating)
+      .environment(viewModel)
+    let inspectedRating = try ratingSection.inspect()
+    #expect(inspectedRating.findAll(ViewType.Section.self).count == 3)
+    #expect(try inspectedRating.find(text: "★★★★★ · 1 book").string() == "★★★★★ · 1 book")
+    #expect(try inspectedRating.find(text: "★★★★ · 1 book").string() == "★★★★ · 1 book")
+    #expect(try inspectedRating.find(text: "Unrated · 1 book").string() == "Unrated · 1 book")
+  }
 }

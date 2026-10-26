@@ -60,7 +60,7 @@ book cover services (`OpenLibraryAPIService`, `BookcoverAPIService`, unified by 
 `BookMutationService` (create/edit/delete books locally, then push to `/api/books/sync`)
 **Editing**: `BookContentView` swaps read mode for `BookEditorView` (⌘E); `File > New Book…` (⌘N) and the
 sidebar `+` present the same editor in create mode. Edits live in a `BookDraft` until Done, covering both the public `reviewDescription` ("Review") and private freeform `notes` ("Private Notes", indexed by `BookSearchEngine` and the `.hasNotes` token).
-**UI**: DylUI's `AppWindow` (main window, palette `SagaPalette`, launch overrides, Check for Updates menu), `SettingsView` (`SettingsPane`, `SettingsHeaderView`, `AppInformationView`, `CreditsView`, `CacheLimitRow`), `ContentView` entry, `HomeView`/`BooksListView` (`NowReadingBarView`), `BookEditorialLayout`,
+**UI**: DylUI's `AppWindow` (main window, palette `SagaPalette`, launch overrides, Check for Updates menu), `SettingsView` (`SettingsPane`, `SettingsHeaderView`, `AppInformationView`, `CreditsView`, `CacheLimitRow`), `ContentView` entry, `HomeView`/`BooksListView` (`NowReadingBarView`, `HomeBookSort` for Home book count and flat/grouped sort modes), `BookEditorialLayout`,
 `PersistentScrollView`, `MenuBarCommands`
 **Data**: `Saga.xcdatamodeld` + `PersistenceModel` for Core Data entities; register new
 entities in both when adding models

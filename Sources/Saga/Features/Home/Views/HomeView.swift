@@ -6,6 +6,7 @@
 //
 
 import CoreData
+import DylCore
 import SwiftUI
 
 private struct Constants {
@@ -15,7 +16,12 @@ private struct Constants {
 struct HomeView: View {
   @Environment(BooksViewModel.self) private var viewModel
   @Environment(\.scrollContextID) private var scrollContextID
+  @AppStorage(HomeBookSort.storageKey) private var storedSort: HomeBookSort = .defaultOrder
   @Binding var entry: NavigationEntry?
+
+  private var activeSort: HomeBookSort {
+    LaunchOverrides.current.homeSort ?? storedSort
+  }
 
   var body: some View {
     PersistentScrollView(
@@ -27,12 +33,10 @@ struct HomeView: View {
       onRestore: notifyScrollRestored
     ) {
       LazyVStack(alignment: .leading) {
-        ForEach(sections) { section in
-          Section {
-            section.content
-          } header: {
-            headerTitleView(title: section.title)
-          }
+        Section {
+          HomeBooksSectionView(entry: $entry, sort: activeSort)
+        } header: {
+          headerTitleView
         }
       }
     }
@@ -57,23 +61,46 @@ struct HomeView: View {
     )
   }
 
-  private var sections: [HomeSection] {
-    [
-      HomeSection(
-        id: "books",
-        title: "Books",
-        content: AnyView(
-          HomeBooksSectionView(entry: $entry)
-        )
-      )
-    ]
-  }
-
-  private func headerTitleView(title: String) -> some View {
-    Text(title)
-      .font(.largeTitleBold)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .padding(.horizontal, 32)
-      .padding(.vertical, Constants.headerPaddingY)
+  private var headerTitleView: some View {
+    HStack(alignment: .firstTextBaseline, spacing: 10) {
+      Text("Books")
+        .font(.largeTitleBold)
+      Text(viewModel.bookCountText)
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(.secondary)
+        .monospacedDigit()
+        .accessibilityIdentifier(AccessibilityID.Home.bookCount)
+      Spacer()
+      Menu {
+        Picker("Sort By", selection: $storedSort) {
+          ForEach(HomeBookSort.allCases) { option in
+            Label(option.title, systemImage: option.systemImage).tag(option)
+          }
+        }
+        .pickerStyle(.inline)
+      } label: {
+        Label(activeSort.title, systemImage: "arrow.up.arrow.down")
+          .font(.subheadline.weight(.medium))
+          .foregroundStyle(activeSort == .defaultOrder ? Color.secondary : Color.botanicalLeaf)
+          .padding(.horizontal, 10)
+          .padding(.vertical, 5)
+          .background(
+            Capsule(style: .continuous)
+              .fill(
+                activeSort == .defaultOrder
+                  ? Color.primary.opacity(0.06)
+                  : Color.botanicalLeaf.opacity(0.14)
+              )
+          )
+      }
+      .menuStyle(.button)
+      .buttonStyle(.plain)
+      .menuIndicator(.hidden)
+      .fixedSize()
+      .accessibilityIdentifier(AccessibilityID.Home.sortMenu)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.horizontal, 32)
+    .padding(.vertical, Constants.headerPaddingY)
   }
 }
