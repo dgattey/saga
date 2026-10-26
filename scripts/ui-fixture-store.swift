@@ -153,6 +153,7 @@ for (index, fixture) in books.enumerated() {
   book.setValue(fixture.author, forKey: "author")
   book.setValue(NSNumber(value: fixture.isbn), forKey: "isbn")
   book.setValue(fixture.rating, forKey: "rating")
+  book.setValue(fixture.finished == nil ? "reading" : "read", forKey: "readingStatusRaw")
   book.setValue(day(fixture.started), forKey: "readDateStarted")
   book.setValue(fixture.finished.map(day), forKey: "readDateFinished")
   book.setValue(fixture.review.flatMap(richTextData), forKey: "reviewDescription")

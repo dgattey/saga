@@ -18,6 +18,7 @@ final class BooksViewModel {
     let author: String?
     let isbn: NSNumber?
     let rating: NSNumber?
+    let readingStatus: ReadingStatus
     let readDateStarted: Date?
     let readDateFinished: Date?
     let document: BookSearchDocument
@@ -120,6 +121,7 @@ final class BooksViewModel {
         cached.author == book.author,
         cached.isbn == book.isbn,
         cached.rating == book.rating,
+        cached.readingStatus == book.readingStatus,
         cached.readDateStarted == book.readDateStarted,
         cached.readDateFinished == book.readDateFinished
       {
@@ -132,6 +134,7 @@ final class BooksViewModel {
         author: book.author,
         isbn: book.isbn,
         rating: book.rating,
+        readingStatus: book.readingStatus,
         readDateStarted: book.readDateStarted,
         readDateFinished: book.readDateFinished,
         document: document
@@ -140,18 +143,23 @@ final class BooksViewModel {
     }
   }
 
-  /// Unfinished books at the top, then date descending with either finished or start, then title comparison. Most recent first.
+  private static func sortRank(for book: Book) -> Int {
+    if book.readingStatus != .read { return 0 }
+    return book.readDateFinished != nil ? 1 : 2
+  }
+
+  /// Unfinished books first, then dated read books by finish date, then undated read books.
   func sorted(from books: FetchedResults<Book>) -> [Book] {
     sorted(from: Array(books))
   }
 
-  /// Unfinished books at the top, then date descending with either finished or start, then title comparison. Most recent first.
+  /// Unfinished books first, then dated read books by finish date, then undated read books.
   func sorted<S: Sequence>(from books: S) -> [Book] where S.Element == Book {
     return books.sorted { a, b in
-      let aUnfinished = a.readDateFinished == nil
-      let bUnfinished = b.readDateFinished == nil
-      if aUnfinished != bUnfinished {
-        return aUnfinished && !bUnfinished
+      let aRank = Self.sortRank(for: a)
+      let bRank = Self.sortRank(for: b)
+      if aRank != bRank {
+        return aRank < bRank
       }
 
       let aDate = a.readDateFinished ?? a.readDateStarted ?? .distantPast
@@ -197,17 +205,20 @@ final class BooksViewModel {
       let reading = defaultOrdered.filter { $0.readingStatus == .reading }
       let notStarted = defaultOrdered.filter { $0.readingStatus == .notStarted }
       let byYear = Dictionary(grouping: defaultOrdered.filter { $0.readingStatus == .read }) {
-        ($0.readDateFinished ?? $0.readDateStarted).map { calendar.component(.year, from: $0) } ?? 0
+        $0.readDateFinished.map { calendar.component(.year, from: $0) }
       }
       var sections: [HomeSection] = []
       if !reading.isEmpty {
         sections.append(
           HomeSection(id: "year.reading", title: ReadingStatus.reading.title, books: reading))
       }
-      for year in byYear.keys.sorted(by: >) {
-        if year > 0, let group = byYear[year] {
+      for year in byYear.keys.compactMap(\.self).sorted(by: >) {
+        if let group = byYear[year] {
           sections.append(HomeSection(id: "year.\(year)", title: String(year), books: group))
         }
+      }
+      if let earlier = byYear[nil], !earlier.isEmpty {
+        sections.append(HomeSection(id: "year.earlier", title: "Earlier", books: earlier))
       }
       if !notStarted.isEmpty {
         sections.append(

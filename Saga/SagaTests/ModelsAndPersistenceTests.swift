@@ -15,15 +15,33 @@ import Testing
 
 @Suite("Book & Asset Models")
 struct ModelsAndPersistenceTests {
-  @Test("ReadingStatus derives from start and finish dates")
+  @Test("ReadingStatus derives from explicit status and start/finish dates")
   func readingStatusDerivation() {
     let start = Date(timeIntervalSince1970: 1_700_000_000)
     let finish = Date(timeIntervalSince1970: 1_700_500_000)
+
+    #expect(ReadingStatus.notStarted.rawValue == "notStarted")
+    #expect(ReadingStatus.reading.rawValue == "reading")
+    #expect(ReadingStatus.read.rawValue == "read")
+    #expect(ReadingStatus.notStarted.title == "Want to Read")
+    #expect(ReadingStatus.reading.title == "Currently Reading")
+    #expect(ReadingStatus.read.title == "Read")
 
     #expect(ReadingStatus(readDateStarted: nil, readDateFinished: nil) == .notStarted)
     #expect(ReadingStatus(readDateStarted: start, readDateFinished: nil) == .reading)
     #expect(ReadingStatus(readDateStarted: start, readDateFinished: finish) == .read)
     #expect(ReadingStatus(readDateStarted: nil, readDateFinished: finish) == .read)
+    #expect(
+      ReadingStatus(readingStatusRaw: "read", readDateStarted: nil, readDateFinished: nil) == .read
+    )
+    #expect(
+      ReadingStatus(readingStatusRaw: "notStarted", readDateStarted: nil, readDateFinished: finish)
+        == .read
+    )
+    #expect(
+      ReadingStatus(readingStatusRaw: "invalid", readDateStarted: start, readDateFinished: nil)
+        == .reading
+    )
   }
 
   @Test("Book.sidebarFetchRequest configures sort descriptors, prefetching, and batch size")
@@ -124,6 +142,7 @@ struct ModelsAndPersistenceTests {
     #expect(payload.author == "Andy Weir")
     #expect(payload.isbn == 9_780_593_135_204)
     #expect(payload.rating == 5)
+    #expect(payload.readingStatus == "read")
     #expect(payload.reviewPlainText == "Amaze! Grace and Rocky.")
     #expect(payload.notesPlainText == "Private book club thoughts.")
     #expect(payload.coverAssetId == coverAsset.id)
@@ -169,6 +188,7 @@ struct ModelsAndPersistenceTests {
       author: "Susanna Clarke",
       isbn: nil,
       rating: nil,
+      readingStatus: "notStarted",
       readDateStarted: nil,
       readDateFinished: nil,
       reviewPlainText: nil,
@@ -178,6 +198,7 @@ struct ModelsAndPersistenceTests {
     let data = try JSONEncoder().encode(payload)
     let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     #expect(object["id"] as? String == "NEW-BOOK")
+    #expect(object["readingStatus"] as? String == "notStarted")
     #expect(object["rating"] is NSNull)
     #expect(object["readDateStarted"] is NSNull)
     #expect(object["readDateFinished"] is NSNull)
@@ -196,6 +217,7 @@ struct ModelsAndPersistenceTests {
       author: "Susanna Clarke",
       isbn: nil,
       rating: nil,
+      readingStatus: "read",
       readDateStarted: nil,
       readDateFinished: nil,
       reviewPlainText: nil,
@@ -308,6 +330,9 @@ struct ModelsAndPersistenceTests {
     #expect(!syncVM.isSyncing && !syncVM.isResetting)
     let restored = try container.viewContext.fetch(Book.sidebarFetchRequest())
     #expect(restored.map(\.id) == ["book-restored"])
+    #expect(restored.first?.readingStatus == .read)
+    #expect(restored.first?.readDateFinished == nil)
+    #expect(restored.first?.toServerUpsertPayload()?.readingStatus == "read")
   }
 
   private static func makeMockSyncSpace(
@@ -323,7 +348,11 @@ struct ModelsAndPersistenceTests {
           "updatedAt": "2026-01-15T12:00:00.000Z",
           "contentType": ["sys": ["type": "Link", "linkType": "ContentType", "id": "book"]],
         ],
-        "fields": ["title": ["en-US": book.title], "author": ["en-US": "Author"]],
+        "fields": [
+          "title": ["en-US": book.title],
+          "author": ["en-US": "Author"],
+          "readingStatus": ["en-US": "read"],
+        ],
       ]
     }
     let localeData = Data(
