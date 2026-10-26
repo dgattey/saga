@@ -122,8 +122,14 @@ final class Book: NSManagedObject {
   }
 
   private static func parseDate(_ raw: String?) -> Date? {
-    raw.flatMap {
-      try? JSONDecoder.withoutLocalizationContext().decode(Date.self, from: Data("\"\($0)\"".utf8))
+    guard let raw else { return nil }
+    do {
+      return try JSONDecoder.withoutLocalizationContext().decode(
+        Date.self, from: Data("\"\(raw)\"".utf8)
+      )
+    } catch {
+      LoggerService.log("Failed to decode book date", error: error, surface: .persistence)
+      return nil
     }
   }
 
