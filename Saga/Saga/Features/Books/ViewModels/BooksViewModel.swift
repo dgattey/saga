@@ -24,6 +24,7 @@ final class BooksViewModel {
   }
 
   var filteredBooks: [BookSearchResult] = []
+  var totalBookCount = 0
   /// Drives the sidebar `.searchable` field and `filteredBooks`.
   var searchModel = SearchViewModel()
 
@@ -39,6 +40,14 @@ final class BooksViewModel {
 
   var hasActiveSearch: Bool {
     searchModel.hasActiveSearch
+  }
+
+  var bookCountText: String {
+    HomeBookSort.headerCountLabel(
+      filteredCount: filteredBooks.count,
+      totalCount: max(totalBookCount, filteredBooks.count),
+      isFiltered: hasActiveSearch
+    )
   }
 
   func refreshSearch(for books: FetchedResults<Book>) {
@@ -91,6 +100,7 @@ final class BooksViewModel {
 
   func performSearch(with books: FetchedResults<Book>, debounce: Duration? = nil) {
     libraryBooks = sorted(from: books)
+    totalBookCount = libraryBooks.count
     search(libraryBooks, with: searchModel, debounce: debounce) { [weak self] results in
       self?.filteredBooks = results
     }
@@ -160,24 +170,7 @@ final class BooksViewModel {
 
   /// Unfinished books at the top, then date descending with either finished or start, then title comparison. Most recent first.
   func sorted<S: Sequence>(from books: S) -> [Book] where S.Element == Book {
-    return books.sorted { a, b in
-      // 1. Unfinished books come first
-      let aUnfinished = a.readDateFinished == nil
-      let bUnfinished = b.readDateFinished == nil
-      if aUnfinished != bUnfinished {
-        return aUnfinished && !bUnfinished
-      }
-
-      // 2. Use the most recent of `readDateFinished` or `readDateStarted`
-      let aDate = a.readDateFinished ?? a.readDateStarted ?? .distantPast
-      let bDate = b.readDateFinished ?? b.readDateStarted ?? .distantPast
-      if aDate != bDate {
-        return aDate > bDate  // More recent first
-      }
-
-      // 3. Tie-breaker: localized title comparison
-      return (a.title ?? "").localizedCompare(b.title ?? "") == .orderedAscending
-    }
+    return books.sorted(by: HomeBookSort.compareDefault)
   }
 
   // MARK: - Keyboard Navigation

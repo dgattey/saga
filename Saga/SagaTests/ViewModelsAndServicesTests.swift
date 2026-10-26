@@ -247,4 +247,181 @@ struct ViewModelsAndServicesTests {
     #expect(searchVM.searchText == "parable ")
     #expect(searchVM.key == SearchViewModel.Key(text: "parable ", tokens: [.status(.read)]))
   }
+
+  @Test("HomeBookSort formats book counts and sorts/groups books across all modes")
+  @MainActor
+  func homeBookSortAndGrouping() throws {
+    #expect(HomeBookSort.bookCountLabel(for: 0) == "0 books")
+    #expect(HomeBookSort.bookCountLabel(for: 1) == "1 book")
+    #expect(HomeBookSort.bookCountLabel(for: 142) == "142 books")
+
+    #expect(
+      HomeBookSort.headerCountLabel(filteredCount: 142, totalCount: 142, isFiltered: false)
+        == "142 books"
+    )
+    #expect(
+      HomeBookSort.headerCountLabel(filteredCount: 1, totalCount: 1, isFiltered: false) == "1 book"
+    )
+    #expect(
+      HomeBookSort.headerCountLabel(filteredCount: 12, totalCount: 142, isFiltered: true)
+        == "12 of 142 books"
+    )
+    #expect(
+      HomeBookSort.headerCountLabel(filteredCount: 1, totalCount: 1, isFiltered: true)
+        == "1 of 1 book"
+    )
+    #expect(
+      HomeBookSort.headerCountLabel(filteredCount: 0, totalCount: 142, isFiltered: true)
+        == "0 of 142 books"
+    )
+
+    #expect(!HomeBookSort.defaultOrder.isGrouped)
+    #expect(!HomeBookSort.titleAZ.isGrouped)
+    #expect(!HomeBookSort.authorAZ.isGrouped)
+    #expect(HomeBookSort.byYear.isGrouped)
+    #expect(HomeBookSort.byStatus.isGrouped)
+    #expect(HomeBookSort.byRating.isGrouped)
+
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+
+    func makeDate(year: Int, month: Int, day: Int) -> Date {
+      calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12)) ?? Date()
+    }
+
+    let container = TestCoreDataStack.makeContainer()
+    let context = container.viewContext
+
+    let readingBook = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Exhalation",
+      author: "Ted Chiang",
+      rating: nil,
+      readDateStarted: makeDate(year: 2026, month: 3, day: 10),
+      readDateFinished: nil
+    )
+    let wantToReadBook = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Dune",
+      author: "Frank Herbert",
+      rating: nil,
+      readDateStarted: nil,
+      readDateFinished: nil
+    )
+    let read2026Later = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Children of Time",
+      author: "Adrian Tchaikovsky",
+      rating: 5,
+      readDateStarted: makeDate(year: 2026, month: 2, day: 1),
+      readDateFinished: makeDate(year: 2026, month: 2, day: 14)
+    )
+    let read2026Earlier = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Ancillary Justice",
+      author: "Ann Leckie",
+      rating: 4,
+      readDateStarted: makeDate(year: 2026, month: 1, day: 2),
+      readDateFinished: makeDate(year: 2026, month: 1, day: 12)
+    )
+    let read2025 = try TestCoreDataStack.makeBook(
+      in: context,
+      title: "Foundation",
+      author: "Isaac Asimov",
+      rating: 5,
+      readDateStarted: makeDate(year: 2025, month: 6, day: 1),
+      readDateFinished: makeDate(year: 2025, month: 6, day: 10)
+    )
+
+    let allBooks = [read2025, wantToReadBook, read2026Earlier, readingBook, read2026Later]
+    let results = allBooks.enumerated().map { index, book in
+      BookSearchResult(book: book, index: index)
+    }
+
+    let viewModel = BooksViewModel()
+    viewModel.totalBookCount = 142
+    viewModel.filteredBooks = results
+    #expect(viewModel.bookCountText == "142 books")
+    viewModel.searchModel.searchText = "sci"
+    #expect(viewModel.bookCountText == "5 of 142 books")
+
+    // Default flat order: unfinished first, then finished date descending
+    #expect(HomeBookSort.defaultOrder.groups(from: results, calendar: calendar).isEmpty)
+    let defaultSorted = HomeBookSort.defaultOrder.sortedResults(from: results, calendar: calendar)
+    #expect(
+      defaultSorted.map(\.book.objectID) == [
+        readingBook.objectID,
+        wantToReadBook.objectID,
+        read2026Later.objectID,
+        read2026Earlier.objectID,
+        read2025.objectID,
+      ]
+    )
+
+    // Title A–Z flat order
+    #expect(HomeBookSort.titleAZ.groups(from: results, calendar: calendar).isEmpty)
+    let titleSorted = HomeBookSort.titleAZ.sortedResults(from: results, calendar: calendar)
+    #expect(
+      titleSorted.map { $0.book.title ?? "" } == [
+        "Ancillary Justice",
+        "Children of Time",
+        "Dune",
+        "Exhalation",
+        "Foundation",
+      ]
+    )
+
+    // Author A–Z flat order
+    #expect(HomeBookSort.authorAZ.groups(from: results, calendar: calendar).isEmpty)
+    let authorSorted = HomeBookSort.authorAZ.sortedResults(from: results, calendar: calendar)
+    #expect(
+      authorSorted.map { $0.book.author ?? "" } == [
+        "Adrian Tchaikovsky",
+        "Ann Leckie",
+        "Frank Herbert",
+        "Isaac Asimov",
+        "Ted Chiang",
+      ]
+    )
+
+    // By Year grouped sections
+    let yearGroups = HomeBookSort.byYear.groups(from: results, calendar: calendar)
+    #expect(yearGroups.map(\.title) == ["Currently Reading", "2026", "2025", "Want to Read"])
+    #expect(
+      yearGroups.map(\.headerText) == [
+        "Currently Reading · 1 book",
+        "2026 · 2 books",
+        "2025 · 1 book",
+        "Want to Read · 1 book",
+      ]
+    )
+    #expect(
+      yearGroups[1].books.map(\.book.objectID) == [
+        read2026Later.objectID,
+        read2026Earlier.objectID,
+      ]
+    )
+
+    // By Status grouped sections
+    let statusGroups = HomeBookSort.byStatus.groups(from: results, calendar: calendar)
+    #expect(statusGroups.map(\.title) == ["Currently Reading", "Want to Read", "Read"])
+    #expect(
+      statusGroups.map(\.headerText) == [
+        "Currently Reading · 1 book",
+        "Want to Read · 1 book",
+        "Read · 3 books",
+      ]
+    )
+
+    // By Rating grouped sections
+    let ratingGroups = HomeBookSort.byRating.groups(from: results, calendar: calendar)
+    #expect(ratingGroups.map(\.title) == ["★★★★★", "★★★★", "Unrated"])
+    #expect(
+      ratingGroups.map(\.headerText) == [
+        "★★★★★ · 2 books",
+        "★★★★ · 1 book",
+        "Unrated · 2 books",
+      ]
+    )
+  }
 }
