@@ -1,4 +1,4 @@
-[![GitHub version](https://flat.badgen.net/github/release/dgattey/saga?cache=200)][gh] [![GitHub commits](https://flat.badgen.net/github/commits/dgattey/saga)][gh] [![Last commit](https://flat.badgen.net/github/last-commit/dgattey/saga/main)][gh]
+[![GitHub version](https://flat.badgen.net/github/tag/dgattey/saga?cache=200)][gh] [![GitHub commits](https://flat.badgen.net/github/commits/dgattey/saga)][gh] [![Last commit](https://flat.badgen.net/github/last-commit/dgattey/saga/main)][gh]
 
 # Saga
 
@@ -7,23 +7,15 @@ A native Swift app (iOS, macOS) for keeping track of what I've read, watched, pl
 ## Setup
 
 ```bash
-./run bootstrap   # first time (before shell function exists)
-source ~/.zshrc   # activate completions
+scripts/bootstrap.sh
 ```
 
-Bootstrap handles all one-time setup:
-
-1. **Installs Brewfile dependencies** (`brew bundle`: 1Password CLI, swift-format)
-2. **Authenticates with 1Password** (prompts if needed)
-3. **Writes `Config.xcconfig`** with Contentful credentials from the `saga` vault (`CONTENTFUL_SPACE_ID` and `CONTENTFUL_ACCESS_TOKEN` items)
-4. **Adds shell completions** to your `.zshrc` for the `run` command
-
-After setup, use `run` (with tab completion) instead of `./run`. Re-run bootstrap any time to refresh credentials.
+Bootstrap installs the Brewfile (1Password CLI, mise), installs the SwiftLint that `mise.toml` pins, and writes the gitignored `Config.xcconfig` with dev Contentful credentials from the `saga` 1Password vault. Without it, the app builds with placeholder credentials, which is what CI and releases use.
 
 ## App architecture
 
 Saga follows an MVVM architecture with SwiftUI views:
-- **Features/**: Domain-specific features (Books, Assets, Content)
+- **Features/**: Domain-specific features (Books, Assets, Content, Settings)
   - Each feature contains Models, Views, ViewModels, and Services
 - **Shared/**: Reusable components, extensions, and utilities
 - **Services/**: Core services like persistence (Core Data) and syncing (Contentful)
@@ -31,53 +23,18 @@ Saga follows an MVVM architecture with SwiftUI views:
 
 ## Development process
 
-### Scripts
-
-Swift-based scripts live in `scripts/Sources/` and are run via the `run` wrapper at the repo root. Use `run --help` to see available scripts, or `run <script> --help` for script-specific options.
-
-| Script | Description |
-|--------|-------------|
-| `app` | Build, launch, or run unit tests |
-| `bootstrap` | Set up shell completions and pull secrets from 1Password |
-| `config` | Write `Config.xcconfig` from the environment |
-| `checks` | Run Swift format and/or lint checks |
-| `clean` | Remove build artifacts and SwiftPM build caches |
-| `version-and-release` | Manage version tags and Github releases |
-
-### Building and running
-
-Saga is a plain SwiftPM package (`Package.swift` at the repo root); there is no Xcode project.
-`scripts/build-macos.sh` runs `swift build`, compiles `Saga.xcdatamodeld` (`momc`) and the asset
-catalogs (`actool`), embeds Sparkle, writes `Info.plist`, and ad-hoc signs `build/Saga.app`.
-`momc` and `actool` ship with Xcode, so Xcode must be installed and selected (`xcode-select`),
-but you never open it.
+Saga is a plain SwiftPM package with no Xcode project, built with [DylKit](https://github.com/dgattey/dyl-kit)'s `devkit` and `release-kit`. App settings live in `DylApp.toml`: bundle ID, minimum OS, resources and icon to compile, dev credentials, and the release feed. Xcode must be installed and selected (`xcode-select`) for `momc` and `actool`, but you never open it.
 
 ```bash
-run app              # build build/Saga.app (debug) and launch it in the background
-run app -b           # build only
-run app -r           # release configuration
-run app -t           # swift test
-run app --ui         # iOS Simulator screenshots of the main screens into build/captures/
-run app --help       # show usage
-scripts/build-ios-sim.sh [--install]   # build/Saga-iOS.app for the iOS Simulator
+swift run devkit build        # build/Saga Dev.app (bundle ID com.dylangattey.Saga.dev), ad-hoc signed
+swift run devkit relaunch     # build and open it in the background
+swift run devkit capture      # screenshot the main window into build/captures/
+swift run devkit ios --run    # build/Saga-iOS.app on a headless simulator
+scripts/ui-screenshots.sh     # iPhone and iPad screenshots of the main screens with fixture books
+swift run devkit checks       # DylApp.toml, SwiftLint, dyl-lint and release checks
+swift format format --in-place --recursive --parallel Sources Tests Package.swift scripts
+swift test                    # unit tests
 ```
-
-Build settings live where SwiftPM and the scripts can read them: bundle ID and minimum OS in
-`scripts/lib/app-config.sh`, the marketing version in `VERSION`, entitlements in
-`Saga.entitlements`, and the Sparkle public key in `sparkle-public-key.txt`.
-
-### Formatting and linting
-
-All Swift code is formatted and linted using `swift-format` with the repo config in `.swift-format`.
-
-```bash
-run checks           # format and lint
-run checks --format  # format only
-run checks --lint    # lint only
-run checks --help    # show usage
-```
-
-CI runs this on every PR and fails if formatting produces any changes.
 
 ### Adding new models
 
@@ -88,14 +45,8 @@ When adding a new Core Data model:
 
 ## Releases
 
-GitHub Actions automatically compute versions and create releases when PRs merge to `main`:
+Saga releases through `.github/workflows/dylkit.yml`, which calls DylKit's reusable `app.yml` workflow. Each merged PR that touches the app gets a version from the latest `v*` tag and its Release info checkbox, tags the merge commit, and uploads `Saga-<version>.zip`, a signed Sparkle `appcast.xml`, `release.json`, and rendered site icons to Saga's Vercel Blob store. Nothing is committed to `main`.
 
-- PRs include release type checkboxes (Major/Minor/Patch, default Patch) and a `# What changed?` section for release notes
-- CI checks run in parallel on PR branches without pushing version bump commits to the branch, avoiding version-file merge conflicts across open PRs
-- On merge, `release.yml` computes the next semantic version and Sparkle build number from the latest release tag and PR release type, packages and signs the macOS app, checks it is a valid Sparkle update for the latest published release (`scripts/verify-release.sh`, also run on every PR), updates `appcast.xml` with cumulative versioned release notes (capped at the last 10 versions via `scripts/release-notes.sh` and `scripts/generate-appcast.sh`), and publishes a GitHub Release using the `# What changed?` text as release notes. Nothing is committed back to `main`: `https://saga.gattey.com/appcast.xml`, the feed the app polls, redirects to the latest release's appcast
-
-### Manual management
-
-Shouldn't be necessary, but you can `run version-and-release` for manual version management (see `--help` for subcommands).
+The download site in `server/` is `@dylkit/web`, configured by `[site]` in `DylApp.toml` via `withDylKit`, and Vercel's git integration deploys it from `main`. `/appcast.xml`, `/download/macos`, and the icon routes serve the latest release from the Blob store.
 
 [gh]: https://github.com/dgattey/saga

@@ -8,39 +8,31 @@ let package = Package(
     .executable(name: "Saga", targets: ["Saga"])
   ],
   dependencies: [
+    .package(url: "https://github.com/dgattey/dyl-kit", from: "0.7.1"),
     .package(url: "https://github.com/contentful/contentful.swift", from: "5.5.15"),
     .package(url: "https://github.com/ukushu/Ifrit", from: "4.0.0"),
-    // macOS auto-update (canonical for non-App-Store apps). Linked only into the macOS app.
-    .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.3"),
     .package(url: "https://github.com/nalexn/ViewInspector", from: "0.10.5"),
   ],
   targets: [
     .executableTarget(
       name: "Saga",
       dependencies: [
+        .product(name: "DylCore", package: "dyl-kit"),
+        .product(name: "DylUI", package: "dyl-kit"),
+        .product(name: "DylUpdates", package: "dyl-kit"),
         .product(name: "Contentful", package: "contentful.swift"),
         .product(name: "IfritStatic", package: "Ifrit"),
-        .product(name: "Sparkle", package: "Sparkle", condition: .when(platforms: [.macOS])),
       ],
-      path: "Saga/Saga",
-      // scripts/build-macos.sh and scripts/build-ios-sim.sh compile these into the app bundle.
-      exclude: ["AppIcon.icon", "Assets.xcassets", "Saga.xcdatamodeld"],
-      linkerSettings: [
-        // build-macos.sh embeds Sparkle.framework under Contents/Frameworks.
-        .unsafeFlags(
-          ["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"],
-          .when(platforms: [.macOS])
-        )
-      ]
+      // Bundler compiles these into the app ([build] resources and icon in DylApp.toml).
+      exclude: ["AppIcon.icon", "Assets.xcassets", "Saga.xcdatamodeld"]
     ),
     .testTarget(
       name: "SagaTests",
       dependencies: [
         "Saga",
+        .product(name: "DylUI", package: "dyl-kit"),
         .product(name: "ViewInspector", package: "ViewInspector"),
-      ],
-      path: "Saga/SagaTests"
+      ]
     ),
-  ],
-  swiftLanguageModes: [.v5]
+  ]
 )
