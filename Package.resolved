@@ -1,15 +1,6 @@
 {
   "pins" : [
     {
-      "identity" : "contentful-persistence.swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/contentful/contentful-persistence.swift",
-      "state" : {
-        "revision" : "53fafd5b119b2644f792637b118e1ad13eb8db9b",
-        "version" : "0.18.2"
-      }
-    },
-    {
       "identity" : "contentful.swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/contentful/contentful.swift",

@@ -89,10 +89,6 @@ enum TestCoreDataStack {
     if let coverURLString {
       let asset = Asset(context: context)
       asset.id = UUID().uuidString
-      asset.createdAt = book.createdAt
-      asset.updatedAt = book.updatedAt
-      asset.title = title.map { "\($0) Cover" }
-      asset.fileName = "cover.jpg"
       asset.urlString = coverURLString
       book.coverImage = asset
     }

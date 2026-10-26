@@ -5,12 +5,11 @@
 //  Created by Dylan Gattey on 10/14/26.
 //
 
+import Contentful
 import CoreData
 import Foundation
 import SwiftUI
 import Testing
-
-import class Contentful.RichTextDocument
 
 @testable import Saga
 
@@ -80,21 +79,21 @@ struct ModelsAndPersistenceTests {
     let container = TestCoreDataStack.makeContainer()
     let context = container.viewContext
 
-    let first = try Asset.linkedContentfulAsset(
+    let first = try Saga.Asset.linkedContentfulAsset(
       id: "ASSET-1",
       urlString: "https://example.com/Cover.JPG",
       in: context
     )
     try context.save()
 
-    let duplicate = try Asset.linkedContentfulAsset(
+    let duplicate = try Saga.Asset.linkedContentfulAsset(
       id: "ASSET-1",
       urlString: "https://example.com/cover.jpg",
       in: context
     )
     #expect(first.objectID == duplicate.objectID)
 
-    let count = try context.count(for: NSFetchRequest<Asset>(entityName: "Asset"))
+    let count = try context.count(for: NSFetchRequest<Saga.Asset>(entityName: "Asset"))
     #expect(count == 1)
   }
 
@@ -118,7 +117,6 @@ struct ModelsAndPersistenceTests {
     )
 
     let coverAsset = try #require(book.coverImage)
-    coverAsset.localeCode = "en-US"
 
     let payload = try #require(book.toServerUpsertPayload())
     #expect(payload.id == "book-sync-1")
@@ -234,5 +232,111 @@ struct ModelsAndPersistenceTests {
           rawBodyString: #"{"deleteIds":["book-1"]}"#
         )
     )
+  }
+
+  @Test("PersistenceService default store is in Application Support and never Documents")
+  func persistenceServiceDefaultStoreUsesApplicationSupport() throws {
+    let defaultDirectory = NSPersistentContainer.defaultDirectoryURL().standardizedFileURL.path
+    let appSupport = try #require(
+      FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+    ).standardizedFileURL.path
+    #expect(defaultDirectory.hasPrefix(appSupport))
+    if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+      #expect(!defaultDirectory.hasPrefix(docs.standardizedFileURL.path))
+    }
+  }
+
+  @Test("PersistenceService syncs, resets syncToken on full re-sync, and preserves data on failure")
+  @MainActor
+  func persistenceServiceSyncAndReset() async throws {
+    let container = TestCoreDataStack.makeContainer()
+    var tokens: [String] = []
+    let service = PersistenceService(
+      container: container,
+      spaceId: "space-valid",
+      accessToken: "token-valid",
+      syncFetcher: { token in
+        tokens.append(token)
+        return try Self.makeMockSyncSpace(
+          nextSyncToken: token.isEmpty ? "fresh-token" : "delta-token",
+          books: token.isEmpty ? [("book-1", "Piranesi"), ("book-2", "Exhalation")] : []
+        )
+      }
+    )
+
+    try await service.syncWithApi()
+    try await service.syncWithApi()
+    #expect(tokens == ["", "fresh-token"])
+
+    _ = try TestCoreDataStack.makeBook(in: container.viewContext, id: "stale-local")
+    #expect(try container.viewContext.count(for: Book.sidebarFetchRequest()) == 3)
+
+    try await service.syncWithApi(reset: true)
+    #expect(tokens == ["", "fresh-token", ""])
+    let books = try container.viewContext.fetch(Book.sidebarFetchRequest())
+    #expect(Set(books.map(\.id)) == ["book-1", "book-2"])
+
+    let placeholderService = PersistenceService(
+      container: container,
+      spaceId: "placeholder",
+      accessToken: "placeholder"
+    )
+    await #expect(throws: PersistenceSyncError.missingCredentials) {
+      try await placeholderService.syncWithApi(reset: true)
+    }
+    #expect(try container.viewContext.count(for: Book.sidebarFetchRequest()) == 2)
+
+    let stallingService = PersistenceService(
+      container: container,
+      spaceId: "space-valid",
+      accessToken: "token-valid",
+      syncFetcher: { token in
+        if !token.isEmpty { try? await Task.sleep(for: .seconds(5)) }
+        return try Self.makeMockSyncSpace(
+          nextSyncToken: "token",
+          books: [("book-restored", "Project Hail Mary")]
+        )
+      }
+    )
+    let syncVM = SyncViewModel(controller: stallingService)
+    let backgroundSync = Task { await syncVM.sync() }
+    for _ in 0..<50 where !syncVM.isSyncing {
+      try await Task.sleep(for: .milliseconds(5))
+    }
+    await syncVM.resetAndSync()
+    await backgroundSync.value
+    #expect(!syncVM.isSyncing && !syncVM.isResetting)
+    let restored = try container.viewContext.fetch(Book.sidebarFetchRequest())
+    #expect(restored.map(\.id) == ["book-restored"])
+  }
+
+  private static func makeMockSyncSpace(
+    nextSyncToken: String,
+    books: [(id: String, title: String)]
+  ) throws -> Contentful.SyncSpace {
+    let items: [[String: Any]] = books.map { book in
+      [
+        "sys": [
+          "type": "Entry",
+          "id": book.id,
+          "createdAt": "2026-01-10T12:00:00.000Z",
+          "updatedAt": "2026-01-15T12:00:00.000Z",
+          "contentType": ["sys": ["type": "Link", "linkType": "ContentType", "id": "book"]],
+        ],
+        "fields": ["title": ["en-US": book.title], "author": ["en-US": "Author"]],
+      ]
+    }
+    let localeData = Data(
+      #"{"sys":{"type":"Locale","id":"en-US"},"code":"en-US","name":"English","default":true}"#.utf8
+    )
+    let locale = try JSONDecoder().decode(Contentful.Locale.self, from: localeData)
+    let decoder = Client(spaceId: "space", accessToken: "token").jsonDecoder
+    decoder.update(with: try #require(LocalizationContext(locales: [locale])))
+    let nextSyncURL =
+      "https://cdn.contentful.com/spaces/space/environments/master/sync?sync_token=\(nextSyncToken)"
+    let data = try JSONSerialization.data(withJSONObject: [
+      "sys": ["type": "Array"], "items": items, "nextSyncUrl": nextSyncURL,
+    ])
+    return try decoder.decode(Contentful.SyncSpace.self, from: data)
   }
 }

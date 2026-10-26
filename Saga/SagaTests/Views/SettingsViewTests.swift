@@ -91,7 +91,6 @@ struct SettingsViewTests {
     #expect(
       libraryTitles == [
         "Contentful",
-        "ContentfulPersistence",
         "Ifrit",
         "Sparkle",
         "ViewInspector",

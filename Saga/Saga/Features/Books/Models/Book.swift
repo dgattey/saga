@@ -6,7 +6,6 @@
 //
 
 import Contentful
-import ContentfulPersistence
 import CoreData
 import Foundation
 
@@ -30,11 +29,11 @@ enum ReadingStatus: String, CaseIterable, Identifiable {
 }
 
 @objc(Book)
-final class Book: NSManagedObject, EntryPersistable {
+final class Book: NSManagedObject {
   static let contentTypeId = "book"
+  private static let dateDecoder = JSONDecoder.withoutLocalizationContext()
 
   @NSManaged var id: String
-  @NSManaged var localeCode: String?
   @NSManaged var updatedAt: Date?
   @NSManaged var createdAt: Date?
 
@@ -69,18 +68,25 @@ final class Book: NSManagedObject, EntryPersistable {
     return request
   }
 
-  static func fieldMapping() -> [Contentful.FieldName: String] {
-    return [
-      "title": "title",
-      "isbn": "isbn",
-      "author": "author",
-      "coverImage": "coverImage",
-      "readDateStarted": "readDateStarted",
-      "readDateFinished": "readDateFinished",
-      "rating": "rating",
-      "reviewDescription": "reviewDescription",
-      "notes": "notes",
-    ]
+  func apply(_ entry: Entry, assetsByID: [String: Asset]) {
+    id = entry.id
+    createdAt = entry.sys.createdAt
+    updatedAt = entry.sys.updatedAt
+
+    let fields = entry.fields
+    title = fields.string(at: "title") ?? ""
+    author = fields.string(at: "author")
+    isbn = fields.int(at: "isbn").map(NSNumber.init(value:))
+    rating = fields.int(at: "rating").map(NSNumber.init(value:))
+    readDateStarted = Self.parseDate(fields.string(at: "readDateStarted"))
+    readDateFinished = Self.parseDate(fields.string(at: "readDateFinished"))
+    reviewDescription = fields["reviewDescription"] as? RichTextDocument
+    notes = fields["notes"] as? RichTextDocument
+    coverImage = (fields["coverImage"] as? Link).flatMap { assetsByID[$0.id] }
+  }
+
+  private static func parseDate(_ raw: String?) -> Date? {
+    raw.flatMap { try? dateDecoder.decode(Date.self, from: Data("\"\($0)\"".utf8)) }
   }
 
   var validRating: Int? {
@@ -92,7 +98,7 @@ final class Book: NSManagedObject, EntryPersistable {
     let trimmedTitle = (title ?? "").cleanedWhitespace
     guard !trimmedTitle.isEmpty else { return nil }
     let assetId =
-      localCoverImageURL == nil && coverImage?.isContentfulManaged == true
+      localCoverImageURL == nil
       ? coverImage?.id.trimmingCharacters(in: .whitespacesAndNewlines)
       : nil
     return BookServerUpsertPayload(

@@ -8,7 +8,7 @@ let package = Package(
     .executable(name: "Saga", targets: ["Saga"])
   ],
   dependencies: [
-    .package(url: "https://github.com/contentful/contentful-persistence.swift", from: "0.18.2"),
+    .package(url: "https://github.com/contentful/contentful.swift", from: "5.5.15"),
     .package(url: "https://github.com/ukushu/Ifrit", from: "4.0.0"),
     // macOS auto-update (canonical for non-App-Store apps). Linked only into the macOS app.
     .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.3"),
@@ -18,7 +18,7 @@ let package = Package(
     .executableTarget(
       name: "Saga",
       dependencies: [
-        .product(name: "ContentfulPersistence", package: "contentful-persistence.swift"),
+        .product(name: "Contentful", package: "contentful.swift"),
         .product(name: "IfritStatic", package: "Ifrit"),
         .product(name: "Sparkle", package: "Sparkle", condition: .when(platforms: [.macOS])),
       ],
