@@ -43,7 +43,7 @@ final class BooksViewModel {
     searchModel.hasActiveSearch
   }
 
-  static func bookCountLabel(_ count: Int) -> String {
+  nonisolated static func bookCountLabel(_ count: Int) -> String {
     count == 1 ? "1 book" : "\(count) books"
   }
 
