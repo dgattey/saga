@@ -18,22 +18,6 @@ enum SidebarSelection: Hashable {
     return false
   }
 
-  var isBook: Bool {
-    if case .book = self {
-      return true
-    }
-    return false
-  }
-
-  var matchedBookID: NSManagedObjectID? {
-    switch self {
-    case .home(let lastSelectedBookID):
-      return lastSelectedBookID
-    case .book(let bookID):
-      return bookID
-    }
-  }
-
   func homeSelectionPreservingLast() -> SidebarSelection {
     switch self {
     case .home(let lastSelectedBookID):

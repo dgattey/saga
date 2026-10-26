@@ -11,8 +11,6 @@ import SwiftUI
 @Observable
 final class ScrollPositionStore {
   private(set) var resetToken = UUID()
-  private(set) var scrollToTopToken = UUID()
-  private(set) var scrollToTopScope: ScrollScope?
   @ObservationIgnored private var positions: [ScrollKey: Double] = [:]
 
   func position(for key: ScrollKey) -> Double? {
@@ -38,14 +36,6 @@ final class ScrollPositionStore {
       )
       positions[targetKey] = value
     }
-  }
-
-  /// Scrolls a specific scope to the top immediately (without animation)
-  func scrollToTop(for scope: ScrollScope) {
-    // Clear stored positions for this scope
-    positions = positions.filter { key, _ in key.scope != scope }
-    scrollToTopScope = scope
-    scrollToTopToken = UUID()
   }
 
   func reset() {

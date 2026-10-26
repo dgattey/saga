@@ -26,34 +26,6 @@ final class Asset: NSManagedObject, AssetPersistable {
   @NSManaged var width: NSNumber?
   @NSManaged var height: NSNumber?
 
-  /// Adds a book to context by newly creating it. Automatically handles duplicates. Threadsafe.
-  static func add(
-    to context: NSManagedObjectContext,
-    withURL urlString: String?
-  ) async throws -> Asset? {
-    guard let urlString = urlString else {
-      return nil
-    }
-    return try await context.perform {
-      if let existing = try findDuplicate(in: context, urlString: urlString) {
-        return existing
-      }
-      return Asset(context: context, urlString: urlString)
-    }
-  }
-
-  /// For local object construction
-  private convenience init(
-    context: NSManagedObjectContext,
-    urlString: String
-  ) {
-    self.init(context: context)
-    self.id = UUID().uuidString
-    self.createdAt = Date()
-    self.updatedAt = self.createdAt
-    self.urlString = urlString
-  }
-
   static func linkedContentfulAsset(
     id: String,
     urlString: String,
@@ -65,22 +37,12 @@ final class Asset: NSManagedObject, AssetPersistable {
     if let existing = try context.fetch(fetchRequest).first {
       return existing
     }
-    let asset = Asset(context: context, urlString: urlString)
+    let asset = Asset(context: context)
     asset.id = id
+    asset.createdAt = Date()
+    asset.updatedAt = asset.createdAt
+    asset.urlString = urlString
     return asset
-  }
-
-  /// Finds a duplicate asset by url if it exists so we can update it in place.
-  private static func findDuplicate(
-    in context: NSManagedObjectContext,
-    urlString: String
-  ) throws -> Asset? {
-    // Fetch books by author first for efficiency
-    let fetchRequest = NSFetchRequest<Asset>(entityName: "Asset")
-    fetchRequest.predicate = NSPredicate(format: "urlString ==[c] %@", urlString)
-    fetchRequest.fetchLimit = 1
-    let existingAssets = try context.fetch(fetchRequest)
-    return existingAssets.first
   }
 
   var assetURL: URL? {
