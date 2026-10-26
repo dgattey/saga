@@ -35,13 +35,7 @@ struct CacheLimitRow: View {
         Text(Self.formatLimit(limitGB))
           .font(.caption.monospaced().weight(.medium))
           .foregroundStyle(.secondary)
-          .padding(.horizontal, 8)
-          .padding(.vertical, 3)
-          .background(Color.botanicalLeaf.opacity(0.10), in: Capsule())
-          .overlay(
-            Capsule()
-              .strokeBorder(Color.botanicalLeaf.opacity(0.22), lineWidth: 1)
-          )
+          .botanicalCapsulePill()
           .frame(minWidth: 74, alignment: .trailing)
       }
     } label: {

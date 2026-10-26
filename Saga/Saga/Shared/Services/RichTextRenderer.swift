@@ -68,6 +68,11 @@ extension RichTextDocument {
     return result
   }
 
+  var nonEmptyPlainText: String? {
+    let trimmed = plainText.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty ? nil : trimmed
+  }
+
   private static func appendPlainText(for node: Node, to output: inout String) {
     switch node.nodeType {
     case .paragraph, .h1, .h2, .h3, .h4, .h5, .h6:

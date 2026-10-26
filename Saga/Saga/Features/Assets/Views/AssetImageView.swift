@@ -12,10 +12,6 @@ struct AssetImageView: View {
   let url: URL?
   let targetSize: CGSize?
 
-  init(asset: Asset?, targetSize: CGSize? = nil) {
-    self.init(url: asset?.assetURL, targetSize: targetSize)
-  }
-
   init(url: URL?, targetSize: CGSize? = nil) {
     self.url = url
     self.targetSize = targetSize

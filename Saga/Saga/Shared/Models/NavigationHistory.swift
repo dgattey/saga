@@ -26,8 +26,6 @@ protocol NavigationObserver: AnyObject {
 final class NavigationHistory {
   private(set) var backStack: [NavigationEntry] = []
   private(set) var forwardStack: [NavigationEntry] = []
-  private(set) var lastSelectionChange: NavigationEntry?
-  private(set) var lastSelectionChangeWasHistory = false
   private(set) var lastHomeScrollContextID: UUID?
 
   /// Observers that get notified of navigation changes
@@ -52,8 +50,6 @@ final class NavigationHistory {
     from oldEntry: NavigationEntry?, to newEntry: NavigationEntry?
   ) {
     guard let newEntry else { return }
-    lastSelectionChange = newEntry
-    lastSelectionChangeWasHistory = isHistoryNavigation
     if newEntry.selection.isHome {
       lastHomeScrollContextID = newEntry.scrollContextID
     }

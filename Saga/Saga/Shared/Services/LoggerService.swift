@@ -12,8 +12,6 @@ enum LogSurface: String {
   case sync = "Sync"
   /// Core Data stack setup and sync persistence work.
   case persistence = "Persistence"
-  /// Goodreads CSV parsing + import routines.
-  case booksImport = "BooksImport"
   /// HTTP requests and remote service responses.
   case network = "Network"
   /// Rich text parsing and rendering.

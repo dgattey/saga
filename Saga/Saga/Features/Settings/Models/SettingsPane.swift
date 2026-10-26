@@ -54,19 +54,6 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
 
   var id: String { rawValue }
 
-  var section: SettingsPaneSection {
-    switch self {
-    case .general:
-      .general
-    case .sync, .storage:
-      .library
-    case .animations:
-      .interface
-    case .credits, .about:
-      .app
-    }
-  }
-
   var title: String {
     switch self {
     case .general:
@@ -81,23 +68,6 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
       "Credits"
     case .about:
       "About"
-    }
-  }
-
-  var subtitle: String {
-    switch self {
-    case .general:
-      "Automatic software updates and app preferences"
-    case .sync:
-      "Contentful and Goodreads library synchronization"
-    case .storage:
-      "Disk cache limits and local storage maintenance"
-    case .animations:
-      "Interactive spring physics and motion tuning"
-    case .credits:
-      "Data sources, APIs, and open source acknowledgements"
-    case .about:
-      "App version, author attribution, and quick links"
     }
   }
 

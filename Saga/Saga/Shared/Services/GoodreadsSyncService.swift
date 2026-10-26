@@ -151,14 +151,9 @@ enum GoodreadsSyncService {
   private static let maxCoverImageURLLength = 2048
 
   static func sanitizedCoverImageURL(_ rawURL: String?) -> String? {
-    guard let raw = rawURL?.trimmingCharacters(in: .whitespacesAndNewlines),
-      !raw.isEmpty
-    else {
-      return nil
-    }
-    let normalized = raw.hasPrefix("//") ? "https:" + raw : raw
-    guard normalized.count <= maxCoverImageURLLength,
-      let url = URL(string: normalized),
+    guard let rawURL,
+      let url = CoverInput.remoteURL(from: rawURL),
+      url.absoluteString.count <= maxCoverImageURLLength,
       url.scheme?.lowercased() == "https",
       let host = url.host?.lowercased(),
       allowlistedCoverHosts.contains(host),

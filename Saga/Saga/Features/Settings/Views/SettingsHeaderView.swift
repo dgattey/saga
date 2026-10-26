@@ -20,16 +20,6 @@ struct SettingsHeaderView: View {
     self.backgroundColor = pane.badgeColor
   }
 
-  init(
-    title: String,
-    systemImage: String,
-    backgroundColor: Color
-  ) {
-    self.title = title
-    self.systemImage = systemImage
-    self.backgroundColor = backgroundColor
-  }
-
   var body: some View {
     HStack(alignment: .center, spacing: 8) {
       SettingsIconBadge(
