@@ -8,10 +8,7 @@ let package = Package(
     .executable(name: "Saga", targets: ["Saga"])
   ],
   dependencies: [
-    .package(
-      url: "https://github.com/dgattey/dyl-kit",
-      revision: "f0c1e619ed78c7a0aec245e9b94450fb5584dc2c"
-    ),
+    .package(url: "https://github.com/dgattey/dyl-kit", from: "0.7.1"),
     .package(url: "https://github.com/contentful/contentful.swift", from: "5.5.15"),
     .package(url: "https://github.com/ukushu/Ifrit", from: "4.0.0"),
     .package(url: "https://github.com/nalexn/ViewInspector", from: "0.10.5"),
