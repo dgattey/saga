@@ -96,13 +96,17 @@ enum CoverImageStore {
     return CGImageSourceGetCount(source) > 0 && CGImageSourceGetType(source) != nil
   }
 
+  static func localFileURL(_ urlString: String?) -> URL? {
+    guard let urlString, let url = URL(string: urlString), url.isFileURL else { return nil }
+    return url
+  }
+
   static func isLocalCover(_ urlString: String?) -> Bool {
-    guard let urlString, let url = URL(string: urlString) else { return false }
-    return url.isFileURL
+    localFileURL(urlString) != nil
   }
 
   static func remove(_ urlString: String?, in directory: URL = defaultDirectory) {
-    guard let urlString, let url = URL(string: urlString), url.isFileURL,
+    guard let url = localFileURL(urlString),
       url.deletingLastPathComponent().standardizedFileURL == directory.standardizedFileURL
     else { return }
     do {

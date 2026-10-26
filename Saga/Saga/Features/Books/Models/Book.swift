@@ -18,17 +18,6 @@ enum ReadingStatus: String, CaseIterable, Identifiable {
 
   var id: Self { self }
 
-  mutating func advance() {
-    switch self {
-    case .notStarted:
-      self = .reading
-    case .reading:
-      self = .read
-    case .read:
-      break
-    }
-  }
-
   init(readDateStarted: Date?, readDateFinished: Date?) {
     if readDateFinished != nil {
       self = .read
@@ -94,6 +83,11 @@ final class Book: NSManagedObject, EntryPersistable {
     ]
   }
 
+  var validRating: Int? {
+    guard let value = rating?.intValue, (1...5).contains(value) else { return nil }
+    return value
+  }
+
   func toServerUpsertPayload() -> BookServerUpsertPayload? {
     let trimmedTitle = (title ?? "").cleanedWhitespace
     guard !trimmedTitle.isEmpty else { return nil }
@@ -101,19 +95,16 @@ final class Book: NSManagedObject, EntryPersistable {
       localCoverImageURL == nil && coverImage?.isContentfulManaged == true
       ? coverImage?.id.trimmingCharacters(in: .whitespacesAndNewlines)
       : nil
-    let ratingValue = rating?.intValue
-    let reviewText = reviewDescription?.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
-    let notesText = notes?.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
     return BookServerUpsertPayload(
       id: id,
       title: trimmedTitle,
       author: (author ?? "").cleanedWhitespace,
       isbn: isbn?.int64Value,
-      rating: ratingValue.flatMap { (1...5).contains($0) ? $0 : nil },
+      rating: validRating,
       readDateStarted: readDateStarted?.ISO8601Format(),
       readDateFinished: readDateFinished?.ISO8601Format(),
-      reviewPlainText: reviewText?.isEmpty == false ? reviewText : nil,
-      notesPlainText: notesText?.isEmpty == false ? notesText : nil,
+      reviewPlainText: reviewDescription?.nonEmptyPlainText,
+      notesPlainText: notes?.nonEmptyPlainText,
       coverAssetId: assetId?.isEmpty == false ? assetId : nil,
       coverImageUrl: GoodreadsSyncService.sanitizedCoverImageURL(localCoverImageURL)
     )
@@ -129,9 +120,9 @@ final class Book: NSManagedObject, EntryPersistable {
       title: title ?? "",
       author: author ?? "",
       isbn: isbn?.stringValue ?? "",
-      review: reviewDescription?.plainText.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
-      notes: notes?.plainText.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
-      rating: rating?.intValue,
+      review: reviewDescription?.nonEmptyPlainText ?? "",
+      notes: notes?.nonEmptyPlainText ?? "",
+      rating: validRating,
       status: readingStatus,
       year: readYear
     )

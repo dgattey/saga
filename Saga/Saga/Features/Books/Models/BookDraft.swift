@@ -116,18 +116,17 @@ struct BookDraft: Equatable {
     book.readDateFinished = readDateFinished
     book.rating = (1...5).contains(rating) ? NSNumber(value: rating) : nil
     book.isbn = isbn.map { NSNumber(value: $0) }
-    let trimmedReview = reviewText.trimmingCharacters(in: .whitespacesAndNewlines)
-    if trimmedReview.isEmpty {
-      book.reviewDescription = nil
-    } else if trimmedReview != book.reviewDescription?.plainText {
-      book.reviewDescription = RichTextDocument(fromPlainText: trimmedReview)
-    }
-    let trimmedNotes = notesText.trimmingCharacters(in: .whitespacesAndNewlines)
-    if trimmedNotes.isEmpty {
-      book.notes = nil
-    } else if trimmedNotes != book.notes?.plainText {
-      book.notes = RichTextDocument(fromPlainText: trimmedNotes)
-    }
+    book.reviewDescription = Self.updatedRichText(for: reviewText, existing: book.reviewDescription)
+    book.notes = Self.updatedRichText(for: notesText, existing: book.notes)
+  }
+
+  private static func updatedRichText(
+    for text: String,
+    existing: RichTextDocument?
+  ) -> RichTextDocument? {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return nil }
+    return trimmed == existing?.plainText ? existing : RichTextDocument(fromPlainText: trimmed)
   }
 }
 
@@ -140,7 +139,7 @@ extension BookDraft {
       startedDate: book.readDateStarted ?? book.readDateFinished ?? now,
       finishedDate: book.readDateFinished ?? now,
       tracksStartDate: book.readDateStarted != nil || book.readDateFinished == nil,
-      rating: book.rating?.intValue ?? 0,
+      rating: book.validRating ?? 0,
       isbnText: book.isbn?.stringValue ?? "",
       reviewText: book.reviewDescription?.plainText ?? "",
       notesText: book.notes?.plainText ?? "",
