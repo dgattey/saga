@@ -125,6 +125,11 @@ export default async function HomePage() {
                   </p>
                   <ol className={styles.manualSteps}>
                     <li>
+                      Drag <strong>Saga</strong> into your Applications folder in Finder. Copying
+                      it there any other way keeps it in a temporary read-only location where it
+                      can&apos;t update.
+                    </li>
+                    <li>
                       Try opening <strong>Saga</strong> from Applications so macOS records the
                       block.
                     </li>
@@ -137,11 +142,12 @@ export default async function HomePage() {
                     <li>Open the app again.</li>
                   </ol>
                   <p className={styles.finePrint}>
-                    On an MDM-managed Mac where <strong>Open Anyway</strong> is disabled by
-                    device policy, clear the download quarantine attribute in Terminal:
+                    If updates say Saga is running from the location it was downloaded to, or on
+                    an MDM-managed Mac where <strong>Open Anyway</strong> is disabled by device
+                    policy, quit Saga and clear the download quarantine attribute in Terminal:
                   </p>
                   <pre className={styles.commandSnippet}>
-                    <code>xattr -cr /Applications/Saga.app</code>
+                    <code>xattr -dr com.apple.quarantine /Applications/Saga.app</code>
                   </pre>
                   <figure className={styles.manualApprovalFigure}>
                     <div className={styles.manualApprovalMedia}>

@@ -6,6 +6,9 @@
 # `sparkle:edSignature` in `appcast.xml`). Untrusted self-signed X.509 certificates are
 # rejected by Gatekeeper / `syspolicyd` / `amfid` on macOS Sequoia/Tahoe when quarantined,
 # whereas ad-hoc (`-`) works cleanly with **Privacy & Security → Open Anyway** and Sparkle 2.
+# Without notarization the downloaded app stays quarantined, so macOS App Translocation runs it
+# from a read-only path (and Sparkle refuses to update) unless it was moved with Finder or had
+# `com.apple.quarantine` cleared; `UpdaterMode.translocated` guides users through that.
 #
 # Usage:
 #   ./scripts/package-release.sh <version> <build> [output-dir]
