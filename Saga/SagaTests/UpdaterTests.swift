@@ -72,6 +72,40 @@ struct UpdaterTests {
     #expect(!emptyParsed.isReleaseConfigured)
   }
 
+  @Test("UpdaterMode is translocated only for configured, started builds under AppTranslocation")
+  func updaterModeResolution() {
+    let configured = UpdaterConfiguration(
+      feedURLString: Self.validFeedURL,
+      publicEDKey: Self.validEDKey
+    )
+    let installed = URL(fileURLWithPath: "/Applications/Saga.app")
+    let translocated = URL(
+      fileURLWithPath: "/private/var/folders/xy/T/AppTranslocation/0A1B2C3D/d/Saga.app"
+    )
+
+    #expect(
+      UpdaterMode.resolve(configuration: configured, startUpdater: true, bundleURL: installed)
+        == .active
+    )
+    #expect(
+      UpdaterMode.resolve(configuration: configured, startUpdater: true, bundleURL: translocated)
+        == .translocated(
+          quarantineFixCommand: "xattr -dr com.apple.quarantine \"/Applications/Saga.app\""
+        )
+    )
+    #expect(
+      UpdaterMode.resolve(configuration: configured, startUpdater: false, bundleURL: translocated)
+        == .inactive
+    )
+    #expect(
+      UpdaterMode.resolve(
+        configuration: UpdaterConfiguration(feedURLString: "", publicEDKey: ""),
+        startUpdater: true,
+        bundleURL: translocated
+      ) == .inactive
+    )
+  }
+
   @Test("SparkleUpdateSession tracks nested update sessions and resets cleanly")
   @MainActor
   func sparkleUpdateSessionLifecycle() {
@@ -152,6 +186,29 @@ struct UpdaterTests {
       unconfigured.mainWindowDidAppear()
       #expect(unconfigured.didScheduleLaunchCheck)
       #expect(!unconfigured.didCheckOnLaunch)
+    }
+
+    @Test("Translocated UpdaterViewModel keeps Sparkle stopped but leaves update checks enabled")
+    @MainActor
+    func translocatedUpdaterViewModel() {
+      let viewModel = UpdaterViewModel(
+        configuration: UpdaterConfiguration(
+          feedURLString: Self.validFeedURL,
+          publicEDKey: Self.validEDKey
+        ),
+        startUpdater: true,
+        bundleURL: URL(fileURLWithPath: "/private/var/folders/T/AppTranslocation/UUID/d/Saga.app")
+      )
+      #expect(
+        viewModel.mode
+          == .translocated(
+            quarantineFixCommand: "xattr -dr com.apple.quarantine \"/Applications/Saga.app\""
+          )
+      )
+      #expect(viewModel.isConfigured)
+      #expect(viewModel.canCheckForUpdates)
+      #expect(viewModel.automaticallyChecksForUpdates)
+      #expect(!viewModel.automaticallyDownloadsUpdates)
     }
 
     @Test(

@@ -68,6 +68,32 @@ struct UpdaterConfiguration: Equatable, Sendable {
   }
 }
 
+// MARK: - Updater Mode
+
+/// How the updater behaves for this launch.
+enum UpdaterMode: Equatable, Sendable {
+  /// Sparkle stays stopped: missing feed URL / EdDSA key, or running under unit tests.
+  case inactive
+  /// macOS App Translocation is running a quarantined copy of the app from a randomized read-only
+  /// path, where Sparkle refuses to install updates. Checks explain how to clear quarantine instead.
+  case translocated(quarantineFixCommand: String)
+  case active
+
+  static func resolve(
+    configuration: UpdaterConfiguration,
+    startUpdater: Bool,
+    bundleURL: URL
+  ) -> UpdaterMode {
+    guard configuration.isReleaseConfigured, startUpdater else { return .inactive }
+    // Matches Sparkle's own `SUHost` translocation check.
+    guard bundleURL.path.contains("/AppTranslocation/") else { return .active }
+    return .translocated(
+      quarantineFixCommand:
+        "xattr -dr com.apple.quarantine \"/Applications/\(bundleURL.lastPathComponent)\""
+    )
+  }
+}
+
 // MARK: - Update Session Lifecycle
 
 /// Tracks whether Sparkle is actively presenting an update alert, downloading an update,
@@ -232,7 +258,7 @@ final class SparkleUpdateSession {
       configuration.isReleaseConfigured
     }
 
-    @ObservationIgnored private let shouldStartUpdater: Bool
+    @ObservationIgnored let mode: UpdaterMode
     @ObservationIgnored private let controller: SPUStandardUpdaterController
     @ObservationIgnored private let sparkleDelegate = SparkleUpdaterDelegate()
     @ObservationIgnored private let sparkleUserDriverDelegate = SparkleStandardUserDriverDelegate()
@@ -241,13 +267,23 @@ final class SparkleUpdateSession {
     @ObservationIgnored private(set) var didScheduleLaunchCheck = false
     @ObservationIgnored private(set) var didCheckOnLaunch = false
 
+    private var shouldStartUpdater: Bool {
+      mode == .active
+    }
+
     init(
       configuration: UpdaterConfiguration = .fromMainBundle(),
-      startUpdater: Bool = !PersistenceService.isRunningUnitTests
+      startUpdater: Bool = !PersistenceService.isRunningUnitTests,
+      bundleURL: URL = Bundle.main.bundleURL
     ) {
       self.configuration = configuration
-      let shouldStart = configuration.isReleaseConfigured && startUpdater
-      self.shouldStartUpdater = shouldStart
+      let mode = UpdaterMode.resolve(
+        configuration: configuration,
+        startUpdater: startUpdater,
+        bundleURL: bundleURL
+      )
+      self.mode = mode
+      let shouldStart = mode == .active
 
       let controller = SPUStandardUpdaterController(
         startingUpdater: shouldStart,
@@ -264,7 +300,8 @@ final class SparkleUpdateSession {
         self?.controller.checkForUpdates(nil)
       }
 
-      if shouldStart {
+      switch mode {
+      case .active:
         canCheckCancellable = controller.updater.publisher(for: \.canCheckForUpdates)
           .receive(on: RunLoop.main)
           .sink { [weak self] canCheck in
@@ -277,12 +314,23 @@ final class SparkleUpdateSession {
           try? await Task.sleep(for: .seconds(1))
           self?.checkForUpdatesOnLaunch()
         }
-      } else if !configuration.isReleaseConfigured {
+      case .translocated:
+        // Sparkle stays stopped so its scheduled checks never reach its dead-end
+        // "running from the location it was downloaded to" alert; checks show guidance instead.
+        canCheckForUpdates = true
         LoggerService.log(
-          "Sparkle disabled for this build (missing or invalid SUFeedURL / SUPublicEDKey)",
-          level: .debug,
+          "Sparkle disabled: app is translocated at \(bundleURL.path)",
+          level: .warning,
           surface: .updates
         )
+      case .inactive:
+        if !configuration.isReleaseConfigured {
+          LoggerService.log(
+            "Sparkle disabled for this build (missing or invalid SUFeedURL / SUPublicEDKey)",
+            level: .debug,
+            surface: .updates
+          )
+        }
       }
     }
 
@@ -305,20 +353,59 @@ final class SparkleUpdateSession {
     func checkForUpdatesOnLaunch() {
       guard isConfigured, automaticallyChecksForUpdates, !didCheckOnLaunch else { return }
       didCheckOnLaunch = true
-      guard shouldStartUpdater else { return }
-      guard !controller.updater.sessionInProgress else { return }
-      LoggerService.log(
-        "Checking for updates in background on launch",
-        level: .notice,
-        surface: .updates
-      )
-      controller.updater.checkForUpdatesInBackground()
+      switch mode {
+      case .inactive:
+        return
+      case .translocated(let quarantineFixCommand):
+        presentTranslocationAlert(quarantineFixCommand: quarantineFixCommand)
+      case .active:
+        guard !controller.updater.sessionInProgress else { return }
+        LoggerService.log(
+          "Checking for updates in background on launch",
+          level: .notice,
+          surface: .updates
+        )
+        controller.updater.checkForUpdatesInBackground()
+      }
     }
 
     /// Triggers an interactive update check from the menu bar or Settings window.
     func checkForUpdates() {
-      guard isConfigured, shouldStartUpdater else { return }
-      controller.checkForUpdates(nil)
+      switch mode {
+      case .inactive:
+        return
+      case .translocated(let quarantineFixCommand):
+        presentTranslocationAlert(quarantineFixCommand: quarantineFixCommand)
+      case .active:
+        controller.checkForUpdates(nil)
+      }
+    }
+
+    // MARK: - Translocation Guidance
+
+    private func presentTranslocationAlert(quarantineFixCommand: String) {
+      // Deferred so the modal never runs inside a SwiftUI view update (`onAppear`).
+      Task { @MainActor in
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Saga can’t install updates from this copy"
+        alert.informativeText = """
+          macOS is running Saga from a temporary, read-only location because the app is still \
+          marked as downloaded from the internet. Quit Saga, run this command in Terminal, then \
+          reopen Saga from your Applications folder:
+
+          \(quarantineFixCommand)
+
+          If Saga isn’t in your Applications folder yet, drag it there in Finder first.
+          """
+        alert.addButton(withTitle: "Copy Command and Quit")
+        alert.addButton(withTitle: "Not Now")
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(quarantineFixCommand, forType: .string)
+        NSApplication.shared.terminate(nil)
+      }
     }
   }
 
