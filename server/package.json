@@ -10,7 +10,7 @@
     "test": "tsx --test lib/macos-release.test.ts && ../scripts/sync-web-icons.sh --check"
   },
   "dependencies": {
-    "next": "^15.3.0"
+    "next": "^15.5.29"
   },
   "overrides": {
     "postcss": "^8.5.10",
